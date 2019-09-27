@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IsometricTiledMapRenderer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.maps.tiled.renderers</a> &gt; <span class="el_source">IsometricTiledMapRenderer.java</span></div><h1>IsometricTiledMapRenderer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2013 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.maps.tiled.renderers;
+
+import static com.badlogic.gdx.graphics.g2d.Batch.*;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTile;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
+
+public class IsometricTiledMapRenderer extends BatchTiledMapRenderer {
+
+	private Matrix4 isoTransform;
+	private Matrix4 invIsotransform;
+<span class="nc" id="L36">	private Vector3 screenPos = new Vector3();</span>
+
+<span class="nc" id="L38">	private Vector2 topRight = new Vector2();</span>
+<span class="nc" id="L39">	private Vector2 bottomLeft = new Vector2();</span>
+<span class="nc" id="L40">	private Vector2 topLeft = new Vector2();</span>
+<span class="nc" id="L41">	private Vector2 bottomRight = new Vector2();</span>
+
+	public IsometricTiledMapRenderer (TiledMap map) {
+<span class="nc" id="L44">		super(map);</span>
+<span class="nc" id="L45">		init();</span>
+<span class="nc" id="L46">	}</span>
+
+	public IsometricTiledMapRenderer (TiledMap map, Batch batch) {
+<span class="nc" id="L49">		super(map, batch);</span>
+<span class="nc" id="L50">		init();</span>
+<span class="nc" id="L51">	}</span>
+
+	public IsometricTiledMapRenderer (TiledMap map, float unitScale) {
+<span class="nc" id="L54">		super(map, unitScale);</span>
+<span class="nc" id="L55">		init();</span>
+<span class="nc" id="L56">	}</span>
+
+	public IsometricTiledMapRenderer (TiledMap map, float unitScale, Batch batch) {
+<span class="nc" id="L59">		super(map, unitScale, batch);</span>
+<span class="nc" id="L60">		init();</span>
+<span class="nc" id="L61">	}</span>
+
+	private void init () {
+		// create the isometric transform
+<span class="nc" id="L65">		isoTransform = new Matrix4();</span>
+<span class="nc" id="L66">		isoTransform.idt();</span>
+
+		// isoTransform.translate(0, 32, 0);
+<span class="nc" id="L69">		isoTransform.scale((float)(Math.sqrt(2.0) / 2.0), (float)(Math.sqrt(2.0) / 4.0), 1.0f);</span>
+<span class="nc" id="L70">		isoTransform.rotate(0.0f, 0.0f, 1.0f, -45);</span>
+
+		// ... and the inverse matrix
+<span class="nc" id="L73">		invIsotransform = new Matrix4(isoTransform);</span>
+<span class="nc" id="L74">		invIsotransform.inv();</span>
+<span class="nc" id="L75">	}</span>
+
+	private Vector3 translateScreenToIso (Vector2 vec) {
+<span class="nc" id="L78">		screenPos.set(vec.x, vec.y, 0);</span>
+<span class="nc" id="L79">		screenPos.mul(invIsotransform);</span>
+
+<span class="nc" id="L81">		return screenPos;</span>
+	}
+
+	@Override
+	public void renderTileLayer (TiledMapTileLayer layer) {
+<span class="nc" id="L86">		final Color batchColor = batch.getColor();</span>
+<span class="nc" id="L87">		final float color = Color.toFloatBits(batchColor.r, batchColor.g, batchColor.b, batchColor.a * layer.getOpacity());</span>
+
+<span class="nc" id="L89">		float tileWidth = layer.getTileWidth() * unitScale;</span>
+<span class="nc" id="L90">		float tileHeight = layer.getTileHeight() * unitScale;</span>
+
+<span class="nc" id="L92">		final float layerOffsetX = layer.getRenderOffsetX() * unitScale;</span>
+		// offset in tiled is y down, so we flip it
+<span class="nc" id="L94">		final float layerOffsetY = -layer.getRenderOffsetY() * unitScale;</span>
+
+<span class="nc" id="L96">		float halfTileWidth = tileWidth * 0.5f;</span>
+<span class="nc" id="L97">		float halfTileHeight = tileHeight * 0.5f;</span>
+
+		// setting up the screen points
+		// COL1
+<span class="nc" id="L101">		topRight.set(viewBounds.x + viewBounds.width - layerOffsetX, viewBounds.y - layerOffsetY);</span>
+		// COL2
+<span class="nc" id="L103">		bottomLeft.set(viewBounds.x - layerOffsetX, viewBounds.y + viewBounds.height - layerOffsetY);</span>
+		// ROW1
+<span class="nc" id="L105">		topLeft.set(viewBounds.x - layerOffsetX, viewBounds.y - layerOffsetY);</span>
+		// ROW2
+<span class="nc" id="L107">		bottomRight.set(viewBounds.x + viewBounds.width - layerOffsetX, viewBounds.y + viewBounds.height - layerOffsetY);</span>
+
+		// transforming screen coordinates to iso coordinates
+<span class="nc" id="L110">		int row1 = (int)(translateScreenToIso(topLeft).y / tileWidth) - 2;</span>
+<span class="nc" id="L111">		int row2 = (int)(translateScreenToIso(bottomRight).y / tileWidth) + 2;</span>
+
+<span class="nc" id="L113">		int col1 = (int)(translateScreenToIso(bottomLeft).x / tileWidth) - 2;</span>
+<span class="nc" id="L114">		int col2 = (int)(translateScreenToIso(topRight).x / tileWidth) + 2;</span>
+
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		for (int row = row2; row &gt;= row1; row--) {</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">			for (int col = col1; col &lt;= col2; col++) {</span>
+<span class="nc" id="L118">				float x = (col * halfTileWidth) + (row * halfTileWidth);</span>
+<span class="nc" id="L119">				float y = (row * halfTileHeight) - (col * halfTileHeight);</span>
+
+<span class="nc" id="L121">				final TiledMapTileLayer.Cell cell = layer.getCell(col, row);</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">				if (cell == null) continue;</span>
+<span class="nc" id="L123">				final TiledMapTile tile = cell.getTile();</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">				if (tile != null) {</span>
+<span class="nc" id="L126">					final boolean flipX = cell.getFlipHorizontally();</span>
+<span class="nc" id="L127">					final boolean flipY = cell.getFlipVertically();</span>
+<span class="nc" id="L128">					final int rotations = cell.getRotation();</span>
+
+<span class="nc" id="L130">					TextureRegion region = tile.getTextureRegion();</span>
+
+<span class="nc" id="L132">					float x1 = x + tile.getOffsetX() * unitScale + layerOffsetX;</span>
+<span class="nc" id="L133">					float y1 = y + tile.getOffsetY() * unitScale + layerOffsetY;</span>
+<span class="nc" id="L134">					float x2 = x1 + region.getRegionWidth() * unitScale;</span>
+<span class="nc" id="L135">					float y2 = y1 + region.getRegionHeight() * unitScale;</span>
+
+<span class="nc" id="L137">					float u1 = region.getU();</span>
+<span class="nc" id="L138">					float v1 = region.getV2();</span>
+<span class="nc" id="L139">					float u2 = region.getU2();</span>
+<span class="nc" id="L140">					float v2 = region.getV();</span>
+
+<span class="nc" id="L142">					vertices[X1] = x1;</span>
+<span class="nc" id="L143">					vertices[Y1] = y1;</span>
+<span class="nc" id="L144">					vertices[C1] = color;</span>
+<span class="nc" id="L145">					vertices[U1] = u1;</span>
+<span class="nc" id="L146">					vertices[V1] = v1;</span>
+
+<span class="nc" id="L148">					vertices[X2] = x1;</span>
+<span class="nc" id="L149">					vertices[Y2] = y2;</span>
+<span class="nc" id="L150">					vertices[C2] = color;</span>
+<span class="nc" id="L151">					vertices[U2] = u1;</span>
+<span class="nc" id="L152">					vertices[V2] = v2;</span>
+
+<span class="nc" id="L154">					vertices[X3] = x2;</span>
+<span class="nc" id="L155">					vertices[Y3] = y2;</span>
+<span class="nc" id="L156">					vertices[C3] = color;</span>
+<span class="nc" id="L157">					vertices[U3] = u2;</span>
+<span class="nc" id="L158">					vertices[V3] = v2;</span>
+
+<span class="nc" id="L160">					vertices[X4] = x2;</span>
+<span class="nc" id="L161">					vertices[Y4] = y1;</span>
+<span class="nc" id="L162">					vertices[C4] = color;</span>
+<span class="nc" id="L163">					vertices[U4] = u2;</span>
+<span class="nc" id="L164">					vertices[V4] = v1;</span>
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">					if (flipX) {</span>
+<span class="nc" id="L167">						float temp = vertices[U1];</span>
+<span class="nc" id="L168">						vertices[U1] = vertices[U3];</span>
+<span class="nc" id="L169">						vertices[U3] = temp;</span>
+<span class="nc" id="L170">						temp = vertices[U2];</span>
+<span class="nc" id="L171">						vertices[U2] = vertices[U4];</span>
+<span class="nc" id="L172">						vertices[U4] = temp;</span>
+					}
+<span class="nc bnc" id="L174" title="All 2 branches missed.">					if (flipY) {</span>
+<span class="nc" id="L175">						float temp = vertices[V1];</span>
+<span class="nc" id="L176">						vertices[V1] = vertices[V3];</span>
+<span class="nc" id="L177">						vertices[V3] = temp;</span>
+<span class="nc" id="L178">						temp = vertices[V2];</span>
+<span class="nc" id="L179">						vertices[V2] = vertices[V4];</span>
+<span class="nc" id="L180">						vertices[V4] = temp;</span>
+					}
+<span class="nc bnc" id="L182" title="All 2 branches missed.">					if (rotations != 0) {</span>
+<span class="nc bnc" id="L183" title="All 4 branches missed.">						switch (rotations) {</span>
+						case Cell.ROTATE_90: {
+<span class="nc" id="L185">							float tempV = vertices[V1];</span>
+<span class="nc" id="L186">							vertices[V1] = vertices[V2];</span>
+<span class="nc" id="L187">							vertices[V2] = vertices[V3];</span>
+<span class="nc" id="L188">							vertices[V3] = vertices[V4];</span>
+<span class="nc" id="L189">							vertices[V4] = tempV;</span>
+
+<span class="nc" id="L191">							float tempU = vertices[U1];</span>
+<span class="nc" id="L192">							vertices[U1] = vertices[U2];</span>
+<span class="nc" id="L193">							vertices[U2] = vertices[U3];</span>
+<span class="nc" id="L194">							vertices[U3] = vertices[U4];</span>
+<span class="nc" id="L195">							vertices[U4] = tempU;</span>
+<span class="nc" id="L196">							break;</span>
+						}
+						case Cell.ROTATE_180: {
+<span class="nc" id="L199">							float tempU = vertices[U1];</span>
+<span class="nc" id="L200">							vertices[U1] = vertices[U3];</span>
+<span class="nc" id="L201">							vertices[U3] = tempU;</span>
+<span class="nc" id="L202">							tempU = vertices[U2];</span>
+<span class="nc" id="L203">							vertices[U2] = vertices[U4];</span>
+<span class="nc" id="L204">							vertices[U4] = tempU;</span>
+<span class="nc" id="L205">							float tempV = vertices[V1];</span>
+<span class="nc" id="L206">							vertices[V1] = vertices[V3];</span>
+<span class="nc" id="L207">							vertices[V3] = tempV;</span>
+<span class="nc" id="L208">							tempV = vertices[V2];</span>
+<span class="nc" id="L209">							vertices[V2] = vertices[V4];</span>
+<span class="nc" id="L210">							vertices[V4] = tempV;</span>
+<span class="nc" id="L211">							break;</span>
+						}
+						case Cell.ROTATE_270: {
+<span class="nc" id="L214">							float tempV = vertices[V1];</span>
+<span class="nc" id="L215">							vertices[V1] = vertices[V4];</span>
+<span class="nc" id="L216">							vertices[V4] = vertices[V3];</span>
+<span class="nc" id="L217">							vertices[V3] = vertices[V2];</span>
+<span class="nc" id="L218">							vertices[V2] = tempV;</span>
+
+<span class="nc" id="L220">							float tempU = vertices[U1];</span>
+<span class="nc" id="L221">							vertices[U1] = vertices[U4];</span>
+<span class="nc" id="L222">							vertices[U4] = vertices[U3];</span>
+<span class="nc" id="L223">							vertices[U3] = vertices[U2];</span>
+<span class="nc" id="L224">							vertices[U2] = tempU;</span>
+<span class="nc" id="L225">							break;</span>
+						}
+						}
+					}
+<span class="nc" id="L229">					batch.draw(region.getTexture(), vertices, 0, NUM_VERTICES);</span>
+				}
+			}
+		}
+<span class="nc" id="L233">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,683 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Sprite.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">Sprite.java</span></div><h1>Sprite.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import static com.badlogic.gdx.graphics.g2d.SpriteBatch.*;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.NumberUtils;
+
+/** Holds the geometry, color, and texture information for drawing 2D sprites using {@link Batch}. A Sprite has a position and a
+ * size given as width and height. The position is relative to the origin of the coordinate system specified via
+ * {@link Batch#begin()} and the respective matrices. A Sprite is always rectangular and its position (x, y) are located in the
+ * bottom left corner of that rectangle. A Sprite also has an origin around which rotations and scaling are performed (that is,
+ * the origin is not modified by rotation and scaling). The origin is given relative to the bottom left corner of the Sprite, its
+ * position.
+ * @author mzechner
+ * @author Nathan Sweet */
+public class Sprite extends TextureRegion {
+	static final int VERTEX_SIZE = 2 + 1 + 2;
+	static final int SPRITE_SIZE = 4 * VERTEX_SIZE;
+
+<span class="nc" id="L39">	final float[] vertices = new float[SPRITE_SIZE];</span>
+<span class="nc" id="L40">	private final Color color = new Color(1, 1, 1, 1);</span>
+	private float x, y;
+	float width, height;
+	private float originX, originY;
+	private float rotation;
+<span class="nc" id="L45">	private float scaleX = 1, scaleY = 1;</span>
+<span class="nc" id="L46">	private boolean dirty = true;</span>
+	private Rectangle bounds;
+
+	/** Creates an uninitialized sprite. The sprite will need a texture region and bounds set before it can be drawn. */
+<span class="nc" id="L50">	public Sprite () {</span>
+<span class="nc" id="L51">		setColor(1, 1, 1, 1);</span>
+<span class="nc" id="L52">	}</span>
+
+	/** Creates a sprite with width, height, and texture region equal to the size of the texture. */
+	public Sprite (Texture texture) {
+<span class="nc" id="L56">		this(texture, 0, 0, texture.getWidth(), texture.getHeight());</span>
+<span class="nc" id="L57">	}</span>
+
+	/** Creates a sprite with width, height, and texture region equal to the specified size. The texture region's upper left corner
+	 * will be 0,0.
+	 * @param srcWidth The width of the texture region. May be negative to flip the sprite when drawn.
+	 * @param srcHeight The height of the texture region. May be negative to flip the sprite when drawn. */
+	public Sprite (Texture texture, int srcWidth, int srcHeight) {
+<span class="nc" id="L64">		this(texture, 0, 0, srcWidth, srcHeight);</span>
+<span class="nc" id="L65">	}</span>
+
+	/** Creates a sprite with width, height, and texture region equal to the specified size.
+	 * @param srcWidth The width of the texture region. May be negative to flip the sprite when drawn.
+	 * @param srcHeight The height of the texture region. May be negative to flip the sprite when drawn. */
+<span class="nc" id="L70">	public Sprite (Texture texture, int srcX, int srcY, int srcWidth, int srcHeight) {</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">		if (texture == null) throw new IllegalArgumentException(&quot;texture cannot be null.&quot;);</span>
+<span class="nc" id="L72">		this.texture = texture;</span>
+<span class="nc" id="L73">		setRegion(srcX, srcY, srcWidth, srcHeight);</span>
+<span class="nc" id="L74">		setColor(1, 1, 1, 1);</span>
+<span class="nc" id="L75">		setSize(Math.abs(srcWidth), Math.abs(srcHeight));</span>
+<span class="nc" id="L76">		setOrigin(width / 2, height / 2);</span>
+<span class="nc" id="L77">	}</span>
+
+	// Note the region is copied.
+	/** Creates a sprite based on a specific TextureRegion, the new sprite's region is a copy of the parameter region - altering one
+	 * does not affect the other */
+<span class="nc" id="L82">	public Sprite (TextureRegion region) {</span>
+<span class="nc" id="L83">		setRegion(region);</span>
+<span class="nc" id="L84">		setColor(1, 1, 1, 1);</span>
+<span class="nc" id="L85">		setSize(region.getRegionWidth(), region.getRegionHeight());</span>
+<span class="nc" id="L86">		setOrigin(width / 2, height / 2);</span>
+<span class="nc" id="L87">	}</span>
+
+	/** Creates a sprite with width, height, and texture region equal to the specified size, relative to specified sprite's texture
+	 * region.
+	 * @param srcWidth The width of the texture region. May be negative to flip the sprite when drawn.
+	 * @param srcHeight The height of the texture region. May be negative to flip the sprite when drawn. */
+<span class="nc" id="L93">	public Sprite (TextureRegion region, int srcX, int srcY, int srcWidth, int srcHeight) {</span>
+<span class="nc" id="L94">		setRegion(region, srcX, srcY, srcWidth, srcHeight);</span>
+<span class="nc" id="L95">		setColor(1, 1, 1, 1);</span>
+<span class="nc" id="L96">		setSize(Math.abs(srcWidth), Math.abs(srcHeight));</span>
+<span class="nc" id="L97">		setOrigin(width / 2, height / 2);</span>
+<span class="nc" id="L98">	}</span>
+
+	/** Creates a sprite that is a copy in every way of the specified sprite. */
+<span class="nc" id="L101">	public Sprite (Sprite sprite) {</span>
+<span class="nc" id="L102">		set(sprite);</span>
+<span class="nc" id="L103">	}</span>
+
+	/** Make this sprite a copy in every way of the specified sprite */
+	public void set (Sprite sprite) {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">		if (sprite == null) throw new IllegalArgumentException(&quot;sprite cannot be null.&quot;);</span>
+<span class="nc" id="L108">		System.arraycopy(sprite.vertices, 0, vertices, 0, SPRITE_SIZE);</span>
+<span class="nc" id="L109">		texture = sprite.texture;</span>
+<span class="nc" id="L110">		u = sprite.u;</span>
+<span class="nc" id="L111">		v = sprite.v;</span>
+<span class="nc" id="L112">		u2 = sprite.u2;</span>
+<span class="nc" id="L113">		v2 = sprite.v2;</span>
+<span class="nc" id="L114">		x = sprite.x;</span>
+<span class="nc" id="L115">		y = sprite.y;</span>
+<span class="nc" id="L116">		width = sprite.width;</span>
+<span class="nc" id="L117">		height = sprite.height;</span>
+<span class="nc" id="L118">		regionWidth = sprite.regionWidth;</span>
+<span class="nc" id="L119">		regionHeight = sprite.regionHeight;</span>
+<span class="nc" id="L120">		originX = sprite.originX;</span>
+<span class="nc" id="L121">		originY = sprite.originY;</span>
+<span class="nc" id="L122">		rotation = sprite.rotation;</span>
+<span class="nc" id="L123">		scaleX = sprite.scaleX;</span>
+<span class="nc" id="L124">		scaleY = sprite.scaleY;</span>
+<span class="nc" id="L125">		color.set(sprite.color);</span>
+<span class="nc" id="L126">		dirty = sprite.dirty;</span>
+<span class="nc" id="L127">	}</span>
+
+	/** Sets the position and size of the sprite when drawn, before scaling and rotation are applied. If origin, rotation, or scale
+	 * are changed, it is slightly more efficient to set the bounds after those operations. */
+	public void setBounds (float x, float y, float width, float height) {
+<span class="nc" id="L132">		this.x = x;</span>
+<span class="nc" id="L133">		this.y = y;</span>
+<span class="nc" id="L134">		this.width = width;</span>
+<span class="nc" id="L135">		this.height = height;</span>
+
+<span class="nc bnc" id="L137" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L139">		float x2 = x + width;</span>
+<span class="nc" id="L140">		float y2 = y + height;</span>
+<span class="nc" id="L141">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L142">		vertices[X1] = x;</span>
+<span class="nc" id="L143">		vertices[Y1] = y;</span>
+
+<span class="nc" id="L145">		vertices[X2] = x;</span>
+<span class="nc" id="L146">		vertices[Y2] = y2;</span>
+
+<span class="nc" id="L148">		vertices[X3] = x2;</span>
+<span class="nc" id="L149">		vertices[Y3] = y2;</span>
+
+<span class="nc" id="L151">		vertices[X4] = x2;</span>
+<span class="nc" id="L152">		vertices[Y4] = y;</span>
+
+<span class="nc bnc" id="L154" title="All 6 branches missed.">		if (rotation != 0 || scaleX != 1 || scaleY != 1) dirty = true;</span>
+<span class="nc" id="L155">	}</span>
+
+	/** Sets the size of the sprite when drawn, before scaling and rotation are applied. If origin, rotation, or scale are changed,
+	 * it is slightly more efficient to set the size after those operations. If both position and size are to be changed, it is
+	 * better to use {@link #setBounds(float, float, float, float)}. */
+	public void setSize (float width, float height) {
+<span class="nc" id="L161">		this.width = width;</span>
+<span class="nc" id="L162">		this.height = height;</span>
+
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L166">		float x2 = x + width;</span>
+<span class="nc" id="L167">		float y2 = y + height;</span>
+<span class="nc" id="L168">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L169">		vertices[X1] = x;</span>
+<span class="nc" id="L170">		vertices[Y1] = y;</span>
+
+<span class="nc" id="L172">		vertices[X2] = x;</span>
+<span class="nc" id="L173">		vertices[Y2] = y2;</span>
+
+<span class="nc" id="L175">		vertices[X3] = x2;</span>
+<span class="nc" id="L176">		vertices[Y3] = y2;</span>
+
+<span class="nc" id="L178">		vertices[X4] = x2;</span>
+<span class="nc" id="L179">		vertices[Y4] = y;</span>
+
+<span class="nc bnc" id="L181" title="All 6 branches missed.">		if (rotation != 0 || scaleX != 1 || scaleY != 1) dirty = true;</span>
+<span class="nc" id="L182">	}</span>
+
+	/** Sets the position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setPosition (float x, float y) {
+<span class="nc" id="L188">		translate(x - this.x, y - this.y);</span>
+<span class="nc" id="L189">	}</span>
+
+	/** Sets the position where the sprite will be drawn, relative to its current origin.  */
+	public void setOriginBasedPosition (float x, float y) {
+<span class="nc" id="L193">		setPosition(x - this.originX, y - this.originY);</span>
+<span class="nc" id="L194">	}</span>
+
+	/** Sets the x position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setX (float x) {
+<span class="nc" id="L200">		translateX(x - this.x);</span>
+<span class="nc" id="L201">	}</span>
+
+	/** Sets the y position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setY (float y) {
+<span class="nc" id="L207">		translateY(y - this.y);</span>
+<span class="nc" id="L208">	}</span>
+	
+	/** Sets the x position so that it is centered on the given x parameter */
+	public void setCenterX (float x) {
+<span class="nc" id="L212">		setX(x - width / 2);</span>
+<span class="nc" id="L213">	}</span>
+
+	/** Sets the y position so that it is centered on the given y parameter */
+	public void setCenterY (float y) {
+<span class="nc" id="L217">		setY(y - height / 2);</span>
+<span class="nc" id="L218">	}</span>
+
+	/** Sets the position so that the sprite is centered on (x, y) */
+	public void setCenter (float x, float y) {
+<span class="nc" id="L222">		setCenterX(x);</span>
+<span class="nc" id="L223">		setCenterY(y);</span>
+<span class="nc" id="L224">	}</span>
+
+	/** Sets the x position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translateX (float xAmount) {
+<span class="nc" id="L229">		this.x += xAmount;</span>
+
+<span class="nc bnc" id="L231" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L233">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L234">		vertices[X1] += xAmount;</span>
+<span class="nc" id="L235">		vertices[X2] += xAmount;</span>
+<span class="nc" id="L236">		vertices[X3] += xAmount;</span>
+<span class="nc" id="L237">		vertices[X4] += xAmount;</span>
+<span class="nc" id="L238">	}</span>
+
+	/** Sets the y position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translateY (float yAmount) {
+<span class="nc" id="L243">		y += yAmount;</span>
+
+<span class="nc bnc" id="L245" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L247">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L248">		vertices[Y1] += yAmount;</span>
+<span class="nc" id="L249">		vertices[Y2] += yAmount;</span>
+<span class="nc" id="L250">		vertices[Y3] += yAmount;</span>
+<span class="nc" id="L251">		vertices[Y4] += yAmount;</span>
+<span class="nc" id="L252">	}</span>
+
+	/** Sets the position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translate (float xAmount, float yAmount) {
+<span class="nc" id="L257">		x += xAmount;</span>
+<span class="nc" id="L258">		y += yAmount;</span>
+
+<span class="nc bnc" id="L260" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L262">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L263">		vertices[X1] += xAmount;</span>
+<span class="nc" id="L264">		vertices[Y1] += yAmount;</span>
+
+<span class="nc" id="L266">		vertices[X2] += xAmount;</span>
+<span class="nc" id="L267">		vertices[Y2] += yAmount;</span>
+
+<span class="nc" id="L269">		vertices[X3] += xAmount;</span>
+<span class="nc" id="L270">		vertices[Y3] += yAmount;</span>
+
+<span class="nc" id="L272">		vertices[X4] += xAmount;</span>
+<span class="nc" id="L273">		vertices[Y4] += yAmount;</span>
+<span class="nc" id="L274">	}</span>
+
+	/** Sets the color used to tint this sprite. Default is {@link Color#WHITE}. */
+	public void setColor (Color tint) {
+<span class="nc" id="L278">		color.set(tint);</span>
+<span class="nc" id="L279">		float color = tint.toFloatBits();</span>
+<span class="nc" id="L280">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L281">		vertices[C1] = color;</span>
+<span class="nc" id="L282">		vertices[C2] = color;</span>
+<span class="nc" id="L283">		vertices[C3] = color;</span>
+<span class="nc" id="L284">		vertices[C4] = color;</span>
+<span class="nc" id="L285">	}</span>
+
+	/** Sets the alpha portion of the color used to tint this sprite. */
+	public void setAlpha (float a) {
+<span class="nc" id="L289">		color.a = a;</span>
+<span class="nc" id="L290">		float color = this.color.toFloatBits();</span>
+<span class="nc" id="L291">		vertices[C1] = color;</span>
+<span class="nc" id="L292">		vertices[C2] = color;</span>
+<span class="nc" id="L293">		vertices[C3] = color;</span>
+<span class="nc" id="L294">		vertices[C4] = color;</span>
+<span class="nc" id="L295">	}</span>
+
+	/** @see #setColor(Color) */
+	public void setColor (float r, float g, float b, float a) {
+<span class="nc" id="L299">		color.set(r, g, b, a);</span>
+<span class="nc" id="L300">		float color = this.color.toFloatBits();</span>
+<span class="nc" id="L301">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L302">		vertices[C1] = color;</span>
+<span class="nc" id="L303">		vertices[C2] = color;</span>
+<span class="nc" id="L304">		vertices[C3] = color;</span>
+<span class="nc" id="L305">		vertices[C4] = color;</span>
+<span class="nc" id="L306">	}</span>
+
+	/** Sets the color of this sprite, expanding the alpha from 0-254 to 0-255.
+	 * @see #setColor(Color)
+	 * @see Color#toFloatBits() */
+	public void setPackedColor (float packedColor) {
+<span class="nc" id="L312">		Color.abgr8888ToColor(color, packedColor);</span>
+<span class="nc" id="L313">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L314">		vertices[C1] = packedColor;</span>
+<span class="nc" id="L315">		vertices[C2] = packedColor;</span>
+<span class="nc" id="L316">		vertices[C3] = packedColor;</span>
+<span class="nc" id="L317">		vertices[C4] = packedColor;</span>
+<span class="nc" id="L318">	}</span>
+
+	/** Sets the origin in relation to the sprite's position for scaling and rotation. */
+	public void setOrigin (float originX, float originY) {
+<span class="nc" id="L322">		this.originX = originX;</span>
+<span class="nc" id="L323">		this.originY = originY;</span>
+<span class="nc" id="L324">		dirty = true;</span>
+<span class="nc" id="L325">	}</span>
+
+	/** Place origin in the center of the sprite */
+	public void setOriginCenter() {
+<span class="nc" id="L329">		this.originX = width / 2;</span>
+<span class="nc" id="L330">		this.originY = height / 2;</span>
+<span class="nc" id="L331">		dirty = true;</span>
+<span class="nc" id="L332">	}</span>
+
+	/** Sets the rotation of the sprite in degrees. Rotation is centered on the origin set in {@link #setOrigin(float, float)} */
+	public void setRotation (float degrees) {
+<span class="nc" id="L336">		this.rotation = degrees;</span>
+<span class="nc" id="L337">		dirty = true;</span>
+<span class="nc" id="L338">	}</span>
+
+	/** @return the rotation of the sprite in degrees */
+	public float getRotation () {
+<span class="nc" id="L342">		return rotation;</span>
+	}
+
+	/** Sets the sprite's rotation in degrees relative to the current rotation. Rotation is centered on the origin set in
+	 * {@link #setOrigin(float, float)} */
+	public void rotate (float degrees) {
+<span class="nc bnc" id="L348" title="All 2 branches missed.">		if (degrees == 0) return;</span>
+<span class="nc" id="L349">		rotation += degrees;</span>
+<span class="nc" id="L350">		dirty = true;</span>
+<span class="nc" id="L351">	}</span>
+
+	/** Rotates this sprite 90 degrees in-place by rotating the texture coordinates. This rotation is unaffected by
+	 * {@link #setRotation(float)} and {@link #rotate(float)}. */
+	public void rotate90 (boolean clockwise) {
+<span class="nc" id="L356">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L358" title="All 2 branches missed.">		if (clockwise) {</span>
+<span class="nc" id="L359">			float temp = vertices[V1];</span>
+<span class="nc" id="L360">			vertices[V1] = vertices[V4];</span>
+<span class="nc" id="L361">			vertices[V4] = vertices[V3];</span>
+<span class="nc" id="L362">			vertices[V3] = vertices[V2];</span>
+<span class="nc" id="L363">			vertices[V2] = temp;</span>
+
+<span class="nc" id="L365">			temp = vertices[U1];</span>
+<span class="nc" id="L366">			vertices[U1] = vertices[U4];</span>
+<span class="nc" id="L367">			vertices[U4] = vertices[U3];</span>
+<span class="nc" id="L368">			vertices[U3] = vertices[U2];</span>
+<span class="nc" id="L369">			vertices[U2] = temp;</span>
+<span class="nc" id="L370">		} else {</span>
+<span class="nc" id="L371">			float temp = vertices[V1];</span>
+<span class="nc" id="L372">			vertices[V1] = vertices[V2];</span>
+<span class="nc" id="L373">			vertices[V2] = vertices[V3];</span>
+<span class="nc" id="L374">			vertices[V3] = vertices[V4];</span>
+<span class="nc" id="L375">			vertices[V4] = temp;</span>
+
+<span class="nc" id="L377">			temp = vertices[U1];</span>
+<span class="nc" id="L378">			vertices[U1] = vertices[U2];</span>
+<span class="nc" id="L379">			vertices[U2] = vertices[U3];</span>
+<span class="nc" id="L380">			vertices[U3] = vertices[U4];</span>
+<span class="nc" id="L381">			vertices[U4] = temp;</span>
+		}
+<span class="nc" id="L383">	}</span>
+
+	/** Sets the sprite's scale for both X and Y uniformly. The sprite scales out from the origin. This will not affect the values
+	 * returned by {@link #getWidth()} and {@link #getHeight()} */
+	public void setScale (float scaleXY) {
+<span class="nc" id="L388">		this.scaleX = scaleXY;</span>
+<span class="nc" id="L389">		this.scaleY = scaleXY;</span>
+<span class="nc" id="L390">		dirty = true;</span>
+<span class="nc" id="L391">	}</span>
+
+	/** Sets the sprite's scale for both X and Y. The sprite scales out from the origin. This will not affect the values returned by
+	 * {@link #getWidth()} and {@link #getHeight()} */
+	public void setScale (float scaleX, float scaleY) {
+<span class="nc" id="L396">		this.scaleX = scaleX;</span>
+<span class="nc" id="L397">		this.scaleY = scaleY;</span>
+<span class="nc" id="L398">		dirty = true;</span>
+<span class="nc" id="L399">	}</span>
+
+	/** Sets the sprite's scale relative to the current scale. for example: original scale 2 -&gt; sprite.scale(4) -&gt; final scale 6.
+	 * The sprite scales out from the origin. This will not affect the values returned by {@link #getWidth()} and
+	 * {@link #getHeight()} */
+	public void scale (float amount) {
+<span class="nc" id="L405">		this.scaleX += amount;</span>
+<span class="nc" id="L406">		this.scaleY += amount;</span>
+<span class="nc" id="L407">		dirty = true;</span>
+<span class="nc" id="L408">	}</span>
+
+	/** Returns the packed vertices, colors, and texture coordinates for this sprite. */
+	public float[] getVertices () {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">		if (dirty) {</span>
+<span class="nc" id="L413">			dirty = false;</span>
+
+<span class="nc" id="L415">			float[] vertices = this.vertices;</span>
+<span class="nc" id="L416">			float localX = -originX;</span>
+<span class="nc" id="L417">			float localY = -originY;</span>
+<span class="nc" id="L418">			float localX2 = localX + width;</span>
+<span class="nc" id="L419">			float localY2 = localY + height;</span>
+<span class="nc" id="L420">			float worldOriginX = this.x - localX;</span>
+<span class="nc" id="L421">			float worldOriginY = this.y - localY;</span>
+<span class="nc bnc" id="L422" title="All 4 branches missed.">			if (scaleX != 1 || scaleY != 1) {</span>
+<span class="nc" id="L423">				localX *= scaleX;</span>
+<span class="nc" id="L424">				localY *= scaleY;</span>
+<span class="nc" id="L425">				localX2 *= scaleX;</span>
+<span class="nc" id="L426">				localY2 *= scaleY;</span>
+			}
+<span class="nc bnc" id="L428" title="All 2 branches missed.">			if (rotation != 0) {</span>
+<span class="nc" id="L429">				final float cos = MathUtils.cosDeg(rotation);</span>
+<span class="nc" id="L430">				final float sin = MathUtils.sinDeg(rotation);</span>
+<span class="nc" id="L431">				final float localXCos = localX * cos;</span>
+<span class="nc" id="L432">				final float localXSin = localX * sin;</span>
+<span class="nc" id="L433">				final float localYCos = localY * cos;</span>
+<span class="nc" id="L434">				final float localYSin = localY * sin;</span>
+<span class="nc" id="L435">				final float localX2Cos = localX2 * cos;</span>
+<span class="nc" id="L436">				final float localX2Sin = localX2 * sin;</span>
+<span class="nc" id="L437">				final float localY2Cos = localY2 * cos;</span>
+<span class="nc" id="L438">				final float localY2Sin = localY2 * sin;</span>
+
+<span class="nc" id="L440">				final float x1 = localXCos - localYSin + worldOriginX;</span>
+<span class="nc" id="L441">				final float y1 = localYCos + localXSin + worldOriginY;</span>
+<span class="nc" id="L442">				vertices[X1] = x1;</span>
+<span class="nc" id="L443">				vertices[Y1] = y1;</span>
+
+<span class="nc" id="L445">				final float x2 = localXCos - localY2Sin + worldOriginX;</span>
+<span class="nc" id="L446">				final float y2 = localY2Cos + localXSin + worldOriginY;</span>
+<span class="nc" id="L447">				vertices[X2] = x2;</span>
+<span class="nc" id="L448">				vertices[Y2] = y2;</span>
+
+<span class="nc" id="L450">				final float x3 = localX2Cos - localY2Sin + worldOriginX;</span>
+<span class="nc" id="L451">				final float y3 = localY2Cos + localX2Sin + worldOriginY;</span>
+<span class="nc" id="L452">				vertices[X3] = x3;</span>
+<span class="nc" id="L453">				vertices[Y3] = y3;</span>
+
+<span class="nc" id="L455">				vertices[X4] = x1 + (x3 - x2);</span>
+<span class="nc" id="L456">				vertices[Y4] = y3 - (y2 - y1);</span>
+<span class="nc" id="L457">			} else {</span>
+<span class="nc" id="L458">				final float x1 = localX + worldOriginX;</span>
+<span class="nc" id="L459">				final float y1 = localY + worldOriginY;</span>
+<span class="nc" id="L460">				final float x2 = localX2 + worldOriginX;</span>
+<span class="nc" id="L461">				final float y2 = localY2 + worldOriginY;</span>
+
+<span class="nc" id="L463">				vertices[X1] = x1;</span>
+<span class="nc" id="L464">				vertices[Y1] = y1;</span>
+
+<span class="nc" id="L466">				vertices[X2] = x1;</span>
+<span class="nc" id="L467">				vertices[Y2] = y2;</span>
+
+<span class="nc" id="L469">				vertices[X3] = x2;</span>
+<span class="nc" id="L470">				vertices[Y3] = y2;</span>
+
+<span class="nc" id="L472">				vertices[X4] = x2;</span>
+<span class="nc" id="L473">				vertices[Y4] = y1;</span>
+			}
+		}
+<span class="nc" id="L476">		return vertices;</span>
+	}
+
+	/** Returns the bounding axis aligned {@link Rectangle} that bounds this sprite. The rectangles x and y coordinates describe its
+	 * bottom left corner. If you change the position or size of the sprite, you have to fetch the triangle again for it to be
+	 * recomputed.
+	 * 
+	 * @return the bounding Rectangle */
+	public Rectangle getBoundingRectangle () {
+<span class="nc" id="L485">		final float[] vertices = getVertices();</span>
+
+<span class="nc" id="L487">		float minx = vertices[X1];</span>
+<span class="nc" id="L488">		float miny = vertices[Y1];</span>
+<span class="nc" id="L489">		float maxx = vertices[X1];</span>
+<span class="nc" id="L490">		float maxy = vertices[Y1];</span>
+
+<span class="nc bnc" id="L492" title="All 2 branches missed.">		minx = minx &gt; vertices[X2] ? vertices[X2] : minx;</span>
+<span class="nc bnc" id="L493" title="All 2 branches missed.">		minx = minx &gt; vertices[X3] ? vertices[X3] : minx;</span>
+<span class="nc bnc" id="L494" title="All 2 branches missed.">		minx = minx &gt; vertices[X4] ? vertices[X4] : minx;</span>
+
+<span class="nc bnc" id="L496" title="All 2 branches missed.">		maxx = maxx &lt; vertices[X2] ? vertices[X2] : maxx;</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">		maxx = maxx &lt; vertices[X3] ? vertices[X3] : maxx;</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">		maxx = maxx &lt; vertices[X4] ? vertices[X4] : maxx;</span>
+
+<span class="nc bnc" id="L500" title="All 2 branches missed.">		miny = miny &gt; vertices[Y2] ? vertices[Y2] : miny;</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">		miny = miny &gt; vertices[Y3] ? vertices[Y3] : miny;</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">		miny = miny &gt; vertices[Y4] ? vertices[Y4] : miny;</span>
+
+<span class="nc bnc" id="L504" title="All 2 branches missed.">		maxy = maxy &lt; vertices[Y2] ? vertices[Y2] : maxy;</span>
+<span class="nc bnc" id="L505" title="All 2 branches missed.">		maxy = maxy &lt; vertices[Y3] ? vertices[Y3] : maxy;</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">		maxy = maxy &lt; vertices[Y4] ? vertices[Y4] : maxy;</span>
+
+<span class="nc bnc" id="L508" title="All 2 branches missed.">		if (bounds == null) bounds = new Rectangle();</span>
+<span class="nc" id="L509">		bounds.x = minx;</span>
+<span class="nc" id="L510">		bounds.y = miny;</span>
+<span class="nc" id="L511">		bounds.width = maxx - minx;</span>
+<span class="nc" id="L512">		bounds.height = maxy - miny;</span>
+<span class="nc" id="L513">		return bounds;</span>
+	}
+
+	public void draw (Batch batch) {
+<span class="nc" id="L517">		batch.draw(texture, getVertices(), 0, SPRITE_SIZE);</span>
+<span class="nc" id="L518">	}</span>
+
+	public void draw (Batch batch, float alphaModulation) {
+<span class="nc" id="L521">		float oldAlpha = getColor().a;</span>
+<span class="nc" id="L522">		setAlpha(oldAlpha * alphaModulation);</span>
+<span class="nc" id="L523">		draw(batch);</span>
+<span class="nc" id="L524">		setAlpha(oldAlpha);</span>
+<span class="nc" id="L525">	}</span>
+
+	public float getX () {
+<span class="nc" id="L528">		return x;</span>
+	}
+
+	public float getY () {
+<span class="nc" id="L532">		return y;</span>
+	}
+
+	/** @return the width of the sprite, not accounting for scale. */
+	public float getWidth () {
+<span class="nc" id="L537">		return width;</span>
+	}
+
+	/** @return the height of the sprite, not accounting for scale. */
+	public float getHeight () {
+<span class="nc" id="L542">		return height;</span>
+	}
+
+	/** The origin influences {@link #setPosition(float, float)}, {@link #setRotation(float)} and the expansion direction of scaling
+	 * {@link #setScale(float, float)} */
+	public float getOriginX () {
+<span class="nc" id="L548">		return originX;</span>
+	}
+
+	/** The origin influences {@link #setPosition(float, float)}, {@link #setRotation(float)} and the expansion direction of scaling
+	 * {@link #setScale(float, float)} */
+	public float getOriginY () {
+<span class="nc" id="L554">		return originY;</span>
+	}
+
+	/** X scale of the sprite, independent of size set by {@link #setSize(float, float)} */
+	public float getScaleX () {
+<span class="nc" id="L559">		return scaleX;</span>
+	}
+
+	/** Y scale of the sprite, independent of size set by {@link #setSize(float, float)} */
+	public float getScaleY () {
+<span class="nc" id="L564">		return scaleY;</span>
+	}
+
+	/** Returns the color of this sprite. If the returned instance is manipulated, {@link #setColor(Color)} must be called
+	 * afterward. */
+	public Color getColor () {
+<span class="nc" id="L570">		int intBits = NumberUtils.floatToIntColor(vertices[C1]);</span>
+<span class="nc" id="L571">		Color color = this.color;</span>
+<span class="nc" id="L572">		color.r = (intBits &amp; 0xff) / 255f;</span>
+<span class="nc" id="L573">		color.g = ((intBits &gt;&gt;&gt; 8) &amp; 0xff) / 255f;</span>
+<span class="nc" id="L574">		color.b = ((intBits &gt;&gt;&gt; 16) &amp; 0xff) / 255f;</span>
+<span class="nc" id="L575">		color.a = ((intBits &gt;&gt;&gt; 24) &amp; 0xff) / 255f;</span>
+<span class="nc" id="L576">		return color;</span>
+	}
+
+	public void setRegion (float u, float v, float u2, float v2) {
+<span class="nc" id="L580">		super.setRegion(u, v, u2, v2);</span>
+
+<span class="nc" id="L582">		float[] vertices = Sprite.this.vertices;</span>
+<span class="nc" id="L583">		vertices[U1] = u;</span>
+<span class="nc" id="L584">		vertices[V1] = v2;</span>
+
+<span class="nc" id="L586">		vertices[U2] = u;</span>
+<span class="nc" id="L587">		vertices[V2] = v;</span>
+
+<span class="nc" id="L589">		vertices[U3] = u2;</span>
+<span class="nc" id="L590">		vertices[V3] = v;</span>
+
+<span class="nc" id="L592">		vertices[U4] = u2;</span>
+<span class="nc" id="L593">		vertices[V4] = v2;</span>
+<span class="nc" id="L594">	}</span>
+
+	public void setU (float u) {
+<span class="nc" id="L597">		super.setU(u);</span>
+<span class="nc" id="L598">		vertices[U1] = u;</span>
+<span class="nc" id="L599">		vertices[U2] = u;</span>
+<span class="nc" id="L600">	}</span>
+
+	public void setV (float v) {
+<span class="nc" id="L603">		super.setV(v);</span>
+<span class="nc" id="L604">		vertices[V2] = v;</span>
+<span class="nc" id="L605">		vertices[V3] = v;</span>
+<span class="nc" id="L606">	}</span>
+
+	public void setU2 (float u2) {
+<span class="nc" id="L609">		super.setU2(u2);</span>
+<span class="nc" id="L610">		vertices[U3] = u2;</span>
+<span class="nc" id="L611">		vertices[U4] = u2;</span>
+<span class="nc" id="L612">	}</span>
+
+	public void setV2 (float v2) {
+<span class="nc" id="L615">		super.setV2(v2);</span>
+<span class="nc" id="L616">		vertices[V1] = v2;</span>
+<span class="nc" id="L617">		vertices[V4] = v2;</span>
+<span class="nc" id="L618">	}</span>
+
+	/** Set the sprite's flip state regardless of current condition
+	 * @param x the desired horizontal flip state
+	 * @param y the desired vertical flip state */
+	public void setFlip (boolean x, boolean y) {
+<span class="nc" id="L624">		boolean performX = false;</span>
+<span class="nc" id="L625">		boolean performY = false;</span>
+<span class="nc bnc" id="L626" title="All 2 branches missed.">		if (isFlipX() != x) {</span>
+<span class="nc" id="L627">			performX = true;</span>
+		}
+<span class="nc bnc" id="L629" title="All 2 branches missed.">		if (isFlipY() != y) {</span>
+<span class="nc" id="L630">			performY = true;</span>
+		}
+<span class="nc" id="L632">		flip(performX, performY);</span>
+<span class="nc" id="L633">	}</span>
+
+	/** boolean parameters x,y are not setting a state, but performing a flip
+	 * @param x perform horizontal flip
+	 * @param y perform vertical flip */
+	public void flip (boolean x, boolean y) {
+<span class="nc" id="L639">		super.flip(x, y);</span>
+<span class="nc" id="L640">		float[] vertices = Sprite.this.vertices;</span>
+<span class="nc bnc" id="L641" title="All 2 branches missed.">		if (x) {</span>
+<span class="nc" id="L642">			float temp = vertices[U1];</span>
+<span class="nc" id="L643">			vertices[U1] = vertices[U3];</span>
+<span class="nc" id="L644">			vertices[U3] = temp;</span>
+<span class="nc" id="L645">			temp = vertices[U2];</span>
+<span class="nc" id="L646">			vertices[U2] = vertices[U4];</span>
+<span class="nc" id="L647">			vertices[U4] = temp;</span>
+		}
+<span class="nc bnc" id="L649" title="All 2 branches missed.">		if (y) {</span>
+<span class="nc" id="L650">			float temp = vertices[V1];</span>
+<span class="nc" id="L651">			vertices[V1] = vertices[V3];</span>
+<span class="nc" id="L652">			vertices[V3] = temp;</span>
+<span class="nc" id="L653">			temp = vertices[V2];</span>
+<span class="nc" id="L654">			vertices[V2] = vertices[V4];</span>
+<span class="nc" id="L655">			vertices[V4] = temp;</span>
+		}
+<span class="nc" id="L657">	}</span>
+
+	public void scroll (float xAmount, float yAmount) {
+<span class="nc" id="L660">		float[] vertices = Sprite.this.vertices;</span>
+<span class="nc bnc" id="L661" title="All 2 branches missed.">		if (xAmount != 0) {</span>
+<span class="nc" id="L662">			float u = (vertices[U1] + xAmount) % 1;</span>
+<span class="nc" id="L663">			float u2 = u + width / texture.getWidth();</span>
+<span class="nc" id="L664">			this.u = u;</span>
+<span class="nc" id="L665">			this.u2 = u2;</span>
+<span class="nc" id="L666">			vertices[U1] = u;</span>
+<span class="nc" id="L667">			vertices[U2] = u;</span>
+<span class="nc" id="L668">			vertices[U3] = u2;</span>
+<span class="nc" id="L669">			vertices[U4] = u2;</span>
+		}
+<span class="nc bnc" id="L671" title="All 2 branches missed.">		if (yAmount != 0) {</span>
+<span class="nc" id="L672">			float v = (vertices[V2] + yAmount) % 1;</span>
+<span class="nc" id="L673">			float v2 = v + height / texture.getHeight();</span>
+<span class="nc" id="L674">			this.v = v;</span>
+<span class="nc" id="L675">			this.v2 = v2;</span>
+<span class="nc" id="L676">			vertices[V1] = v2;</span>
+<span class="nc" id="L677">			vertices[V2] = v;</span>
+<span class="nc" id="L678">			vertices[V3] = v;</span>
+<span class="nc" id="L679">			vertices[V4] = v2;</span>
+		}
+<span class="nc" id="L681">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

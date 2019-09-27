@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RotateToAction.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.actions</a> &gt; <span class="el_source">RotateToAction.java</span></div><h1>RotateToAction.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.actions;
+
+import com.badlogic.gdx.math.MathUtils;
+
+/** Sets the actor's rotation from its current value to a specific value.
+ * 
+ * By default, the rotation will take you from the starting value to the specified value via simple subtraction. For example,
+ * setting the start at 350 and the target at 10 will result in 340 degrees of movement.
+ * 
+ * If the action is instead set to useShortestDirection instead, it will rotate straight to the target angle, regardless of where
+ * the angle starts and stops. For example, starting at 350 and rotating to 10 will cause 20 degrees of rotation.
+ * 
+ * @see com.badlogic.gdx.math.MathUtils#lerpAngleDeg(float, float, float)
+ * 
+ * @author Nathan Sweet */
+public class RotateToAction extends TemporalAction {
+	private float start, end;
+
+<span class="nc" id="L35">	private boolean useShortestDirection = false;</span>
+
+<span class="nc" id="L37">	public RotateToAction () {</span>
+<span class="nc" id="L38">	}</span>
+
+	/** @param useShortestDirection Set to true to move directly to the closest angle */
+<span class="nc" id="L41">	public RotateToAction (boolean useShortestDirection) {</span>
+<span class="nc" id="L42">		this.useShortestDirection = useShortestDirection;</span>
+<span class="nc" id="L43">	}</span>
+
+	protected void begin () {
+<span class="nc" id="L46">		start = target.getRotation();</span>
+<span class="nc" id="L47">	}</span>
+
+	protected void update (float percent) {
+		float rotation;
+<span class="nc bnc" id="L51" title="All 2 branches missed.">		if (percent == 0)</span>
+<span class="nc" id="L52">			rotation = start;</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">		else if (percent == 1)</span>
+<span class="nc" id="L54">			rotation = end;</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		else if (useShortestDirection)</span>
+<span class="nc" id="L56">			rotation = MathUtils.lerpAngleDeg(this.start, this.end, percent);</span>
+		else
+<span class="nc" id="L58">			rotation = start + (end - start) * percent;</span>
+<span class="nc" id="L59">		target.setRotation(rotation);</span>
+<span class="nc" id="L60">	}</span>
+
+	public float getRotation () {
+<span class="nc" id="L63">		return end;</span>
+	}
+
+	public void setRotation (float rotation) {
+<span class="nc" id="L67">		this.end = rotation;</span>
+<span class="nc" id="L68">	}</span>
+
+	public boolean isUseShortestDirection () {
+<span class="nc" id="L71">		return useShortestDirection;</span>
+	}
+
+	public void setUseShortestDirection (boolean useShortestDirection) {
+<span class="nc" id="L75">		this.useShortestDirection = useShortestDirection;</span>
+<span class="nc" id="L76">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NetJavaImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.net</a> &gt; <span class="el_source">NetJavaImpl.java</span></div><h1>NetJavaImpl.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.net;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import com.badlogic.gdx.Net;
+import com.badlogic.gdx.Net.HttpMethods;
+import com.badlogic.gdx.Net.HttpRequest;
+import com.badlogic.gdx.Net.HttpResponse;
+import com.badlogic.gdx.Net.HttpResponseListener;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.StreamUtils;
+import com.badlogic.gdx.utils.async.AsyncExecutor;
+import com.badlogic.gdx.utils.async.AsyncTask;
+
+/** Implements part of the {@link Net} API using {@link HttpURLConnection}, to be easily reused between the Android and Desktop
+ * backends.
+ * @author acoppes */
+public class NetJavaImpl {
+
+	static class HttpClientResponse implements HttpResponse {
+		private final HttpURLConnection connection;
+		private HttpStatus status;
+
+<span class="nc" id="L54">		public HttpClientResponse (HttpURLConnection connection) throws IOException {</span>
+<span class="nc" id="L55">			this.connection = connection;</span>
+			try {
+<span class="nc" id="L57">				this.status = new HttpStatus(connection.getResponseCode());</span>
+<span class="nc" id="L58">			} catch (IOException e) {</span>
+<span class="nc" id="L59">				this.status = new HttpStatus(-1);</span>
+<span class="nc" id="L60">			}</span>
+<span class="nc" id="L61">		}</span>
+
+		@Override
+		public byte[] getResult () {
+<span class="nc" id="L65">			InputStream input = getInputStream();</span>
+
+			// If the response does not contain any content, input will be null.
+<span class="nc bnc" id="L68" title="All 2 branches missed.">			if (input == null) {</span>
+<span class="nc" id="L69">				return StreamUtils.EMPTY_BYTES;</span>
+			}
+
+			try {
+<span class="nc" id="L73">				return StreamUtils.copyStreamToByteArray(input, connection.getContentLength());</span>
+<span class="nc" id="L74">			} catch (IOException e) {</span>
+<span class="nc" id="L75">				return StreamUtils.EMPTY_BYTES;</span>
+			} finally {
+<span class="nc" id="L77">				StreamUtils.closeQuietly(input);</span>
+			}
+		}
+
+		@Override
+		public String getResultAsString () {
+<span class="nc" id="L83">			InputStream input = getInputStream();</span>
+
+			// If the response does not contain any content, input will be null.
+<span class="nc bnc" id="L86" title="All 2 branches missed.">			if (input == null) {</span>
+<span class="nc" id="L87">				return &quot;&quot;;</span>
+			}
+
+			try {
+<span class="nc" id="L91">				return StreamUtils.copyStreamToString(input, connection.getContentLength(), &quot;UTF8&quot;);</span>
+<span class="nc" id="L92">			} catch (IOException e) {</span>
+<span class="nc" id="L93">				return &quot;&quot;;</span>
+			} finally {
+<span class="nc" id="L95">				StreamUtils.closeQuietly(input);</span>
+			}
+		}
+
+		@Override
+		public InputStream getResultAsStream () {
+<span class="nc" id="L101">			return getInputStream();</span>
+		}
+
+		@Override
+		public HttpStatus getStatus () {
+<span class="nc" id="L106">			return status;</span>
+		}
+
+		@Override
+		public String getHeader (String name) {
+<span class="nc" id="L111">			return connection.getHeaderField(name);</span>
+		}
+
+		@Override
+		public Map&lt;String, List&lt;String&gt;&gt; getHeaders () {
+<span class="nc" id="L116">			return connection.getHeaderFields();</span>
+		}
+
+		private InputStream getInputStream () {
+			try {
+<span class="nc" id="L121">				return connection.getInputStream();</span>
+<span class="nc" id="L122">			} catch (IOException e) {</span>
+<span class="nc" id="L123">				return connection.getErrorStream();</span>
+			}
+		}
+	}
+
+	private final ExecutorService executorService;
+	final ObjectMap&lt;HttpRequest, HttpURLConnection&gt; connections;
+	final ObjectMap&lt;HttpRequest, HttpResponseListener&gt; listeners;
+
+	public NetJavaImpl () {
+<span class="nc" id="L133">		this(Integer.MAX_VALUE);</span>
+<span class="nc" id="L134">	}</span>
+
+<span class="nc" id="L136">	public NetJavaImpl (int maxThreads) {</span>
+<span class="nc" id="L137">		executorService = new ThreadPoolExecutor(0, maxThreads,</span>
+				60L, TimeUnit.SECONDS,
+				new SynchronousQueue&lt;Runnable&gt;(),
+<span class="nc" id="L140">				new ThreadFactory() {</span>
+					@Override
+					public Thread newThread(Runnable r) {
+<span class="nc" id="L143">						Thread thread = new Thread(r, &quot;NetThread&quot;);</span>
+<span class="nc" id="L144">						thread.setDaemon(true);</span>
+<span class="nc" id="L145">						return thread;</span>
+					}
+				});
+<span class="nc" id="L148">		connections = new ObjectMap&lt;HttpRequest, HttpURLConnection&gt;();</span>
+<span class="nc" id="L149">		listeners = new ObjectMap&lt;HttpRequest, HttpResponseListener&gt;();</span>
+<span class="nc" id="L150">	}</span>
+
+	public void sendHttpRequest (final HttpRequest httpRequest, final HttpResponseListener httpResponseListener) {
+<span class="nc bnc" id="L153" title="All 2 branches missed.">		if (httpRequest.getUrl() == null) {</span>
+<span class="nc" id="L154">			httpResponseListener.failed(new GdxRuntimeException(&quot;can't process a HTTP request without URL set&quot;));</span>
+<span class="nc" id="L155">			return;</span>
+		}
+
+		try {
+<span class="nc" id="L159">			final String method = httpRequest.getMethod();</span>
+			URL url;
+
+<span class="nc bnc" id="L162" title="All 2 branches missed.">			if (method.equalsIgnoreCase(HttpMethods.GET)) {</span>
+<span class="nc" id="L163">				String queryString = &quot;&quot;;</span>
+<span class="nc" id="L164">				String value = httpRequest.getContent();</span>
+<span class="nc bnc" id="L165" title="All 4 branches missed.">				if (value != null &amp;&amp; !&quot;&quot;.equals(value)) queryString = &quot;?&quot; + value;</span>
+<span class="nc" id="L166">				url = new URL(httpRequest.getUrl() + queryString);</span>
+<span class="nc" id="L167">			} else {</span>
+<span class="nc" id="L168">				url = new URL(httpRequest.getUrl());</span>
+			}
+
+<span class="nc" id="L171">			final HttpURLConnection connection = (HttpURLConnection)url.openConnection();</span>
+			// should be enabled to upload data.
+<span class="nc bnc" id="L173" title="All 6 branches missed.">			final boolean doingOutPut = method.equalsIgnoreCase(HttpMethods.POST) || method.equalsIgnoreCase(HttpMethods.PUT) || method.equalsIgnoreCase(HttpMethods.PATCH);</span>
+<span class="nc" id="L174">			connection.setDoOutput(doingOutPut);</span>
+<span class="nc" id="L175">			connection.setDoInput(true);</span>
+<span class="nc" id="L176">			connection.setRequestMethod(method);</span>
+<span class="nc" id="L177">			HttpURLConnection.setFollowRedirects(httpRequest.getFollowRedirects());</span>
+
+<span class="nc" id="L179">			putIntoConnectionsAndListeners(httpRequest, httpResponseListener, connection);</span>
+
+			// Headers get set regardless of the method
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			for (Map.Entry&lt;String, String&gt; header : httpRequest.getHeaders().entrySet())</span>
+<span class="nc" id="L183">				connection.addRequestProperty(header.getKey(), header.getValue());</span>
+
+			// Set Timeouts
+<span class="nc" id="L186">			connection.setConnectTimeout(httpRequest.getTimeOut());</span>
+<span class="nc" id="L187">			connection.setReadTimeout(httpRequest.getTimeOut());</span>
+
+<span class="nc" id="L189">			executorService.submit(new Runnable() {</span>
+				@Override
+				public void run() {
+					try {
+						// Set the content for POST and PUT (GET has the information embedded in the URL)
+<span class="nc bnc" id="L194" title="All 2 branches missed.">						if (doingOutPut) {</span>
+							// we probably need to use the content as stream here instead of using it as a string.
+<span class="nc" id="L196">							String contentAsString = httpRequest.getContent();</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">							if (contentAsString != null) {</span>
+<span class="nc" id="L198">								OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream(), &quot;UTF8&quot;);</span>
+								try {
+<span class="nc" id="L200">									writer.write(contentAsString);</span>
+								} finally {
+<span class="nc" id="L202">									StreamUtils.closeQuietly(writer);</span>
+								}
+<span class="nc" id="L204">							} else {</span>
+<span class="nc" id="L205">								InputStream contentAsStream = httpRequest.getContentStream();</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">								if (contentAsStream != null) {</span>
+<span class="nc" id="L207">									OutputStream os = connection.getOutputStream();</span>
+									try {
+<span class="nc" id="L209">										StreamUtils.copyStream(contentAsStream, os);</span>
+									} finally {
+<span class="nc" id="L211">										StreamUtils.closeQuietly(os);</span>
+									}
+								}
+							}
+						}
+
+<span class="nc" id="L217">						connection.connect();</span>
+
+<span class="nc" id="L219">						final HttpClientResponse clientResponse = new HttpClientResponse(connection);</span>
+						try {
+<span class="nc" id="L221">							HttpResponseListener listener = getFromListeners(httpRequest);</span>
+
+<span class="nc bnc" id="L223" title="All 2 branches missed.">							if (listener != null) {</span>
+<span class="nc" id="L224">								listener.handleHttpResponse(clientResponse);</span>
+							}
+<span class="nc" id="L226">							removeFromConnectionsAndListeners(httpRequest);</span>
+						} finally {
+<span class="nc" id="L228">							connection.disconnect();</span>
+						}
+<span class="nc" id="L230">					} catch (final Exception e) {</span>
+<span class="nc" id="L231">						connection.disconnect();</span>
+						try {
+<span class="nc" id="L233">							httpResponseListener.failed(e);</span>
+						} finally {
+<span class="nc" id="L235">							removeFromConnectionsAndListeners(httpRequest);</span>
+						}
+<span class="nc" id="L237">					}</span>
+<span class="nc" id="L238">				}</span>
+			});
+<span class="nc" id="L240">		} catch (Exception e) {</span>
+			try {
+<span class="nc" id="L242">				httpResponseListener.failed(e);</span>
+			} finally {
+<span class="nc" id="L244">				removeFromConnectionsAndListeners(httpRequest);</span>
+			}
+<span class="nc" id="L246">			return;</span>
+<span class="nc" id="L247">		}</span>
+<span class="nc" id="L248">	}</span>
+
+	public void cancelHttpRequest (HttpRequest httpRequest) {
+<span class="nc" id="L251">		HttpResponseListener httpResponseListener = getFromListeners(httpRequest);</span>
+
+<span class="nc bnc" id="L253" title="All 2 branches missed.">		if (httpResponseListener != null) {</span>
+<span class="nc" id="L254">			httpResponseListener.cancelled();</span>
+<span class="nc" id="L255">			removeFromConnectionsAndListeners(httpRequest);</span>
+		}
+<span class="nc" id="L257">	}</span>
+
+	synchronized void removeFromConnectionsAndListeners (final HttpRequest httpRequest) {
+<span class="nc" id="L260">		connections.remove(httpRequest);</span>
+<span class="nc" id="L261">		listeners.remove(httpRequest);</span>
+<span class="nc" id="L262">	}</span>
+
+	synchronized void putIntoConnectionsAndListeners (final HttpRequest httpRequest,
+		final HttpResponseListener httpResponseListener, final HttpURLConnection connection) {
+<span class="nc" id="L266">		connections.put(httpRequest, connection);</span>
+<span class="nc" id="L267">		listeners.put(httpRequest, httpResponseListener);</span>
+<span class="nc" id="L268">	}</span>
+
+	synchronized HttpResponseListener getFromListeners (HttpRequest httpRequest) {
+<span class="nc" id="L271">		HttpResponseListener httpResponseListener = listeners.get(httpRequest);</span>
+<span class="nc" id="L272">		return httpResponseListener;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

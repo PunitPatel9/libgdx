@@ -1,0 +1,758 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Container.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Container.java</span></div><h1>Container.java</h1><pre class="source lang-java linenums">
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.ui.Value.Fixed;
+import com.badlogic.gdx.scenes.scene2d.utils.Cullable;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.Layout;
+import com.badlogic.gdx.utils.Align;
+
+/** A group with a single child that sizes and positions the child using constraints. This provides layout similar to a
+ * {@link Table} with a single cell but is more lightweight.
+ * @author Nathan Sweet */
+public class Container&lt;T extends Actor&gt; extends WidgetGroup {
+	private T actor;
+<span class="nc" id="L21">	private Value minWidth = Value.minWidth, minHeight = Value.minHeight;</span>
+<span class="nc" id="L22">	private Value prefWidth = Value.prefWidth, prefHeight = Value.prefHeight;</span>
+<span class="nc" id="L23">	private Value maxWidth = Value.zero, maxHeight = Value.zero;</span>
+<span class="nc" id="L24">	private Value padTop = Value.zero, padLeft = Value.zero, padBottom = Value.zero, padRight = Value.zero;</span>
+	private float fillX, fillY;
+	private int align;
+	private Drawable background;
+	private boolean clip;
+<span class="nc" id="L29">	private boolean round = true;</span>
+
+	/** Creates a container with no actor. */
+<span class="nc" id="L32">	public Container () {</span>
+<span class="nc" id="L33">		setTouchable(Touchable.childrenOnly);</span>
+<span class="nc" id="L34">		setTransform(false);</span>
+<span class="nc" id="L35">	}</span>
+
+	public Container (T actor) {
+<span class="nc" id="L38">		this();</span>
+<span class="nc" id="L39">		setActor(actor);</span>
+<span class="nc" id="L40">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L43">		validate();</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">		if (isTransform()) {</span>
+<span class="nc" id="L45">			applyTransform(batch, computeTransform());</span>
+<span class="nc" id="L46">			drawBackground(batch, parentAlpha, 0, 0);</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">			if (clip) {</span>
+<span class="nc" id="L48">				batch.flush();</span>
+<span class="nc" id="L49">				float padLeft = this.padLeft.get(this), padBottom = this.padBottom.get(this);</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">				if (clipBegin(padLeft, padBottom, getWidth() - padLeft - padRight.get(this),</span>
+<span class="nc" id="L51">					getHeight() - padBottom - padTop.get(this))) {</span>
+<span class="nc" id="L52">					drawChildren(batch, parentAlpha);</span>
+<span class="nc" id="L53">					batch.flush();</span>
+<span class="nc" id="L54">					clipEnd();</span>
+				}
+<span class="nc" id="L56">			} else</span>
+<span class="nc" id="L57">				drawChildren(batch, parentAlpha);</span>
+<span class="nc" id="L58">			resetTransform(batch);</span>
+		} else {
+<span class="nc" id="L60">			drawBackground(batch, parentAlpha, getX(), getY());</span>
+<span class="nc" id="L61">			super.draw(batch, parentAlpha);</span>
+		}
+<span class="nc" id="L63">	}</span>
+
+	/** Called to draw the background, before clipping is applied (if enabled). Default implementation draws the background
+	 * drawable. */
+	protected void drawBackground (Batch batch, float parentAlpha, float x, float y) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">		if (background == null) return;</span>
+<span class="nc" id="L69">		Color color = getColor();</span>
+<span class="nc" id="L70">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L71">		background.draw(batch, x, y, getWidth(), getHeight());</span>
+<span class="nc" id="L72">	}</span>
+
+	/** Sets the background drawable and adjusts the container's padding to match the background.
+	 * @see #setBackground(Drawable, boolean) */
+	public void setBackground (Drawable background) {
+<span class="nc" id="L77">		setBackground(background, true);</span>
+<span class="nc" id="L78">	}</span>
+
+	/** Sets the background drawable and, if adjustPadding is true, sets the container's padding to
+	 * {@link Drawable#getBottomHeight()} , {@link Drawable#getTopHeight()}, {@link Drawable#getLeftWidth()}, and
+	 * {@link Drawable#getRightWidth()}.
+	 * @param background If null, the background will be cleared and padding removed. */
+	public void setBackground (Drawable background, boolean adjustPadding) {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">		if (this.background == background) return;</span>
+<span class="nc" id="L86">		this.background = background;</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">		if (adjustPadding) {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">			if (background == null)</span>
+<span class="nc" id="L89">				pad(Value.zero);</span>
+			else
+<span class="nc" id="L91">				pad(background.getTopHeight(), background.getLeftWidth(), background.getBottomHeight(), background.getRightWidth());</span>
+<span class="nc" id="L92">			invalidate();</span>
+		}
+<span class="nc" id="L94">	}</span>
+
+	/** @see #setBackground(Drawable) */
+	public Container&lt;T&gt; background (Drawable background) {
+<span class="nc" id="L98">		setBackground(background);</span>
+<span class="nc" id="L99">		return this;</span>
+	}
+
+	public Drawable getBackground () {
+<span class="nc" id="L103">		return background;</span>
+	}
+
+	public void layout () {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">		if (actor == null) return;</span>
+
+<span class="nc" id="L109">		float padLeft = this.padLeft.get(this), padBottom = this.padBottom.get(this);</span>
+<span class="nc" id="L110">		float containerWidth = getWidth() - padLeft - padRight.get(this);</span>
+<span class="nc" id="L111">		float containerHeight = getHeight() - padBottom - padTop.get(this);</span>
+<span class="nc" id="L112">		float minWidth = this.minWidth.get(actor), minHeight = this.minHeight.get(actor);</span>
+<span class="nc" id="L113">		float prefWidth = this.prefWidth.get(actor), prefHeight = this.prefHeight.get(actor);</span>
+<span class="nc" id="L114">		float maxWidth = this.maxWidth.get(actor), maxHeight = this.maxHeight.get(actor);</span>
+
+		float width;
+<span class="nc bnc" id="L117" title="All 2 branches missed.">		if (fillX &gt; 0)</span>
+<span class="nc" id="L118">			width = containerWidth * fillX;</span>
+		else
+<span class="nc" id="L120">			width = Math.min(prefWidth, containerWidth);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (width &lt; minWidth) width = minWidth;</span>
+<span class="nc bnc" id="L122" title="All 4 branches missed.">		if (maxWidth &gt; 0 &amp;&amp; width &gt; maxWidth) width = maxWidth;</span>
+
+		float height;
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		if (fillY &gt; 0)</span>
+<span class="nc" id="L126">			height = containerHeight * fillY;</span>
+		else
+<span class="nc" id="L128">			height = Math.min(prefHeight, containerHeight);</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		if (height &lt; minHeight) height = minHeight;</span>
+<span class="nc bnc" id="L130" title="All 4 branches missed.">		if (maxHeight &gt; 0 &amp;&amp; height &gt; maxHeight) height = maxHeight;</span>
+
+<span class="nc" id="L132">		float x = padLeft;</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		if ((align &amp; Align.right) != 0)</span>
+<span class="nc" id="L134">			x += containerWidth - width;</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		else if ((align &amp; Align.left) == 0) // center</span>
+<span class="nc" id="L136">			x += (containerWidth - width) / 2;</span>
+
+<span class="nc" id="L138">		float y = padBottom;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		if ((align &amp; Align.top) != 0)</span>
+<span class="nc" id="L140">			y += containerHeight - height;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">		else if ((align &amp; Align.bottom) == 0) // center</span>
+<span class="nc" id="L142">			y += (containerHeight - height) / 2;</span>
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		if (round) {</span>
+<span class="nc" id="L145">			x = Math.round(x);</span>
+<span class="nc" id="L146">			y = Math.round(y);</span>
+<span class="nc" id="L147">			width = Math.round(width);</span>
+<span class="nc" id="L148">			height = Math.round(height);</span>
+		}
+
+<span class="nc" id="L151">		actor.setBounds(x, y, width, height);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">		if (actor instanceof Layout) ((Layout)actor).validate();</span>
+<span class="nc" id="L153">	}</span>
+
+	public void setCullingArea (Rectangle cullingArea) {
+<span class="nc" id="L156">		super.setCullingArea(cullingArea);</span>
+<span class="nc bnc" id="L157" title="All 6 branches missed.">		if (fillX == 1 &amp;&amp; fillY == 1 &amp;&amp; actor instanceof Cullable) ((Cullable)actor).setCullingArea(cullingArea);</span>
+<span class="nc" id="L158">	}</span>
+
+	/** @param actor May be null. */
+	public void setActor (T actor) {
+<span class="nc bnc" id="L162" title="All 2 branches missed.">		if (actor == this) throw new IllegalArgumentException(&quot;actor cannot be the Container.&quot;);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">		if (actor == this.actor) return;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (this.actor != null) super.removeActor(this.actor);</span>
+<span class="nc" id="L165">		this.actor = actor;</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">		if (actor != null) super.addActor(actor);</span>
+<span class="nc" id="L167">	}</span>
+
+	/** @return May be null. */
+	public T getActor () {
+<span class="nc" id="L171">		return actor;</span>
+	}
+
+	/** @deprecated Container may have only a single child.
+	 * @see #setActor(Actor) */
+	public void addActor (Actor actor) {
+<span class="nc" id="L177">		throw new UnsupportedOperationException(&quot;Use Container#setActor.&quot;);</span>
+	}
+
+	/** @deprecated Container may have only a single child.
+	 * @see #setActor(Actor) */
+	public void addActorAt (int index, Actor actor) {
+<span class="nc" id="L183">		throw new UnsupportedOperationException(&quot;Use Container#setActor.&quot;);</span>
+	}
+
+	/** @deprecated Container may have only a single child.
+	 * @see #setActor(Actor) */
+	public void addActorBefore (Actor actorBefore, Actor actor) {
+<span class="nc" id="L189">		throw new UnsupportedOperationException(&quot;Use Container#setActor.&quot;);</span>
+	}
+
+	/** @deprecated Container may have only a single child.
+	 * @see #setActor(Actor) */
+	public void addActorAfter (Actor actorAfter, Actor actor) {
+<span class="nc" id="L195">		throw new UnsupportedOperationException(&quot;Use Container#setActor.&quot;);</span>
+	}
+
+	public boolean removeActor (Actor actor) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">		if (actor != this.actor) return false;</span>
+<span class="nc" id="L201">		setActor(null);</span>
+<span class="nc" id="L202">		return true;</span>
+	}
+
+	public boolean removeActor (Actor actor, boolean unfocus) {
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		if (actor != this.actor) return false;</span>
+<span class="nc" id="L208">		this.actor = null;</span>
+<span class="nc" id="L209">		return super.removeActor(actor, unfocus);</span>
+	}
+
+	public Actor removeActorAt (int index, boolean unfocus) {
+<span class="nc" id="L213">		Actor actor = super.removeActorAt(index, unfocus);</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">		if (actor == this.actor) this.actor = null;</span>
+<span class="nc" id="L215">		return actor;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified value. */
+	public Container&lt;T&gt; size (Value size) {
+<span class="nc bnc" id="L220" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L221">		minWidth = size;</span>
+<span class="nc" id="L222">		minHeight = size;</span>
+<span class="nc" id="L223">		prefWidth = size;</span>
+<span class="nc" id="L224">		prefHeight = size;</span>
+<span class="nc" id="L225">		maxWidth = size;</span>
+<span class="nc" id="L226">		maxHeight = size;</span>
+<span class="nc" id="L227">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified values. */
+	public Container&lt;T&gt; size (Value width, Value height) {
+<span class="nc bnc" id="L232" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L234">		minWidth = width;</span>
+<span class="nc" id="L235">		minHeight = height;</span>
+<span class="nc" id="L236">		prefWidth = width;</span>
+<span class="nc" id="L237">		prefHeight = height;</span>
+<span class="nc" id="L238">		maxWidth = width;</span>
+<span class="nc" id="L239">		maxHeight = height;</span>
+<span class="nc" id="L240">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified value. */
+	public Container&lt;T&gt; size (float size) {
+<span class="nc" id="L245">		size(Fixed.valueOf(size));</span>
+<span class="nc" id="L246">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified values. */
+	public Container&lt;T&gt; size (float width, float height) {
+<span class="nc" id="L251">		size(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L252">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, and maxWidth to the specified value. */
+	public Container&lt;T&gt; width (Value width) {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc" id="L258">		minWidth = width;</span>
+<span class="nc" id="L259">		prefWidth = width;</span>
+<span class="nc" id="L260">		maxWidth = width;</span>
+<span class="nc" id="L261">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, and maxWidth to the specified value. */
+	public Container&lt;T&gt; width (float width) {
+<span class="nc" id="L266">		width(Fixed.valueOf(width));</span>
+<span class="nc" id="L267">		return this;</span>
+	}
+
+	/** Sets the minHeight, prefHeight, and maxHeight to the specified value. */
+	public Container&lt;T&gt; height (Value height) {
+<span class="nc bnc" id="L272" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L273">		minHeight = height;</span>
+<span class="nc" id="L274">		prefHeight = height;</span>
+<span class="nc" id="L275">		maxHeight = height;</span>
+<span class="nc" id="L276">		return this;</span>
+	}
+
+	/** Sets the minHeight, prefHeight, and maxHeight to the specified value. */
+	public Container&lt;T&gt; height (float height) {
+<span class="nc" id="L281">		height(Fixed.valueOf(height));</span>
+<span class="nc" id="L282">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified value. */
+	public Container&lt;T&gt; minSize (Value size) {
+<span class="nc bnc" id="L287" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L288">		minWidth = size;</span>
+<span class="nc" id="L289">		minHeight = size;</span>
+<span class="nc" id="L290">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified values. */
+	public Container&lt;T&gt; minSize (Value width, Value height) {
+<span class="nc bnc" id="L295" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L297">		minWidth = width;</span>
+<span class="nc" id="L298">		minHeight = height;</span>
+<span class="nc" id="L299">		return this;</span>
+	}
+
+	public Container&lt;T&gt; minWidth (Value minWidth) {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">		if (minWidth == null) throw new IllegalArgumentException(&quot;minWidth cannot be null.&quot;);</span>
+<span class="nc" id="L304">		this.minWidth = minWidth;</span>
+<span class="nc" id="L305">		return this;</span>
+	}
+
+	public Container&lt;T&gt; minHeight (Value minHeight) {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">		if (minHeight == null) throw new IllegalArgumentException(&quot;minHeight cannot be null.&quot;);</span>
+<span class="nc" id="L310">		this.minHeight = minHeight;</span>
+<span class="nc" id="L311">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified value. */
+	public Container&lt;T&gt; minSize (float size) {
+<span class="nc" id="L316">		minSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L317">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified values. */
+	public Container&lt;T&gt; minSize (float width, float height) {
+<span class="nc" id="L322">		minSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L323">		return this;</span>
+	}
+
+	public Container&lt;T&gt; minWidth (float minWidth) {
+<span class="nc" id="L327">		this.minWidth = Fixed.valueOf(minWidth);</span>
+<span class="nc" id="L328">		return this;</span>
+	}
+
+	public Container&lt;T&gt; minHeight (float minHeight) {
+<span class="nc" id="L332">		this.minHeight = Fixed.valueOf(minHeight);</span>
+<span class="nc" id="L333">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified value. */
+	public Container&lt;T&gt; prefSize (Value size) {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L339">		prefWidth = size;</span>
+<span class="nc" id="L340">		prefHeight = size;</span>
+<span class="nc" id="L341">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified values. */
+	public Container&lt;T&gt; prefSize (Value width, Value height) {
+<span class="nc bnc" id="L346" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L348">		prefWidth = width;</span>
+<span class="nc" id="L349">		prefHeight = height;</span>
+<span class="nc" id="L350">		return this;</span>
+	}
+
+	public Container&lt;T&gt; prefWidth (Value prefWidth) {
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		if (prefWidth == null) throw new IllegalArgumentException(&quot;prefWidth cannot be null.&quot;);</span>
+<span class="nc" id="L355">		this.prefWidth = prefWidth;</span>
+<span class="nc" id="L356">		return this;</span>
+	}
+
+	public Container&lt;T&gt; prefHeight (Value prefHeight) {
+<span class="nc bnc" id="L360" title="All 2 branches missed.">		if (prefHeight == null) throw new IllegalArgumentException(&quot;prefHeight cannot be null.&quot;);</span>
+<span class="nc" id="L361">		this.prefHeight = prefHeight;</span>
+<span class="nc" id="L362">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified value. */
+	public Container&lt;T&gt; prefSize (float width, float height) {
+<span class="nc" id="L367">		prefSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L368">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified values. */
+	public Container&lt;T&gt; prefSize (float size) {
+<span class="nc" id="L373">		prefSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L374">		return this;</span>
+	}
+
+	public Container&lt;T&gt; prefWidth (float prefWidth) {
+<span class="nc" id="L378">		this.prefWidth = Fixed.valueOf(prefWidth);</span>
+<span class="nc" id="L379">		return this;</span>
+	}
+
+	public Container&lt;T&gt; prefHeight (float prefHeight) {
+<span class="nc" id="L383">		this.prefHeight = Fixed.valueOf(prefHeight);</span>
+<span class="nc" id="L384">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified value. */
+	public Container&lt;T&gt; maxSize (Value size) {
+<span class="nc bnc" id="L389" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L390">		maxWidth = size;</span>
+<span class="nc" id="L391">		maxHeight = size;</span>
+<span class="nc" id="L392">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified values. */
+	public Container&lt;T&gt; maxSize (Value width, Value height) {
+<span class="nc bnc" id="L397" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L399">		maxWidth = width;</span>
+<span class="nc" id="L400">		maxHeight = height;</span>
+<span class="nc" id="L401">		return this;</span>
+	}
+
+	public Container&lt;T&gt; maxWidth (Value maxWidth) {
+<span class="nc bnc" id="L405" title="All 2 branches missed.">		if (maxWidth == null) throw new IllegalArgumentException(&quot;maxWidth cannot be null.&quot;);</span>
+<span class="nc" id="L406">		this.maxWidth = maxWidth;</span>
+<span class="nc" id="L407">		return this;</span>
+	}
+
+	public Container&lt;T&gt; maxHeight (Value maxHeight) {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">		if (maxHeight == null) throw new IllegalArgumentException(&quot;maxHeight cannot be null.&quot;);</span>
+<span class="nc" id="L412">		this.maxHeight = maxHeight;</span>
+<span class="nc" id="L413">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified value. */
+	public Container&lt;T&gt; maxSize (float size) {
+<span class="nc" id="L418">		maxSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L419">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified values. */
+	public Container&lt;T&gt; maxSize (float width, float height) {
+<span class="nc" id="L424">		maxSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L425">		return this;</span>
+	}
+
+	public Container&lt;T&gt; maxWidth (float maxWidth) {
+<span class="nc" id="L429">		this.maxWidth = Fixed.valueOf(maxWidth);</span>
+<span class="nc" id="L430">		return this;</span>
+	}
+
+	public Container&lt;T&gt; maxHeight (float maxHeight) {
+<span class="nc" id="L434">		this.maxHeight = Fixed.valueOf(maxHeight);</span>
+<span class="nc" id="L435">		return this;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight to the specified value. */
+	public Container&lt;T&gt; pad (Value pad) {
+<span class="nc bnc" id="L440" title="All 2 branches missed.">		if (pad == null) throw new IllegalArgumentException(&quot;pad cannot be null.&quot;);</span>
+<span class="nc" id="L441">		padTop = pad;</span>
+<span class="nc" id="L442">		padLeft = pad;</span>
+<span class="nc" id="L443">		padBottom = pad;</span>
+<span class="nc" id="L444">		padRight = pad;</span>
+<span class="nc" id="L445">		return this;</span>
+	}
+
+	public Container&lt;T&gt; pad (Value top, Value left, Value bottom, Value right) {
+<span class="nc bnc" id="L449" title="All 2 branches missed.">		if (top == null) throw new IllegalArgumentException(&quot;top cannot be null.&quot;);</span>
+<span class="nc bnc" id="L450" title="All 2 branches missed.">		if (left == null) throw new IllegalArgumentException(&quot;left cannot be null.&quot;);</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">		if (bottom == null) throw new IllegalArgumentException(&quot;bottom cannot be null.&quot;);</span>
+<span class="nc bnc" id="L452" title="All 2 branches missed.">		if (right == null) throw new IllegalArgumentException(&quot;right cannot be null.&quot;);</span>
+<span class="nc" id="L453">		padTop = top;</span>
+<span class="nc" id="L454">		padLeft = left;</span>
+<span class="nc" id="L455">		padBottom = bottom;</span>
+<span class="nc" id="L456">		padRight = right;</span>
+<span class="nc" id="L457">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padTop (Value padTop) {
+<span class="nc bnc" id="L461" title="All 2 branches missed.">		if (padTop == null) throw new IllegalArgumentException(&quot;padTop cannot be null.&quot;);</span>
+<span class="nc" id="L462">		this.padTop = padTop;</span>
+<span class="nc" id="L463">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padLeft (Value padLeft) {
+<span class="nc bnc" id="L467" title="All 2 branches missed.">		if (padLeft == null) throw new IllegalArgumentException(&quot;padLeft cannot be null.&quot;);</span>
+<span class="nc" id="L468">		this.padLeft = padLeft;</span>
+<span class="nc" id="L469">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padBottom (Value padBottom) {
+<span class="nc bnc" id="L473" title="All 2 branches missed.">		if (padBottom == null) throw new IllegalArgumentException(&quot;padBottom cannot be null.&quot;);</span>
+<span class="nc" id="L474">		this.padBottom = padBottom;</span>
+<span class="nc" id="L475">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padRight (Value padRight) {
+<span class="nc bnc" id="L479" title="All 2 branches missed.">		if (padRight == null) throw new IllegalArgumentException(&quot;padRight cannot be null.&quot;);</span>
+<span class="nc" id="L480">		this.padRight = padRight;</span>
+<span class="nc" id="L481">		return this;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight to the specified value. */
+	public Container&lt;T&gt; pad (float pad) {
+<span class="nc" id="L486">		Value value = Fixed.valueOf(pad);</span>
+<span class="nc" id="L487">		padTop = value;</span>
+<span class="nc" id="L488">		padLeft = value;</span>
+<span class="nc" id="L489">		padBottom = value;</span>
+<span class="nc" id="L490">		padRight = value;</span>
+<span class="nc" id="L491">		return this;</span>
+	}
+
+	public Container&lt;T&gt; pad (float top, float left, float bottom, float right) {
+<span class="nc" id="L495">		padTop = Fixed.valueOf(top);</span>
+<span class="nc" id="L496">		padLeft = Fixed.valueOf(left);</span>
+<span class="nc" id="L497">		padBottom = Fixed.valueOf(bottom);</span>
+<span class="nc" id="L498">		padRight = Fixed.valueOf(right);</span>
+<span class="nc" id="L499">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padTop (float padTop) {
+<span class="nc" id="L503">		this.padTop = Fixed.valueOf(padTop);</span>
+<span class="nc" id="L504">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padLeft (float padLeft) {
+<span class="nc" id="L508">		this.padLeft = Fixed.valueOf(padLeft);</span>
+<span class="nc" id="L509">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padBottom (float padBottom) {
+<span class="nc" id="L513">		this.padBottom = Fixed.valueOf(padBottom);</span>
+<span class="nc" id="L514">		return this;</span>
+	}
+
+	public Container&lt;T&gt; padRight (float padRight) {
+<span class="nc" id="L518">		this.padRight = Fixed.valueOf(padRight);</span>
+<span class="nc" id="L519">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1. */
+	public Container&lt;T&gt; fill () {
+<span class="nc" id="L524">		fillX = 1f;</span>
+<span class="nc" id="L525">		fillY = 1f;</span>
+<span class="nc" id="L526">		return this;</span>
+	}
+
+	/** Sets fillX to 1. */
+	public Container&lt;T&gt; fillX () {
+<span class="nc" id="L531">		fillX = 1f;</span>
+<span class="nc" id="L532">		return this;</span>
+	}
+
+	/** Sets fillY to 1. */
+	public Container&lt;T&gt; fillY () {
+<span class="nc" id="L537">		fillY = 1f;</span>
+<span class="nc" id="L538">		return this;</span>
+	}
+
+	public Container&lt;T&gt; fill (float x, float y) {
+<span class="nc" id="L542">		fillX = x;</span>
+<span class="nc" id="L543">		fillY = y;</span>
+<span class="nc" id="L544">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1 if true, 0 if false. */
+	public Container&lt;T&gt; fill (boolean x, boolean y) {
+<span class="nc bnc" id="L549" title="All 2 branches missed.">		fillX = x ? 1f : 0;</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">		fillY = y ? 1f : 0;</span>
+<span class="nc" id="L551">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1 if true, 0 if false. */
+	public Container&lt;T&gt; fill (boolean fill) {
+<span class="nc bnc" id="L556" title="All 2 branches missed.">		fillX = fill ? 1f : 0;</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">		fillY = fill ? 1f : 0;</span>
+<span class="nc" id="L558">		return this;</span>
+	}
+
+	/** Sets the alignment of the actor within the container. Set to {@link Align#center}, {@link Align#top}, {@link Align#bottom},
+	 * {@link Align#left}, {@link Align#right}, or any combination of those. */
+	public Container&lt;T&gt; align (int align) {
+<span class="nc" id="L564">		this.align = align;</span>
+<span class="nc" id="L565">		return this;</span>
+	}
+
+	/** Sets the alignment of the actor within the container to {@link Align#center}. This clears any other alignment. */
+	public Container&lt;T&gt; center () {
+<span class="nc" id="L570">		align = Align.center;</span>
+<span class="nc" id="L571">		return this;</span>
+	}
+
+	/** Sets {@link Align#top} and clears {@link Align#bottom} for the alignment of the actor within the container. */
+	public Container&lt;T&gt; top () {
+<span class="nc" id="L576">		align |= Align.top;</span>
+<span class="nc" id="L577">		align &amp;= ~Align.bottom;</span>
+<span class="nc" id="L578">		return this;</span>
+	}
+
+	/** Sets {@link Align#left} and clears {@link Align#right} for the alignment of the actor within the container. */
+	public Container&lt;T&gt; left () {
+<span class="nc" id="L583">		align |= Align.left;</span>
+<span class="nc" id="L584">		align &amp;= ~Align.right;</span>
+<span class="nc" id="L585">		return this;</span>
+	}
+
+	/** Sets {@link Align#bottom} and clears {@link Align#top} for the alignment of the actor within the container. */
+	public Container&lt;T&gt; bottom () {
+<span class="nc" id="L590">		align |= Align.bottom;</span>
+<span class="nc" id="L591">		align &amp;= ~Align.top;</span>
+<span class="nc" id="L592">		return this;</span>
+	}
+
+	/** Sets {@link Align#right} and clears {@link Align#left} for the alignment of the actor within the container. */
+	public Container&lt;T&gt; right () {
+<span class="nc" id="L597">		align |= Align.right;</span>
+<span class="nc" id="L598">		align &amp;= ~Align.left;</span>
+<span class="nc" id="L599">		return this;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc" id="L603">		return minWidth.get(actor) + padLeft.get(this) + padRight.get(this);</span>
+	}
+
+	public Value getMinHeightValue () {
+<span class="nc" id="L607">		return minHeight;</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc" id="L611">		return minHeight.get(actor) + padTop.get(this) + padBottom.get(this);</span>
+	}
+
+	public Value getPrefWidthValue () {
+<span class="nc" id="L615">		return prefWidth;</span>
+	}
+
+	public float getPrefWidth () {
+<span class="nc" id="L619">		float v = prefWidth.get(actor);</span>
+<span class="nc bnc" id="L620" title="All 2 branches missed.">		if (background != null) v = Math.max(v, background.getMinWidth());</span>
+<span class="nc" id="L621">		return Math.max(getMinWidth(), v + padLeft.get(this) + padRight.get(this));</span>
+	}
+
+	public Value getPrefHeightValue () {
+<span class="nc" id="L625">		return prefHeight;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc" id="L629">		float v = prefHeight.get(actor);</span>
+<span class="nc bnc" id="L630" title="All 2 branches missed.">		if (background != null) v = Math.max(v, background.getMinHeight());</span>
+<span class="nc" id="L631">		return Math.max(getMinHeight(), v + padTop.get(this) + padBottom.get(this));</span>
+	}
+
+	public Value getMaxWidthValue () {
+<span class="nc" id="L635">		return maxWidth;</span>
+	}
+
+	public float getMaxWidth () {
+<span class="nc" id="L639">		float v = maxWidth.get(actor);</span>
+<span class="nc bnc" id="L640" title="All 2 branches missed.">		if (v &gt; 0) v += padLeft.get(this) + padRight.get(this);</span>
+<span class="nc" id="L641">		return v;</span>
+	}
+
+	public Value getMaxHeightValue () {
+<span class="nc" id="L645">		return maxHeight;</span>
+	}
+
+	public float getMaxHeight () {
+<span class="nc" id="L649">		float v = maxHeight.get(actor);</span>
+<span class="nc bnc" id="L650" title="All 2 branches missed.">		if (v &gt; 0) v += padTop.get(this) + padBottom.get(this);</span>
+<span class="nc" id="L651">		return v;</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadTopValue () {
+<span class="nc" id="L656">		return padTop;</span>
+	}
+
+	public float getPadTop () {
+<span class="nc" id="L660">		return padTop.get(this);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadLeftValue () {
+<span class="nc" id="L665">		return padLeft;</span>
+	}
+
+	public float getPadLeft () {
+<span class="nc" id="L669">		return padLeft.get(this);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadBottomValue () {
+<span class="nc" id="L674">		return padBottom;</span>
+	}
+
+	public float getPadBottom () {
+<span class="nc" id="L678">		return padBottom.get(this);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadRightValue () {
+<span class="nc" id="L683">		return padRight;</span>
+	}
+
+	public float getPadRight () {
+<span class="nc" id="L687">		return padRight.get(this);</span>
+	}
+
+	/** Returns {@link #getPadLeft()} plus {@link #getPadRight()}. */
+	public float getPadX () {
+<span class="nc" id="L692">		return padLeft.get(this) + padRight.get(this);</span>
+	}
+
+	/** Returns {@link #getPadTop()} plus {@link #getPadBottom()}. */
+	public float getPadY () {
+<span class="nc" id="L697">		return padTop.get(this) + padBottom.get(this);</span>
+	}
+
+	public float getFillX () {
+<span class="nc" id="L701">		return fillX;</span>
+	}
+
+	public float getFillY () {
+<span class="nc" id="L705">		return fillY;</span>
+	}
+
+	public int getAlign () {
+<span class="nc" id="L709">		return align;</span>
+	}
+
+	/** If true (the default), positions and sizes are rounded to integers. */
+	public void setRound (boolean round) {
+<span class="nc" id="L714">		this.round = round;</span>
+<span class="nc" id="L715">	}</span>
+
+	/** Causes the contents to be clipped if they exceed the container bounds. Enabling clipping will set
+	 * {@link #setTransform(boolean)} to true. */
+	public void setClip (boolean enabled) {
+<span class="nc" id="L720">		clip = enabled;</span>
+<span class="nc" id="L721">		setTransform(enabled);</span>
+<span class="nc" id="L722">		invalidate();</span>
+<span class="nc" id="L723">	}</span>
+
+	public boolean getClip () {
+<span class="nc" id="L726">		return clip;</span>
+	}
+
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L730" title="All 2 branches missed.">		if (clip) {</span>
+<span class="nc bnc" id="L731" title="All 4 branches missed.">			if (touchable &amp;&amp; getTouchable() == Touchable.disabled) return null;</span>
+<span class="nc bnc" id="L732" title="All 8 branches missed.">			if (x &lt; 0 || x &gt;= getWidth() || y &lt; 0 || y &gt;= getHeight()) return null;</span>
+		}
+<span class="nc" id="L734">		return super.hit(x, y, touchable);</span>
+	}
+
+	public void drawDebug (ShapeRenderer shapes) {
+<span class="nc" id="L738">		validate();</span>
+<span class="nc bnc" id="L739" title="All 2 branches missed.">		if (isTransform()) {</span>
+<span class="nc" id="L740">			applyTransform(shapes, computeTransform());</span>
+<span class="nc bnc" id="L741" title="All 2 branches missed.">			if (clip) {</span>
+<span class="nc" id="L742">				shapes.flush();</span>
+<span class="nc" id="L743">				float padLeft = this.padLeft.get(this), padBottom = this.padBottom.get(this);</span>
+<span class="nc bnc" id="L744" title="All 2 branches missed.">				boolean draw = background == null ? clipBegin(0, 0, getWidth(), getHeight())</span>
+<span class="nc" id="L745">					: clipBegin(padLeft, padBottom, getWidth() - padLeft - padRight.get(this),</span>
+<span class="nc" id="L746">						getHeight() - padBottom - padTop.get(this));</span>
+<span class="nc bnc" id="L747" title="All 2 branches missed.">				if (draw) {</span>
+<span class="nc" id="L748">					drawDebugChildren(shapes);</span>
+<span class="nc" id="L749">					clipEnd();</span>
+				}
+<span class="nc" id="L751">			} else</span>
+<span class="nc" id="L752">				drawDebugChildren(shapes);</span>
+<span class="nc" id="L753">			resetTransform(shapes);</span>
+		} else
+<span class="nc" id="L755">			super.drawDebug(shapes);</span>
+<span class="nc" id="L756">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

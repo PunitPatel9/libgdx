@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BatchTiledMapRenderer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.maps.tiled.renderers</a> &gt; <span class="el_source">BatchTiledMapRenderer.java</span></div><h1>BatchTiledMapRenderer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2013 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.maps.tiled.renderers;
+
+import static com.badlogic.gdx.graphics.g2d.Batch.C1;
+import static com.badlogic.gdx.graphics.g2d.Batch.C2;
+import static com.badlogic.gdx.graphics.g2d.Batch.C3;
+import static com.badlogic.gdx.graphics.g2d.Batch.C4;
+import static com.badlogic.gdx.graphics.g2d.Batch.U1;
+import static com.badlogic.gdx.graphics.g2d.Batch.U2;
+import static com.badlogic.gdx.graphics.g2d.Batch.U3;
+import static com.badlogic.gdx.graphics.g2d.Batch.U4;
+import static com.badlogic.gdx.graphics.g2d.Batch.V1;
+import static com.badlogic.gdx.graphics.g2d.Batch.V2;
+import static com.badlogic.gdx.graphics.g2d.Batch.V3;
+import static com.badlogic.gdx.graphics.g2d.Batch.V4;
+import static com.badlogic.gdx.graphics.g2d.Batch.X1;
+import static com.badlogic.gdx.graphics.g2d.Batch.X2;
+import static com.badlogic.gdx.graphics.g2d.Batch.X3;
+import static com.badlogic.gdx.graphics.g2d.Batch.X4;
+import static com.badlogic.gdx.graphics.g2d.Batch.Y1;
+import static com.badlogic.gdx.graphics.g2d.Batch.Y2;
+import static com.badlogic.gdx.graphics.g2d.Batch.Y3;
+import static com.badlogic.gdx.graphics.g2d.Batch.Y4;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.MapGroupLayer;
+import com.badlogic.gdx.maps.MapLayer;
+import com.badlogic.gdx.maps.MapLayers;
+import com.badlogic.gdx.maps.MapObject;
+import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapImageLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapRenderer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell;
+import com.badlogic.gdx.maps.tiled.tiles.AnimatedTiledMapTile;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Disposable;
+
+public abstract class BatchTiledMapRenderer implements TiledMapRenderer, Disposable {
+	static protected final int NUM_VERTICES = 20;
+	
+	protected TiledMap map;
+
+	protected float unitScale;
+
+	protected Batch batch;
+
+	protected Rectangle viewBounds;
+<span class="nc" id="L70">	protected Rectangle imageBounds = new Rectangle();</span>
+
+	protected boolean ownsBatch;
+
+<span class="nc" id="L74">	protected float vertices[] = new float[NUM_VERTICES];</span>
+
+	public TiledMap getMap () {
+<span class="nc" id="L77">		return map;</span>
+	}
+
+	public void setMap (TiledMap map) {
+<span class="nc" id="L81">		this.map = map;</span>
+<span class="nc" id="L82">	}</span>
+
+	public float getUnitScale () {
+<span class="nc" id="L85">		return unitScale;</span>
+	}
+
+	public Batch getBatch () {
+<span class="nc" id="L89">		return batch;</span>
+	}
+
+	public Rectangle getViewBounds () {
+<span class="nc" id="L93">		return viewBounds;</span>
+	}
+
+	public BatchTiledMapRenderer (TiledMap map) {
+<span class="nc" id="L97">		this(map, 1.0f);</span>
+<span class="nc" id="L98">	}</span>
+
+<span class="nc" id="L100">	public BatchTiledMapRenderer (TiledMap map, float unitScale) {</span>
+<span class="nc" id="L101">		this.map = map;</span>
+<span class="nc" id="L102">		this.unitScale = unitScale;</span>
+<span class="nc" id="L103">		this.viewBounds = new Rectangle();</span>
+<span class="nc" id="L104">		this.batch = new SpriteBatch();</span>
+<span class="nc" id="L105">		this.ownsBatch = true;</span>
+<span class="nc" id="L106">	}</span>
+
+	public BatchTiledMapRenderer (TiledMap map, Batch batch) {
+<span class="nc" id="L109">		this(map, 1.0f, batch);</span>
+<span class="nc" id="L110">	}</span>
+
+<span class="nc" id="L112">	public BatchTiledMapRenderer (TiledMap map, float unitScale, Batch batch) {</span>
+<span class="nc" id="L113">		this.map = map;</span>
+<span class="nc" id="L114">		this.unitScale = unitScale;</span>
+<span class="nc" id="L115">		this.viewBounds = new Rectangle();</span>
+<span class="nc" id="L116">		this.batch = batch;</span>
+<span class="nc" id="L117">		this.ownsBatch = false;</span>
+<span class="nc" id="L118">	}</span>
+
+	@Override
+	public void setView (OrthographicCamera camera) {
+<span class="nc" id="L122">		batch.setProjectionMatrix(camera.combined);</span>
+<span class="nc" id="L123">		float width = camera.viewportWidth * camera.zoom;</span>
+<span class="nc" id="L124">		float height = camera.viewportHeight * camera.zoom;</span>
+<span class="nc" id="L125">		float w = width * Math.abs(camera.up.y) + height * Math.abs(camera.up.x);</span>
+<span class="nc" id="L126">		float h = height * Math.abs(camera.up.y) + width * Math.abs(camera.up.x);</span>
+<span class="nc" id="L127">		viewBounds.set(camera.position.x - w / 2, camera.position.y - h / 2, w, h);</span>
+<span class="nc" id="L128">	}</span>
+
+	@Override
+	public void setView (Matrix4 projection, float x, float y, float width, float height) {
+<span class="nc" id="L132">		batch.setProjectionMatrix(projection);</span>
+<span class="nc" id="L133">		viewBounds.set(x, y, width, height);</span>
+<span class="nc" id="L134">	}</span>
+
+	@Override
+	public void render () {
+<span class="nc" id="L138">		beginRender();</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		for (MapLayer layer : map.getLayers()) {</span>
+<span class="nc" id="L140">			renderMapLayer(layer);</span>
+<span class="nc" id="L141">		}</span>
+<span class="nc" id="L142">		endRender();</span>
+<span class="nc" id="L143">	}</span>
+
+	@Override
+	public void render (int[] layers) {
+<span class="nc" id="L147">		beginRender();</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">		for (int layerIdx : layers) {</span>
+<span class="nc" id="L149">			MapLayer layer = map.getLayers().get(layerIdx);</span>
+<span class="nc" id="L150">			renderMapLayer(layer);</span>
+		}
+<span class="nc" id="L152">		endRender();</span>
+<span class="nc" id="L153">	}</span>
+
+	protected void renderMapLayer (MapLayer layer) {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		if (!layer.isVisible()) return;</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">		if (layer instanceof MapGroupLayer) {</span>
+<span class="nc" id="L158">			MapLayers childLayers = ((MapGroupLayer)layer).getLayers();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">			for (int i = 0; i &lt; childLayers.size(); i++) {</span>
+<span class="nc" id="L160">				MapLayer childLayer = childLayers.get(i);</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">				if (!childLayer.isVisible()) continue;</span>
+<span class="nc" id="L162">				renderMapLayer(childLayer);</span>
+			}
+<span class="nc" id="L164">		} else {</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">			if (layer instanceof TiledMapTileLayer) {</span>
+<span class="nc" id="L166">				renderTileLayer((TiledMapTileLayer)layer);</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">			} else if (layer instanceof TiledMapImageLayer) {</span>
+<span class="nc" id="L168">				renderImageLayer((TiledMapImageLayer)layer);</span>
+			} else {
+<span class="nc" id="L170">				renderObjects(layer);</span>
+			}
+		}
+<span class="nc" id="L173">	}</span>
+
+	@Override
+	public void renderObjects (MapLayer layer) {
+<span class="nc bnc" id="L177" title="All 2 branches missed.">		for (MapObject object : layer.getObjects()) {</span>
+<span class="nc" id="L178">			renderObject(object);</span>
+<span class="nc" id="L179">		}</span>
+<span class="nc" id="L180">	}</span>
+
+	@Override
+	public void renderObject (MapObject object) {
+
+<span class="nc" id="L185">	}</span>
+	
+	@Override
+	public void renderImageLayer (TiledMapImageLayer layer) {
+<span class="nc" id="L189">		final Color batchColor = batch.getColor();</span>
+<span class="nc" id="L190">		final float color = Color.toFloatBits(batchColor.r,</span>
+														  batchColor.g,
+														  batchColor.b,
+<span class="nc" id="L193">														  batchColor.a * layer.getOpacity());</span>
+		
+<span class="nc" id="L195">		final float[] vertices = this.vertices;</span>
+		
+<span class="nc" id="L197">		TextureRegion region = layer.getTextureRegion();</span>
+
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (region == null) {</span>
+<span class="nc" id="L200">			return;</span>
+		}
+		
+<span class="nc" id="L203">		final float x = layer.getX();</span>
+<span class="nc" id="L204">		final float y = layer.getY();</span>
+<span class="nc" id="L205">		final float x1 = x * unitScale;</span>
+<span class="nc" id="L206">		final float y1 = y * unitScale;</span>
+<span class="nc" id="L207">		final float x2 = x1 + region.getRegionWidth() * unitScale;</span>
+<span class="nc" id="L208">		final float y2 = y1 + region.getRegionHeight() * unitScale;</span>
+		
+<span class="nc" id="L210">		imageBounds.set(x1, y1, x2 - x1, y2 - y1);</span>
+		
+<span class="nc bnc" id="L212" title="All 4 branches missed.">		if (viewBounds.contains(imageBounds) || viewBounds.overlaps(imageBounds)) {</span>
+<span class="nc" id="L213">			final float u1 = region.getU();</span>
+<span class="nc" id="L214">			final float v1 = region.getV2();</span>
+<span class="nc" id="L215">			final float u2 = region.getU2();</span>
+<span class="nc" id="L216">			final float v2 = region.getV();</span>
+
+<span class="nc" id="L218">			vertices[X1] = x1;</span>
+<span class="nc" id="L219">			vertices[Y1] = y1;</span>
+<span class="nc" id="L220">			vertices[C1] = color;</span>
+<span class="nc" id="L221">			vertices[U1] = u1;</span>
+<span class="nc" id="L222">			vertices[V1] = v1;</span>
+
+<span class="nc" id="L224">			vertices[X2] = x1;</span>
+<span class="nc" id="L225">			vertices[Y2] = y2;</span>
+<span class="nc" id="L226">			vertices[C2] = color;</span>
+<span class="nc" id="L227">			vertices[U2] = u1;</span>
+<span class="nc" id="L228">			vertices[V2] = v2;</span>
+
+<span class="nc" id="L230">			vertices[X3] = x2;</span>
+<span class="nc" id="L231">			vertices[Y3] = y2;</span>
+<span class="nc" id="L232">			vertices[C3] = color;</span>
+<span class="nc" id="L233">			vertices[U3] = u2;</span>
+<span class="nc" id="L234">			vertices[V3] = v2;</span>
+
+<span class="nc" id="L236">			vertices[X4] = x2;</span>
+<span class="nc" id="L237">			vertices[Y4] = y1;</span>
+<span class="nc" id="L238">			vertices[C4] = color;</span>
+<span class="nc" id="L239">			vertices[U4] = u2;</span>
+<span class="nc" id="L240">			vertices[V4] = v1;</span>
+
+<span class="nc" id="L242">			batch.draw(region.getTexture(), vertices, 0, NUM_VERTICES);</span>
+		}
+<span class="nc" id="L244">	}</span>
+
+	/** Called before the rendering of all layers starts. */
+	protected void beginRender () {
+<span class="nc" id="L248">		AnimatedTiledMapTile.updateAnimationBaseTime();</span>
+<span class="nc" id="L249">		batch.begin();</span>
+<span class="nc" id="L250">	}</span>
+
+	/** Called after the rendering of all layers ended. */
+	protected void endRender () {
+<span class="nc" id="L254">		batch.end();</span>
+<span class="nc" id="L255">	}</span>
+
+	@Override
+	public void dispose () {
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		if (ownsBatch) {</span>
+<span class="nc" id="L260">			batch.dispose();</span>
+		}
+<span class="nc" id="L262">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ColorInfluencer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">ColorInfluencer.java</span></div><h1>ColorInfluencer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.values.GradientColorValue;
+import com.badlogic.gdx.graphics.g3d.particles.values.ScaledNumericValue;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** It's an {@link Influencer} which controls particles color and transparency.
+ * @author Inferno */
+<span class="nc" id="L29">public abstract class ColorInfluencer extends Influencer {</span>
+
+	/** It's an {@link Influencer} which assigns a random color when a particle is activated. */
+<span class="nc" id="L32">	public static class Random extends ColorInfluencer {</span>
+		FloatChannel colorChannel;
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L37">			colorChannel = controller.particles.addChannel(ParticleChannels.Color);</span>
+<span class="nc" id="L38">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L42" title="All 2 branches missed.">			for (int i = startIndex * colorChannel.strideSize, c = i + count * colorChannel.strideSize; i &lt; c; i += colorChannel.strideSize) {</span>
+<span class="nc" id="L43">				colorChannel.data[i + ParticleChannels.RedOffset] = MathUtils.random();</span>
+<span class="nc" id="L44">				colorChannel.data[i + ParticleChannels.GreenOffset] = MathUtils.random();</span>
+<span class="nc" id="L45">				colorChannel.data[i + ParticleChannels.BlueOffset] = MathUtils.random();</span>
+<span class="nc" id="L46">				colorChannel.data[i + ParticleChannels.AlphaOffset] = MathUtils.random();</span>
+			}
+<span class="nc" id="L48">		}</span>
+
+		@Override
+		public Random copy () {
+<span class="nc" id="L52">			return new Random();</span>
+		}
+	}
+
+	/** It's an {@link Influencer} which manages the particle color during its life time. */
+	public static class Single extends ColorInfluencer {
+		FloatChannel alphaInterpolationChannel;
+		FloatChannel lifeChannel;
+		public ScaledNumericValue alphaValue;
+		public GradientColorValue colorValue;
+
+<span class="nc" id="L63">		public Single () {</span>
+<span class="nc" id="L64">			colorValue = new GradientColorValue();</span>
+<span class="nc" id="L65">			alphaValue = new ScaledNumericValue();</span>
+<span class="nc" id="L66">			alphaValue.setHigh(1);</span>
+<span class="nc" id="L67">		}</span>
+
+		public Single (Single billboardColorInfluencer) {
+<span class="nc" id="L70">			this();</span>
+<span class="nc" id="L71">			set(billboardColorInfluencer);</span>
+<span class="nc" id="L72">		}</span>
+
+		public void set (Single colorInfluencer) {
+<span class="nc" id="L75">			this.colorValue.load(colorInfluencer.colorValue);</span>
+<span class="nc" id="L76">			this.alphaValue.load(colorInfluencer.alphaValue);</span>
+<span class="nc" id="L77">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L81">			super.allocateChannels();</span>
+			// Hack this allows to share the channel descriptor structure but using a different id temporary
+<span class="nc" id="L83">			ParticleChannels.Interpolation.id = controller.particleChannels.newId();</span>
+<span class="nc" id="L84">			alphaInterpolationChannel = controller.particles.addChannel(ParticleChannels.Interpolation);</span>
+<span class="nc" id="L85">			lifeChannel = controller.particles.addChannel(ParticleChannels.Life);</span>
+<span class="nc" id="L86">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc" id="L90">			for (int i = startIndex * colorChannel.strideSize, a = startIndex * alphaInterpolationChannel.strideSize, l = startIndex</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">				* lifeChannel.strideSize + ParticleChannels.LifePercentOffset, c = i + count * colorChannel.strideSize; i &lt; c; i += colorChannel.strideSize, a += alphaInterpolationChannel.strideSize, l += lifeChannel.strideSize) {</span>
+<span class="nc" id="L92">				float alphaStart = alphaValue.newLowValue();</span>
+<span class="nc" id="L93">				float alphaDiff = alphaValue.newHighValue() - alphaStart;</span>
+<span class="nc" id="L94">				colorValue.getColor(0, colorChannel.data, i);</span>
+<span class="nc" id="L95">				colorChannel.data[i + ParticleChannels.AlphaOffset] = alphaStart + alphaDiff</span>
+<span class="nc" id="L96">					* alphaValue.getScale(lifeChannel.data[l]);</span>
+<span class="nc" id="L97">				alphaInterpolationChannel.data[a + ParticleChannels.InterpolationStartOffset] = alphaStart;</span>
+<span class="nc" id="L98">				alphaInterpolationChannel.data[a + ParticleChannels.InterpolationDiffOffset] = alphaDiff;</span>
+			}
+<span class="nc" id="L100">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L104">			for (int i = 0, a = 0, l = ParticleChannels.LifePercentOffset, c = i + controller.particles.size</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">				* colorChannel.strideSize; i &lt; c; i += colorChannel.strideSize, a += alphaInterpolationChannel.strideSize, l += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L107">				float lifePercent = lifeChannel.data[l];</span>
+<span class="nc" id="L108">				colorValue.getColor(lifePercent, colorChannel.data, i);</span>
+<span class="nc" id="L109">				colorChannel.data[i + ParticleChannels.AlphaOffset] = alphaInterpolationChannel.data[a</span>
+					+ ParticleChannels.InterpolationStartOffset]
+<span class="nc" id="L111">					+ alphaInterpolationChannel.data[a + ParticleChannels.InterpolationDiffOffset] * alphaValue.getScale(lifePercent);</span>
+			}
+<span class="nc" id="L113">		}</span>
+
+		@Override
+		public Single copy () {
+<span class="nc" id="L117">			return new Single(this);</span>
+		}
+
+		@Override
+		public void write (Json json) {
+<span class="nc" id="L122">			json.writeValue(&quot;alpha&quot;, alphaValue);</span>
+<span class="nc" id="L123">			json.writeValue(&quot;color&quot;, colorValue);</span>
+<span class="nc" id="L124">		}</span>
+
+		@Override
+		public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L128">			alphaValue = json.readValue(&quot;alpha&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L129">			colorValue = json.readValue(&quot;color&quot;, GradientColorValue.class, jsonData);</span>
+<span class="nc" id="L130">		}</span>
+	}
+
+	FloatChannel colorChannel;
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L137">		colorChannel = controller.particles.addChannel(ParticleChannels.Color);</span>
+<span class="nc" id="L138">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

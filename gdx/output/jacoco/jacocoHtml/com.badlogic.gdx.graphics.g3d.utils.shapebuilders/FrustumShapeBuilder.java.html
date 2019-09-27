@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FrustumShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">FrustumShapeBuilder.java</span></div><h1>FrustumShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.math.Frustum;
+import com.badlogic.gdx.math.Vector3;
+
+/** FrustumShapeBuilder builds camera or frustum.
+ * 
+ * @author realitix */
+<span class="nc" id="L28">public class FrustumShapeBuilder extends BaseShapeBuilder {</span>
+
+	/** Build camera with default colors
+	 * @param builder MeshPartBuilder
+	 * @param camera Camera */
+	public static void build (MeshPartBuilder builder, Camera camera) {
+<span class="nc" id="L34">		build(builder, camera, tmpColor0.set(1, 0.66f, 0, 1), tmpColor1.set(1, 0, 0, 1), tmpColor2.set(0, 0.66f, 1, 1),</span>
+<span class="nc" id="L35">			tmpColor3.set(1, 1, 1, 1), tmpColor4.set(0.2f, 0.2f, 0.2f, 1));</span>
+<span class="nc" id="L36">	}</span>
+
+	/** Build Camera with custom colors
+	 * @param builder
+	 * @param camera
+	 * @param frustumColor
+	 * @param coneColor
+	 * @param upColor
+	 * @param targetColor
+	 * @param crossColor */
+	public static void build (MeshPartBuilder builder, Camera camera, Color frustumColor, Color coneColor, Color upColor,
+		Color targetColor, Color crossColor) {
+<span class="nc" id="L48">		Vector3[] planePoints = camera.frustum.planePoints;</span>
+
+		// Frustum
+<span class="nc" id="L51">		build(builder, camera.frustum, frustumColor, crossColor);</span>
+
+		// Cones (camera position to near plane)
+<span class="nc" id="L54">		builder.line(planePoints[0], coneColor, camera.position, coneColor);</span>
+<span class="nc" id="L55">		builder.line(planePoints[1], coneColor, camera.position, coneColor);</span>
+<span class="nc" id="L56">		builder.line(planePoints[2], coneColor, camera.position, coneColor);</span>
+<span class="nc" id="L57">		builder.line(planePoints[3], coneColor, camera.position, coneColor);</span>
+
+		// Target line
+<span class="nc" id="L60">		builder.line(camera.position, targetColor, centerPoint(planePoints[4], planePoints[5], planePoints[6]), targetColor);</span>
+
+		// Up triangle
+<span class="nc" id="L63">		float halfNearSize = tmpV0.set(planePoints[1]).sub(planePoints[0]).scl(0.5f).len();</span>
+<span class="nc" id="L64">		Vector3 centerNear = centerPoint(planePoints[0], planePoints[1], planePoints[2]);</span>
+<span class="nc" id="L65">		tmpV0.set(camera.up).scl(halfNearSize * 2);</span>
+<span class="nc" id="L66">		centerNear.add(tmpV0);</span>
+
+<span class="nc" id="L68">		builder.line(centerNear, upColor, planePoints[2], upColor);</span>
+<span class="nc" id="L69">		builder.line(planePoints[2], upColor, planePoints[3], upColor);</span>
+<span class="nc" id="L70">		builder.line(planePoints[3], upColor, centerNear, upColor);</span>
+<span class="nc" id="L71">	}</span>
+
+	/** Build Frustum with custom colors
+	 * @param builder
+	 * @param frustum
+	 * @param frustumColor
+	 * @param crossColor */
+	public static void build (MeshPartBuilder builder, Frustum frustum, Color frustumColor, Color crossColor) {
+<span class="nc" id="L79">		Vector3[] planePoints = frustum.planePoints;</span>
+
+		// Near
+<span class="nc" id="L82">		builder.line(planePoints[0], frustumColor, planePoints[1], frustumColor);</span>
+<span class="nc" id="L83">		builder.line(planePoints[1], frustumColor, planePoints[2], frustumColor);</span>
+<span class="nc" id="L84">		builder.line(planePoints[2], frustumColor, planePoints[3], frustumColor);</span>
+<span class="nc" id="L85">		builder.line(planePoints[3], frustumColor, planePoints[0], frustumColor);</span>
+
+		// Far
+<span class="nc" id="L88">		builder.line(planePoints[4], frustumColor, planePoints[5], frustumColor);</span>
+<span class="nc" id="L89">		builder.line(planePoints[5], frustumColor, planePoints[6], frustumColor);</span>
+<span class="nc" id="L90">		builder.line(planePoints[6], frustumColor, planePoints[7], frustumColor);</span>
+<span class="nc" id="L91">		builder.line(planePoints[7], frustumColor, planePoints[4], frustumColor);</span>
+
+		// Sides
+<span class="nc" id="L94">		builder.line(planePoints[0], frustumColor, planePoints[4], frustumColor);</span>
+<span class="nc" id="L95">		builder.line(planePoints[1], frustumColor, planePoints[5], frustumColor);</span>
+<span class="nc" id="L96">		builder.line(planePoints[2], frustumColor, planePoints[6], frustumColor);</span>
+<span class="nc" id="L97">		builder.line(planePoints[3], frustumColor, planePoints[7], frustumColor);</span>
+
+		// Cross near
+<span class="nc" id="L100">		builder.line(middlePoint(planePoints[1], planePoints[0]), crossColor, middlePoint(planePoints[3], planePoints[2]),</span>
+			crossColor);
+<span class="nc" id="L102">		builder.line(middlePoint(planePoints[2], planePoints[1]), crossColor, middlePoint(planePoints[3], planePoints[0]),</span>
+			crossColor);
+
+		// Cross far
+<span class="nc" id="L106">		builder.line(middlePoint(planePoints[5], planePoints[4]), crossColor, middlePoint(planePoints[7], planePoints[6]),</span>
+			crossColor);
+<span class="nc" id="L108">		builder.line(middlePoint(planePoints[6], planePoints[5]), crossColor, middlePoint(planePoints[7], planePoints[4]),</span>
+			crossColor);
+<span class="nc" id="L110">	}</span>
+
+	/** Return middle point's segment
+	 * @param point0 First segment's point
+	 * @param point1 Second segment's point
+	 * @return the middle point */
+	private static Vector3 middlePoint (Vector3 point0, Vector3 point1) {
+<span class="nc" id="L117">		tmpV0.set(point1).sub(point0).scl(0.5f);</span>
+<span class="nc" id="L118">		return tmpV1.set(point0).add(tmpV0);</span>
+	}
+
+	/** Return center point's rectangle
+	 * @param point0
+	 * @param point1
+	 * @param point2
+	 * @return the center point */
+	private static Vector3 centerPoint (Vector3 point0, Vector3 point1, Vector3 point2) {
+<span class="nc" id="L127">		tmpV0.set(point1).sub(point0).scl(0.5f);</span>
+<span class="nc" id="L128">		tmpV1.set(point0).add(tmpV0);</span>
+<span class="nc" id="L129">		tmpV0.set(point2).sub(point1).scl(0.5f);</span>
+<span class="nc" id="L130">		return tmpV1.add(tmpV0);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VertexAttribute.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics</a> &gt; <span class="el_source">VertexAttribute.java</span></div><h1>VertexAttribute.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics;
+
+import java.nio.FloatBuffer;
+
+
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.graphics.glutils.VertexArray;
+
+/** A single vertex attribute defined by its {@link Usage}, its number of components and its shader alias. The Usage is used
+ * for uniquely identifying the vertex attribute from among its {@linkplain VertexAttributes} siblings. The number of components 
+ * defines how many components the attribute has. The alias defines to which shader attribute this attribute should bind. The alias 
+ * is used by a {@link Mesh} when drawing with a {@link ShaderProgram}. The alias can be changed at any time.
+ * 
+ * @author mzechner */
+public final class VertexAttribute {
+	/** The attribute {@link Usage}, used for identification. **/
+	public final int usage;
+	/** the number of components this attribute has **/
+	public final int numComponents;
+	/** For fixed types, whether the values are normalized to either -1f and +1f (signed) or 0f and +1f (unsigned) */
+	public final boolean normalized;
+	/** the OpenGL type of each component, e.g. {@link GL20#GL_FLOAT} or {@link GL20#GL_UNSIGNED_BYTE}  */
+	public final int type;
+	/** the offset of this attribute in bytes, don't change this! **/
+	public int offset;
+	/** the alias for the attribute used in a {@link ShaderProgram} **/
+	public String alias;
+	/** optional unit/index specifier, used for texture coordinates and bone weights **/
+	public int unit;
+	private final int usageIndex;
+
+	/** Constructs a new VertexAttribute. The GL data type is automatically selected based on the usage.
+	 * 
+	 * @param usage The attribute {@link Usage}, used to select the {@link #type} and for identification.
+	 * @param numComponents the number of components of this attribute, must be between 1 and 4.
+	 * @param alias the alias used in a shader for this attribute. Can be changed after construction. */
+	public VertexAttribute (int usage, int numComponents, String alias) {
+<span class="nc" id="L55">		this(usage, numComponents, alias, 0);</span>
+<span class="nc" id="L56">	}</span>
+
+	/** Constructs a new VertexAttribute. The GL data type is automatically selected based on the usage.
+	 * 
+	 * @param usage The attribute {@link Usage}, used to select the {@link #type} and for identification.
+	 * @param numComponents the number of components of this attribute, must be between 1 and 4.
+	 * @param alias the alias used in a shader for this attribute. Can be changed after construction.
+	 * @param unit Optional unit/index specifier, used for texture coordinates and bone weights */
+	public VertexAttribute (int usage, int numComponents, String alias, int unit) {
+<span class="nc bnc" id="L65" title="All 4 branches missed.">		this(usage, numComponents, usage == Usage.ColorPacked ? GL20.GL_UNSIGNED_BYTE : GL20.GL_FLOAT, </span>
+				usage == Usage.ColorPacked, alias, unit);
+<span class="nc" id="L67">	}</span>
+
+	/** Constructs a new VertexAttribute.
+	 * 
+	 * @param usage The attribute {@link Usage}, used for identification.
+	 * @param numComponents the number of components of this attribute, must be between 1 and 4.
+	 * @param type the OpenGL type of each component, e.g. {@link GL20#GL_FLOAT} or {@link GL20#GL_UNSIGNED_BYTE}. Since {@link Mesh}
+	 * stores vertex data in 32bit floats, the total size of this attribute (type size times number of components) must be a 
+	 * multiple of four.
+	 * @param normalized For fixed types, whether the values are normalized to either -1f and +1f (signed) or 0f and +1f (unsigned) 
+	 * @param alias The alias used in a shader for this attribute. Can be changed after construction. */
+	public VertexAttribute (int usage, int numComponents, int type, boolean normalized, String alias) {
+<span class="nc" id="L79">		this(usage, numComponents, type, normalized, alias, 0);</span>
+<span class="nc" id="L80">	}</span>
+	
+	/** Constructs a new VertexAttribute.
+	 * 
+	 * @param usage The attribute {@link Usage}, used for identification.
+	 * @param numComponents the number of components of this attribute, must be between 1 and 4.
+	 * @param type the OpenGL type of each component, e.g. {@link GL20#GL_FLOAT} or {@link GL20#GL_UNSIGNED_BYTE}. Since {@link Mesh}
+	 * stores vertex data in 32bit floats, the total size of this attribute (type size times number of components) must be a 
+	 * multiple of four bytes.
+	 * @param normalized For fixed types, whether the values are normalized to either -1f and +1f (signed) or 0f and +1f (unsigned) 
+	 * @param alias The alias used in a shader for this attribute. Can be changed after construction.
+	 * @param unit Optional unit/index specifier, used for texture coordinates and bone weights */
+<span class="nc" id="L92">	public VertexAttribute (int usage, int numComponents, int type, boolean normalized, String alias, int unit) {</span>
+<span class="nc" id="L93">		this.usage = usage;</span>
+<span class="nc" id="L94">		this.numComponents = numComponents;</span>
+<span class="nc" id="L95">		this.type = type;</span>
+<span class="nc" id="L96">		this.normalized = normalized;</span>
+<span class="nc" id="L97">		this.alias = alias;</span>
+<span class="nc" id="L98">		this.unit = unit;</span>
+<span class="nc" id="L99">		this.usageIndex = Integer.numberOfTrailingZeros(usage);</span>
+<span class="nc" id="L100">	}</span>
+	
+	/** @return A copy of this VertexAttribute with the same parameters. The {@link #offset} is not copied and must
+	 * be recalculated, as is typically done by the {@linkplain VertexAttributes} that owns the VertexAttribute. */
+	public VertexAttribute copy (){
+<span class="nc" id="L105">		return new VertexAttribute(usage, numComponents, type, normalized, alias, unit);</span>
+	}
+
+	public static VertexAttribute Position () {
+<span class="nc" id="L109">		return new VertexAttribute(Usage.Position, 3, ShaderProgram.POSITION_ATTRIBUTE);</span>
+	}
+
+	public static VertexAttribute TexCoords (int unit) {
+<span class="nc" id="L113">		return new VertexAttribute(Usage.TextureCoordinates, 2, ShaderProgram.TEXCOORD_ATTRIBUTE + unit, unit);</span>
+	}
+
+	public static VertexAttribute Normal () {
+<span class="nc" id="L117">		return new VertexAttribute(Usage.Normal, 3, ShaderProgram.NORMAL_ATTRIBUTE);</span>
+	}
+	
+	public static VertexAttribute ColorPacked () {
+<span class="nc" id="L121">		return new VertexAttribute(Usage.ColorPacked, 4, GL20.GL_UNSIGNED_BYTE, true, ShaderProgram.COLOR_ATTRIBUTE);</span>
+	}
+
+	public static VertexAttribute ColorUnpacked () {
+<span class="nc" id="L125">		return new VertexAttribute(Usage.ColorUnpacked, 4, GL20.GL_FLOAT, false, ShaderProgram.COLOR_ATTRIBUTE);</span>
+	}
+
+	public static VertexAttribute Tangent () {
+<span class="nc" id="L129">		return new VertexAttribute(Usage.Tangent, 3, ShaderProgram.TANGENT_ATTRIBUTE);</span>
+	}
+
+	public static VertexAttribute Binormal () {
+<span class="nc" id="L133">		return new VertexAttribute(Usage.BiNormal, 3, ShaderProgram.BINORMAL_ATTRIBUTE);</span>
+	}
+
+	public static VertexAttribute BoneWeight (int unit) {
+<span class="nc" id="L137">		return new VertexAttribute(Usage.BoneWeight, 2, ShaderProgram.BONEWEIGHT_ATTRIBUTE + unit, unit);</span>
+	}
+
+	/** Tests to determine if the passed object was created with the same parameters */
+	@Override
+	public boolean equals (final Object obj) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		if (!(obj instanceof VertexAttribute)) {</span>
+<span class="nc" id="L144">			return false;</span>
+		}
+<span class="nc" id="L146">		return equals((VertexAttribute)obj);</span>
+	}
+
+	public boolean equals (final VertexAttribute other) {
+<span class="nc bnc" id="L150" title="All 10 branches missed.">		return other != null &amp;&amp; usage == other.usage &amp;&amp; numComponents == other.numComponents </span>
+<span class="nc bnc" id="L151" title="All 4 branches missed.">			&amp;&amp; type == other.type &amp;&amp; normalized == other.normalized &amp;&amp; alias.equals(other.alias)</span>
+			&amp;&amp; unit == other.unit;
+	}
+
+	/** @return A unique number specifying the usage index (3 MSB) and unit (1 LSB). */
+	public int getKey () {
+<span class="nc" id="L157">		return (usageIndex &lt;&lt; 8) + (unit &amp; 0xFF);</span>
+	}
+	
+	/** @return How many bytes this attribute uses. */
+	public int getSizeInBytes () {
+<span class="nc bnc" id="L162" title="All 4 branches missed.">		switch (type) {</span>
+		case GL20.GL_FLOAT:
+		case GL20.GL_FIXED:
+<span class="nc" id="L165">			return 4 * numComponents;</span>
+		case GL20.GL_UNSIGNED_BYTE:
+		case GL20.GL_BYTE:
+<span class="nc" id="L168">			return numComponents;</span>
+		case GL20.GL_UNSIGNED_SHORT:
+		case GL20.GL_SHORT:
+<span class="nc" id="L171">			return 2 * numComponents;</span>
+		}
+<span class="nc" id="L173">		return 0;</span>
+	}
+
+	@Override
+	public int hashCode () {
+<span class="nc" id="L178">		int result = getKey();</span>
+<span class="nc" id="L179">		result = 541 * result + numComponents;</span>
+<span class="nc" id="L180">		result = 541 * result + alias.hashCode();</span>
+<span class="nc" id="L181">		return result;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

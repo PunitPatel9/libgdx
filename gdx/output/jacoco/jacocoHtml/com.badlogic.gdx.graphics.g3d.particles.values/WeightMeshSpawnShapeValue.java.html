@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WeightMeshSpawnShapeValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.values</a> &gt; <span class="el_source">WeightMeshSpawnShapeValue.java</span></div><h1>WeightMeshSpawnShapeValue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.values;
+
+import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.math.CumulativeDistribution;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
+
+/** Encapsulate the formulas to spawn a particle on a mesh shape dealing with not uniform area triangles.
+ * @author Inferno */
+public final class WeightMeshSpawnShapeValue extends MeshSpawnShapeValue {
+
+	private CumulativeDistribution&lt;Triangle&gt; distribution;
+
+	public WeightMeshSpawnShapeValue (WeightMeshSpawnShapeValue value) {
+<span class="nc" id="L32">		super(value);</span>
+<span class="nc" id="L33">		distribution = new CumulativeDistribution&lt;Triangle&gt;();</span>
+<span class="nc" id="L34">		load(value);</span>
+<span class="nc" id="L35">	}</span>
+
+	public WeightMeshSpawnShapeValue () {
+<span class="nc" id="L38">		super();</span>
+<span class="nc" id="L39">		distribution = new CumulativeDistribution&lt;Triangle&gt;();</span>
+<span class="nc" id="L40">	}</span>
+
+	@Override
+	public void init () {
+<span class="nc" id="L44">		calculateWeights();</span>
+<span class="nc" id="L45">	}</span>
+
+	/** Calculate the weights of each triangle of the wrapped mesh. If the mesh has indices: the function will calculate the weight
+	 * of those triangles. If the mesh has not indices: the function will consider the vertices as a triangle strip. */
+	public void calculateWeights () {
+<span class="nc" id="L50">		distribution.clear();</span>
+<span class="nc" id="L51">		VertexAttributes attributes = mesh.getVertexAttributes();</span>
+<span class="nc" id="L52">		int indicesCount = mesh.getNumIndices();</span>
+<span class="nc" id="L53">		int vertexCount = mesh.getNumVertices();</span>
+<span class="nc" id="L54">		int vertexSize = (short)(attributes.vertexSize / 4), positionOffset = (short)(attributes.findByUsage(Usage.Position).offset / 4);</span>
+<span class="nc" id="L55">		float[] vertices = new float[vertexCount * vertexSize];</span>
+<span class="nc" id="L56">		mesh.getVertices(vertices);</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">		if (indicesCount &gt; 0) {</span>
+<span class="nc" id="L58">			short[] indices = new short[indicesCount];</span>
+<span class="nc" id="L59">			mesh.getIndices(indices);</span>
+
+			// Calculate the Area
+<span class="nc bnc" id="L62" title="All 2 branches missed.">			for (int i = 0; i &lt; indicesCount; i += 3) {</span>
+<span class="nc" id="L63">				int p1Offset = indices[i] * vertexSize + positionOffset, p2Offset = indices[i + 1] * vertexSize + positionOffset, p3Offset = indices[i + 2]</span>
+					* vertexSize + positionOffset;
+<span class="nc" id="L65">				float x1 = vertices[p1Offset], y1 = vertices[p1Offset + 1], z1 = vertices[p1Offset + 2], x2 = vertices[p2Offset], y2 = vertices[p2Offset + 1], z2 = vertices[p2Offset + 2], x3 = vertices[p3Offset], y3 = vertices[p3Offset + 1], z3 = vertices[p3Offset + 2];</span>
+<span class="nc" id="L66">				float area = Math.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2f);</span>
+<span class="nc" id="L67">				distribution.add(new Triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3), area);</span>
+			}
+<span class="nc" id="L69">		} else {</span>
+			// Calculate the Area
+<span class="nc bnc" id="L71" title="All 2 branches missed.">			for (int i = 0; i &lt; vertexCount; i += vertexSize) {</span>
+<span class="nc" id="L72">				int p1Offset = i + positionOffset, p2Offset = p1Offset + vertexSize, p3Offset = p2Offset + vertexSize;</span>
+<span class="nc" id="L73">				float x1 = vertices[p1Offset], y1 = vertices[p1Offset + 1], z1 = vertices[p1Offset + 2], x2 = vertices[p2Offset], y2 = vertices[p2Offset + 1], z2 = vertices[p2Offset + 2], x3 = vertices[p3Offset], y3 = vertices[p3Offset + 1], z3 = vertices[p3Offset + 2];</span>
+<span class="nc" id="L74">				float area = Math.abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2f);</span>
+<span class="nc" id="L75">				distribution.add(new Triangle(x1, y1, z1, x2, y2, z2, x3, y3, z3), area);</span>
+			}
+		}
+
+		// Generate cumulative distribution
+<span class="nc" id="L80">		distribution.generateNormalized();</span>
+<span class="nc" id="L81">	}</span>
+
+	@Override
+	public void spawnAux (Vector3 vector, float percent) {
+<span class="nc" id="L85">		Triangle t = distribution.value();</span>
+<span class="nc" id="L86">		float a = MathUtils.random(), b = MathUtils.random();</span>
+<span class="nc" id="L87">		vector.set(t.x1 + a * (t.x2 - t.x1) + b * (t.x3 - t.x1), t.y1 + a * (t.y2 - t.y1) + b * (t.y3 - t.y1), t.z1 + a</span>
+			* (t.z2 - t.z1) + b * (t.z3 - t.z1));
+<span class="nc" id="L89">	}</span>
+
+	@Override
+	public SpawnShapeValue copy () {
+<span class="nc" id="L93">		return new WeightMeshSpawnShapeValue(this);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Label.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Label.java</span></div><h1>Label.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.BitmapFontCache;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.StringBuilder;
+
+/** A text label, with optional word wrapping.
+ * &lt;p&gt;
+ * The preferred size of the label is determined by the actual text bounds, unless {@link #setWrap(boolean) word wrap} is enabled.
+ * @author Nathan Sweet */
+public class Label extends Widget {
+<span class="nc" id="L34">	static private final Color tempColor = new Color();</span>
+<span class="nc" id="L35">	static private final GlyphLayout prefSizeLayout = new GlyphLayout();</span>
+
+	private LabelStyle style;
+<span class="nc" id="L38">	private final GlyphLayout layout = new GlyphLayout();</span>
+<span class="nc" id="L39">	private final Vector2 prefSize = new Vector2();</span>
+<span class="nc" id="L40">	private final StringBuilder text = new StringBuilder();</span>
+<span class="nc" id="L41">	private int intValue = Integer.MIN_VALUE;</span>
+	private BitmapFontCache cache;
+<span class="nc" id="L43">	private int labelAlign = Align.left;</span>
+<span class="nc" id="L44">	private int lineAlign = Align.left;</span>
+	private boolean wrap;
+	private float lastPrefHeight;
+<span class="nc" id="L47">	private boolean prefSizeInvalid = true;</span>
+<span class="nc" id="L48">	private float fontScaleX = 1, fontScaleY = 1;</span>
+<span class="nc" id="L49">	private boolean fontScaleChanged = false;</span>
+	private String ellipsis;
+
+	public Label (CharSequence text, Skin skin) {
+<span class="nc" id="L53">		this(text, skin.get(LabelStyle.class));</span>
+<span class="nc" id="L54">	}</span>
+
+	public Label (CharSequence text, Skin skin, String styleName) {
+<span class="nc" id="L57">		this(text, skin.get(styleName, LabelStyle.class));</span>
+<span class="nc" id="L58">	}</span>
+
+	/** Creates a label, using a {@link LabelStyle} that has a BitmapFont with the specified name from the skin and the specified
+	 * color. */
+	public Label (CharSequence text, Skin skin, String fontName, Color color) {
+<span class="nc" id="L63">		this(text, new LabelStyle(skin.getFont(fontName), color));</span>
+<span class="nc" id="L64">	}</span>
+
+	/** Creates a label, using a {@link LabelStyle} that has a BitmapFont with the specified name and the specified color from the
+	 * skin. */
+	public Label (CharSequence text, Skin skin, String fontName, String colorName) {
+<span class="nc" id="L69">		this(text, new LabelStyle(skin.getFont(fontName), skin.getColor(colorName)));</span>
+<span class="nc" id="L70">	}</span>
+
+<span class="nc" id="L72">	public Label (CharSequence text, LabelStyle style) {</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">		if (text != null) this.text.append(text);</span>
+<span class="nc" id="L74">		setStyle(style);</span>
+<span class="nc bnc" id="L75" title="All 4 branches missed.">		if (text != null &amp;&amp; text.length() &gt; 0) setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L76">	}</span>
+
+	public void setStyle (LabelStyle style) {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null.&quot;);</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">		if (style.font == null) throw new IllegalArgumentException(&quot;Missing LabelStyle font.&quot;);</span>
+<span class="nc" id="L81">		this.style = style;</span>
+<span class="nc" id="L82">		cache = style.font.newFontCache();</span>
+<span class="nc" id="L83">		invalidateHierarchy();</span>
+<span class="nc" id="L84">	}</span>
+
+	/** Returns the label's style. Modifying the returned style may not have an effect until {@link #setStyle(LabelStyle)} is
+	 * called. */
+	public LabelStyle getStyle () {
+<span class="nc" id="L89">		return style;</span>
+	}
+
+	/** Sets the text to the specified integer value. If the text is already equivalent to the specified value, a string is not
+	 * allocated.
+	 * @return true if the text was changed. */
+	public boolean setText (int value) {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">		if (this.intValue == value) return false;</span>
+<span class="nc" id="L97">		setText(Integer.toString(value));</span>
+<span class="nc" id="L98">		intValue = value;</span>
+<span class="nc" id="L99">		return true;</span>
+	}
+
+	/** @param newText May be null, &quot;&quot; will be used. */
+	public void setText (CharSequence newText) {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">		if (newText == null) newText = &quot;&quot;;</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">		if (newText instanceof StringBuilder) {</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">			if (text.equals(newText)) return;</span>
+<span class="nc" id="L107">			text.setLength(0);</span>
+<span class="nc" id="L108">			text.append((StringBuilder)newText);</span>
+		} else {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">			if (textEquals(newText)) return;</span>
+<span class="nc" id="L111">			text.setLength(0);</span>
+<span class="nc" id="L112">			text.append(newText);</span>
+		}
+<span class="nc" id="L114">		intValue = Integer.MIN_VALUE;</span>
+<span class="nc" id="L115">		invalidateHierarchy();</span>
+<span class="nc" id="L116">	}</span>
+
+	public boolean textEquals (CharSequence other) {
+<span class="nc" id="L119">		int length = text.length;</span>
+<span class="nc" id="L120">		char[] chars = text.chars;</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (length != other.length()) return false;</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">		for (int i = 0; i &lt; length; i++)</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">			if (chars[i] != other.charAt(i)) return false;</span>
+<span class="nc" id="L124">		return true;</span>
+	}
+
+	public StringBuilder getText () {
+<span class="nc" id="L128">		return text;</span>
+	}
+
+	public void invalidate () {
+<span class="nc" id="L132">		super.invalidate();</span>
+<span class="nc" id="L133">		prefSizeInvalid = true;</span>
+<span class="nc" id="L134">	}</span>
+
+	private void scaleAndComputePrefSize () {
+<span class="nc" id="L137">		BitmapFont font = cache.getFont();</span>
+<span class="nc" id="L138">		float oldScaleX = font.getScaleX();</span>
+<span class="nc" id="L139">		float oldScaleY = font.getScaleY();</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">		if (fontScaleChanged) font.getData().setScale(fontScaleX, fontScaleY);</span>
+
+<span class="nc" id="L142">		computePrefSize();</span>
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		if (fontScaleChanged) font.getData().setScale(oldScaleX, oldScaleY);</span>
+<span class="nc" id="L145">	}</span>
+
+	private void computePrefSize () {
+<span class="nc" id="L148">		prefSizeInvalid = false;</span>
+<span class="nc" id="L149">		GlyphLayout prefSizeLayout = Label.prefSizeLayout;</span>
+<span class="nc bnc" id="L150" title="All 4 branches missed.">		if (wrap &amp;&amp; ellipsis == null) {</span>
+<span class="nc" id="L151">			float width = getWidth();</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			if (style.background != null) {</span>
+<span class="nc" id="L153">				width = Math.max(width, style.background.getMinWidth()) - style.background.getLeftWidth()</span>
+<span class="nc" id="L154">					- style.background.getRightWidth();</span>
+			}
+<span class="nc" id="L156">			prefSizeLayout.setText(cache.getFont(), text, Color.WHITE, width, Align.left, true);</span>
+<span class="nc" id="L157">		} else</span>
+<span class="nc" id="L158">			prefSizeLayout.setText(cache.getFont(), text);</span>
+<span class="nc" id="L159">		prefSize.set(prefSizeLayout.width, prefSizeLayout.height);</span>
+<span class="nc" id="L160">	}</span>
+
+	public void layout () {
+<span class="nc" id="L163">		BitmapFont font = cache.getFont();</span>
+<span class="nc" id="L164">		float oldScaleX = font.getScaleX();</span>
+<span class="nc" id="L165">		float oldScaleY = font.getScaleY();</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">		if (fontScaleChanged) font.getData().setScale(fontScaleX, fontScaleY);</span>
+
+<span class="nc bnc" id="L168" title="All 4 branches missed.">		boolean wrap = this.wrap &amp;&amp; ellipsis == null;</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (wrap) {</span>
+<span class="nc" id="L170">			float prefHeight = getPrefHeight();</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">			if (prefHeight != lastPrefHeight) {</span>
+<span class="nc" id="L172">				lastPrefHeight = prefHeight;</span>
+<span class="nc" id="L173">				invalidateHierarchy();</span>
+			}
+		}
+
+<span class="nc" id="L177">		float width = getWidth(), height = getHeight();</span>
+<span class="nc" id="L178">		Drawable background = style.background;</span>
+<span class="nc" id="L179">		float x = 0, y = 0;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">		if (background != null) {</span>
+<span class="nc" id="L181">			x = background.getLeftWidth();</span>
+<span class="nc" id="L182">			y = background.getBottomHeight();</span>
+<span class="nc" id="L183">			width -= background.getLeftWidth() + background.getRightWidth();</span>
+<span class="nc" id="L184">			height -= background.getBottomHeight() + background.getTopHeight();</span>
+		}
+
+<span class="nc" id="L187">		GlyphLayout layout = this.layout;</span>
+		float textWidth, textHeight;
+<span class="nc bnc" id="L189" title="All 4 branches missed.">		if (wrap || text.indexOf(&quot;\n&quot;) != -1) {</span>
+			// If the text can span multiple lines, determine the text's actual size so it can be aligned within the label.
+<span class="nc" id="L191">			layout.setText(font, text, 0, text.length, Color.WHITE, width, lineAlign, wrap, ellipsis);</span>
+<span class="nc" id="L192">			textWidth = layout.width;</span>
+<span class="nc" id="L193">			textHeight = layout.height;</span>
+
+<span class="nc bnc" id="L195" title="All 2 branches missed.">			if ((labelAlign &amp; Align.left) == 0) {</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">				if ((labelAlign &amp; Align.right) != 0)</span>
+<span class="nc" id="L197">					x += width - textWidth;</span>
+				else
+<span class="nc" id="L199">					x += (width - textWidth) / 2;</span>
+			}
+		} else {
+<span class="nc" id="L202">			textWidth = width;</span>
+<span class="nc" id="L203">			textHeight = font.getData().capHeight;</span>
+		}
+
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		if ((labelAlign &amp; Align.top) != 0) {</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">			y += cache.getFont().isFlipped() ? 0 : height - textHeight;</span>
+<span class="nc" id="L208">			y += style.font.getDescent();</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">		} else if ((labelAlign &amp; Align.bottom) != 0) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			y += cache.getFont().isFlipped() ? height - textHeight : 0;</span>
+<span class="nc" id="L211">			y -= style.font.getDescent();</span>
+		} else {
+<span class="nc" id="L213">			y += (height - textHeight) / 2;</span>
+		}
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (!cache.getFont().isFlipped()) y += textHeight;</span>
+
+<span class="nc" id="L217">		layout.setText(font, text, 0, text.length, Color.WHITE, textWidth, lineAlign, wrap, ellipsis);</span>
+<span class="nc" id="L218">		cache.setText(layout, x, y);</span>
+
+<span class="nc bnc" id="L220" title="All 2 branches missed.">		if (fontScaleChanged) font.getData().setScale(oldScaleX, oldScaleY);</span>
+<span class="nc" id="L221">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L224">		validate();</span>
+<span class="nc" id="L225">		Color color = tempColor.set(getColor());</span>
+<span class="nc" id="L226">		color.a *= parentAlpha;</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">		if (style.background != null) {</span>
+<span class="nc" id="L228">			batch.setColor(color.r, color.g, color.b, color.a);</span>
+<span class="nc" id="L229">			style.background.draw(batch, getX(), getY(), getWidth(), getHeight());</span>
+		}
+<span class="nc bnc" id="L231" title="All 2 branches missed.">		if (style.fontColor != null) color.mul(style.fontColor);</span>
+<span class="nc" id="L232">		cache.tint(color);</span>
+<span class="nc" id="L233">		cache.setPosition(getX(), getY());</span>
+<span class="nc" id="L234">		cache.draw(batch);</span>
+<span class="nc" id="L235">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">		if (wrap) return 0;</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">		if (prefSizeInvalid) scaleAndComputePrefSize();</span>
+<span class="nc" id="L240">		float width = prefSize.x;</span>
+<span class="nc" id="L241">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">		if (background != null)</span>
+<span class="nc" id="L243">			width = Math.max(width + background.getLeftWidth() + background.getRightWidth(), background.getMinWidth());</span>
+<span class="nc" id="L244">		return width;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L248" title="All 2 branches missed.">		if (prefSizeInvalid) scaleAndComputePrefSize();</span>
+<span class="nc" id="L249">		float descentScaleCorrection = 1;</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">		if (fontScaleChanged) descentScaleCorrection = fontScaleY / style.font.getScaleY();</span>
+<span class="nc" id="L251">		float height = prefSize.y - style.font.getDescent() * descentScaleCorrection * 2;</span>
+<span class="nc" id="L252">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">		if (background != null)</span>
+<span class="nc" id="L254">			height = Math.max(height + background.getTopHeight() + background.getBottomHeight(), background.getMinHeight());</span>
+<span class="nc" id="L255">		return height;</span>
+	}
+
+	public GlyphLayout getGlyphLayout () {
+<span class="nc" id="L259">		return layout;</span>
+	}
+
+	/** If false, the text will only wrap where it contains newlines (\n). The preferred size of the label will be the text bounds.
+	 * If true, the text will word wrap using the width of the label. The preferred width of the label will be 0, it is expected
+	 * that something external will set the width of the label. Wrapping will not occur when ellipsis is enabled. Default is false.
+	 * &lt;p&gt;
+	 * When wrap is enabled, the label's preferred height depends on the width of the label. In some cases the parent of the label
+	 * will need to layout twice: once to set the width of the label and a second time to adjust to the label's new preferred
+	 * height. */
+	public void setWrap (boolean wrap) {
+<span class="nc" id="L270">		this.wrap = wrap;</span>
+<span class="nc" id="L271">		invalidateHierarchy();</span>
+<span class="nc" id="L272">	}</span>
+
+	public int getLabelAlign () {
+<span class="nc" id="L275">		return labelAlign;</span>
+	}
+
+	public int getLineAlign () {
+<span class="nc" id="L279">		return lineAlign;</span>
+	}
+
+	/** @param alignment Aligns all the text within the label (default left center) and each line of text horizontally (default
+	 *           left).
+	 * @see Align */
+	public void setAlignment (int alignment) {
+<span class="nc" id="L286">		setAlignment(alignment, alignment);</span>
+<span class="nc" id="L287">	}</span>
+
+	/** @param labelAlign Aligns all the text within the label (default left center).
+	 * @param lineAlign Aligns each line of text horizontally (default left).
+	 * @see Align */
+	public void setAlignment (int labelAlign, int lineAlign) {
+<span class="nc" id="L293">		this.labelAlign = labelAlign;</span>
+
+<span class="nc bnc" id="L295" title="All 2 branches missed.">		if ((lineAlign &amp; Align.left) != 0)</span>
+<span class="nc" id="L296">			this.lineAlign = Align.left;</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">		else if ((lineAlign &amp; Align.right) != 0)</span>
+<span class="nc" id="L298">			this.lineAlign = Align.right;</span>
+		else
+<span class="nc" id="L300">			this.lineAlign = Align.center;</span>
+
+<span class="nc" id="L302">		invalidate();</span>
+<span class="nc" id="L303">	}</span>
+
+	public void setFontScale (float fontScale) {
+<span class="nc" id="L306">		setFontScale(fontScale, fontScale);</span>
+<span class="nc" id="L307">	}</span>
+
+	public void setFontScale (float fontScaleX, float fontScaleY) {
+<span class="nc" id="L310">		fontScaleChanged = true;</span>
+<span class="nc" id="L311">		this.fontScaleX = fontScaleX;</span>
+<span class="nc" id="L312">		this.fontScaleY = fontScaleY;</span>
+<span class="nc" id="L313">		invalidateHierarchy();</span>
+<span class="nc" id="L314">	}</span>
+
+	public float getFontScaleX () {
+<span class="nc" id="L317">		return fontScaleX;</span>
+	}
+
+	public void setFontScaleX (float fontScaleX) {
+<span class="nc" id="L321">		setFontScale(fontScaleX, fontScaleY);</span>
+<span class="nc" id="L322">	}</span>
+
+	public float getFontScaleY () {
+<span class="nc" id="L325">		return fontScaleY;</span>
+	}
+
+	public void setFontScaleY (float fontScaleY) {
+<span class="nc" id="L329">		setFontScale(fontScaleX, fontScaleY);</span>
+<span class="nc" id="L330">	}</span>
+
+	/** When non-null the text will be truncated &quot;...&quot; if it does not fit within the width of the label. Wrapping will not occur
+	 * when ellipsis is enabled. Default is false. */
+	public void setEllipsis (String ellipsis) {
+<span class="nc" id="L335">		this.ellipsis = ellipsis;</span>
+<span class="nc" id="L336">	}</span>
+
+	/** When true the text will be truncated &quot;...&quot; if it does not fit within the width of the label. Wrapping will not occur when
+	 * ellipsis is true. Default is false. */
+	public void setEllipsis (boolean ellipsis) {
+<span class="nc bnc" id="L341" title="All 2 branches missed.">		if (ellipsis)</span>
+<span class="nc" id="L342">			this.ellipsis = &quot;...&quot;;</span>
+		else
+<span class="nc" id="L344">			this.ellipsis = null;</span>
+<span class="nc" id="L345">	}</span>
+
+	/** Allows subclasses to access the cache in {@link #draw(Batch, float)}. */
+	protected BitmapFontCache getBitmapFontCache () {
+<span class="nc" id="L349">		return cache;</span>
+	}
+
+	public String toString () {
+<span class="nc" id="L353">		String name = getName();</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		if (name != null) return name;</span>
+<span class="nc" id="L355">		String className = getClass().getName();</span>
+<span class="nc" id="L356">		int dotIndex = className.lastIndexOf('.');</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">		if (dotIndex != -1) className = className.substring(dotIndex + 1);</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">		return (className.indexOf('$') != -1 ? &quot;Label &quot; : &quot;&quot;) + className + &quot;: &quot; + text;</span>
+	}
+
+	/** The style for a label, see {@link Label}.
+	 * @author Nathan Sweet */
+	static public class LabelStyle {
+		public BitmapFont font;
+		/** Optional. */
+		public Color fontColor;
+		/** Optional. */
+		public Drawable background;
+
+<span class="nc" id="L370">		public LabelStyle () {</span>
+<span class="nc" id="L371">		}</span>
+
+<span class="nc" id="L373">		public LabelStyle (BitmapFont font, Color fontColor) {</span>
+<span class="nc" id="L374">			this.font = font;</span>
+<span class="nc" id="L375">			this.fontColor = fontColor;</span>
+<span class="nc" id="L376">		}</span>
+
+<span class="nc" id="L378">		public LabelStyle (LabelStyle style) {</span>
+<span class="nc" id="L379">			this.font = style.font;</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">			if (style.fontColor != null) fontColor = new Color(style.fontColor);</span>
+<span class="nc" id="L381">			background = style.background;</span>
+<span class="nc" id="L382">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,665 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BillboardParticleBatch.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.batches</a> &gt; <span class="el_source">BillboardParticleBatch.java</span></div><h1>BillboardParticleBatch.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.batches;
+
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Mesh;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.graphics.g3d.Shader;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.DepthTestAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleShader;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleShader.AlignMode;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData.SaveData;
+import com.badlogic.gdx.graphics.g3d.particles.renderers.BillboardControllerRenderData;
+import com.badlogic.gdx.graphics.g3d.shaders.DefaultShader;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix3;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+
+/** This class is used to render billboard particles.
+ * @author Inferno */
+public class BillboardParticleBatch extends BufferedParticleBatch&lt;BillboardControllerRenderData&gt; {
+<span class="nc" id="L50">	protected static final Vector3 TMP_V1 = new Vector3(), TMP_V2 = new Vector3(), TMP_V3 = new Vector3(), TMP_V4 = new Vector3(),</span>
+<span class="nc" id="L51">		TMP_V5 = new Vector3(), TMP_V6 = new Vector3();</span>
+<span class="nc" id="L52">	protected static final Matrix3 TMP_M3 = new Matrix3();</span>
+	// Attributes
+	protected static final int sizeAndRotationUsage = 1 &lt;&lt; 9, directionUsage = 1 &lt;&lt; 10;
+<span class="nc" id="L55">	private static final VertexAttributes GPU_ATTRIBUTES = new VertexAttributes(new VertexAttribute(Usage.Position, 3,</span>
+		ShaderProgram.POSITION_ATTRIBUTE),
+		new VertexAttribute(Usage.TextureCoordinates, 2, ShaderProgram.TEXCOORD_ATTRIBUTE + &quot;0&quot;), new VertexAttribute(
+			Usage.ColorUnpacked, 4, ShaderProgram.COLOR_ATTRIBUTE),
+		new VertexAttribute(sizeAndRotationUsage, 4, &quot;a_sizeAndRotation&quot;)),
+	/*
+	 * GPU_EXT_ATTRIBUTES = new VertexAttributes(new VertexAttribute(Usage.Position, 3, ShaderProgram.POSITION_ATTRIBUTE), new
+	 * VertexAttribute(Usage.TextureCoordinates, 2, ShaderProgram.TEXCOORD_ATTRIBUTE+&quot;0&quot;), new VertexAttribute(Usage.Color, 4,
+	 * ShaderProgram.COLOR_ATTRIBUTE), new VertexAttribute(sizeAndRotationUsage, 4, &quot;a_sizeAndRotation&quot;), new
+	 * VertexAttribute(directionUsage, 3, &quot;a_direction&quot;)),
+	 */
+<span class="nc" id="L66">	CPU_ATTRIBUTES = new VertexAttributes(new VertexAttribute(Usage.Position, 3, ShaderProgram.POSITION_ATTRIBUTE),</span>
+		new VertexAttribute(Usage.TextureCoordinates, 2, ShaderProgram.TEXCOORD_ATTRIBUTE + &quot;0&quot;), new VertexAttribute(
+			Usage.ColorUnpacked, 4, ShaderProgram.COLOR_ATTRIBUTE));
+
+	// Offsets
+<span class="nc" id="L71">	private static final int GPU_POSITION_OFFSET = (short)(GPU_ATTRIBUTES.findByUsage(Usage.Position).offset / 4),</span>
+<span class="nc" id="L72">		GPU_UV_OFFSET = (short)(GPU_ATTRIBUTES.findByUsage(Usage.TextureCoordinates).offset / 4),</span>
+<span class="nc" id="L73">		GPU_SIZE_ROTATION_OFFSET = (short)(GPU_ATTRIBUTES.findByUsage(sizeAndRotationUsage).offset / 4),</span>
+<span class="nc" id="L74">		GPU_COLOR_OFFSET = (short)(GPU_ATTRIBUTES.findByUsage(Usage.ColorUnpacked).offset / 4),</span>
+<span class="nc" id="L75">		GPU_VERTEX_SIZE = GPU_ATTRIBUTES.vertexSize / 4,</span>
+
+		// Ext
+		/*
+		 * GPU_EXT_POSITION_OFFSET = (short)(GPU_EXT_ATTRIBUTES.findByUsage(Usage.Position).offset/4), GPU_EXT_UV_OFFSET =
+		 * (short)(GPU_EXT_ATTRIBUTES.findByUsage(Usage.TextureCoordinates).offset/4), GPU_EXT_SIZE_ROTATION_OFFSET =
+		 * (short)(GPU_EXT_ATTRIBUTES.findByUsage(sizeAndRotationUsage).offset/4), GPU_EXT_COLOR_OFFSET =
+		 * (short)(GPU_EXT_ATTRIBUTES.findByUsage(Usage.Color).offset/4), GPU_EXT_DIRECTION_OFFSET =
+		 * (short)(GPU_EXT_ATTRIBUTES.findByUsage(directionUsage).offset/4), GPU_EXT_VERTEX_SIZE = GPU_EXT_ATTRIBUTES.vertexSize/4,
+		 */
+
+		// Cpu
+<span class="nc" id="L87">		CPU_POSITION_OFFSET = (short)(CPU_ATTRIBUTES.findByUsage(Usage.Position).offset / 4),</span>
+<span class="nc" id="L88">		CPU_UV_OFFSET = (short)(CPU_ATTRIBUTES.findByUsage(Usage.TextureCoordinates).offset / 4),</span>
+<span class="nc" id="L89">		CPU_COLOR_OFFSET = (short)(CPU_ATTRIBUTES.findByUsage(Usage.ColorUnpacked).offset / 4),</span>
+<span class="nc" id="L90">		CPU_VERTEX_SIZE = CPU_ATTRIBUTES.vertexSize / 4;</span>
+	private final static int MAX_PARTICLES_PER_MESH = Short.MAX_VALUE / 4, MAX_VERTICES_PER_MESH = MAX_PARTICLES_PER_MESH * 4;
+
+	private class RenderablePool extends Pool&lt;Renderable&gt; {
+<span class="nc" id="L94">		public RenderablePool () {</span>
+<span class="nc" id="L95">		}</span>
+
+		@Override
+		public Renderable newObject () {
+<span class="nc" id="L99">			return allocRenderable();</span>
+		}
+	}
+
+	public static class Config {
+<span class="nc" id="L104">		public Config () {</span>
+<span class="nc" id="L105">		}</span>
+
+<span class="nc" id="L107">		public Config (boolean useGPU, AlignMode mode) {</span>
+<span class="nc" id="L108">			this.useGPU = useGPU;</span>
+<span class="nc" id="L109">			this.mode = mode;</span>
+<span class="nc" id="L110">		}</span>
+
+		boolean useGPU;
+		AlignMode mode;
+	}
+
+	private RenderablePool renderablePool;
+	private Array&lt;Renderable&gt; renderables;
+	private float[] vertices;
+	private short[] indices;
+<span class="nc" id="L120">	private int currentVertexSize = 0;</span>
+	private VertexAttributes currentAttributes;
+<span class="nc" id="L122">	protected boolean useGPU = false;</span>
+<span class="nc" id="L123">	protected AlignMode mode = AlignMode.Screen;</span>
+	protected Texture texture;
+	protected BlendingAttribute blendingAttribute;
+	protected DepthTestAttribute depthTestAttribute;
+	Shader shader;
+
+	/** Create a new BillboardParticleBatch
+	 * @param mode
+	 * @param useGPU Allow to use GPU instead of CPU
+	 * @param capacity Max particle displayed
+	 * @param blendingAttribute Blending attribute used by the batch
+	 * @param depthTestAttribute DepthTest attribute used by the batch */
+	public BillboardParticleBatch (AlignMode mode, boolean useGPU, int capacity, BlendingAttribute blendingAttribute,
+		DepthTestAttribute depthTestAttribute) {
+<span class="nc" id="L137">		super(BillboardControllerRenderData.class);</span>
+<span class="nc" id="L138">		renderables = new Array&lt;Renderable&gt;();</span>
+<span class="nc" id="L139">		renderablePool = new RenderablePool();</span>
+<span class="nc" id="L140">		this.blendingAttribute = blendingAttribute;</span>
+<span class="nc" id="L141">		this.depthTestAttribute = depthTestAttribute;</span>
+
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		if (this.blendingAttribute == null)</span>
+<span class="nc" id="L144">			this.blendingAttribute = new BlendingAttribute(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA, 1f);</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">		if (this.depthTestAttribute == null) this.depthTestAttribute = new DepthTestAttribute(GL20.GL_LEQUAL, false);</span>
+
+<span class="nc" id="L147">		allocIndices();</span>
+<span class="nc" id="L148">		initRenderData();</span>
+<span class="nc" id="L149">		ensureCapacity(capacity);</span>
+<span class="nc" id="L150">		setUseGpu(useGPU);</span>
+<span class="nc" id="L151">		setAlignMode(mode);</span>
+<span class="nc" id="L152">	}</span>
+
+	public BillboardParticleBatch (AlignMode mode, boolean useGPU, int capacity) {
+<span class="nc" id="L155">		this(mode, useGPU, capacity, null, null);</span>
+<span class="nc" id="L156">	}</span>
+
+	public BillboardParticleBatch () {
+<span class="nc" id="L159">		this(AlignMode.Screen, false, 100);</span>
+<span class="nc" id="L160">	}</span>
+
+	public BillboardParticleBatch (int capacity) {
+<span class="nc" id="L163">		this(AlignMode.Screen, false, capacity);</span>
+<span class="nc" id="L164">	}</span>
+
+	@Override
+	public void allocParticlesData (int capacity) {
+<span class="nc" id="L168">		vertices = new float[currentVertexSize * 4 * capacity];</span>
+<span class="nc" id="L169">		allocRenderables(capacity);</span>
+<span class="nc" id="L170">	}</span>
+
+	protected Renderable allocRenderable () {
+<span class="nc" id="L173">		Renderable renderable = new Renderable();</span>
+<span class="nc" id="L174">		renderable.meshPart.primitiveType = GL20.GL_TRIANGLES;</span>
+<span class="nc" id="L175">		renderable.meshPart.offset = 0;</span>
+<span class="nc" id="L176">		renderable.material = new Material(this.blendingAttribute, this.depthTestAttribute, TextureAttribute.createDiffuse(texture));</span>
+<span class="nc" id="L177">		renderable.meshPart.mesh = new Mesh(false, MAX_VERTICES_PER_MESH, MAX_PARTICLES_PER_MESH * 6, currentAttributes);</span>
+<span class="nc" id="L178">		renderable.meshPart.mesh.setIndices(indices);</span>
+<span class="nc" id="L179">		renderable.shader = shader;</span>
+<span class="nc" id="L180">		return renderable;</span>
+	}
+
+	private void allocIndices () {
+<span class="nc" id="L184">		int indicesCount = MAX_PARTICLES_PER_MESH * 6;</span>
+<span class="nc" id="L185">		indices = new short[indicesCount];</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">		for (int i = 0, vertex = 0; i &lt; indicesCount; i += 6, vertex += 4) {</span>
+<span class="nc" id="L187">			indices[i] = (short)vertex;</span>
+<span class="nc" id="L188">			indices[i + 1] = (short)(vertex + 1);</span>
+<span class="nc" id="L189">			indices[i + 2] = (short)(vertex + 2);</span>
+<span class="nc" id="L190">			indices[i + 3] = (short)(vertex + 2);</span>
+<span class="nc" id="L191">			indices[i + 4] = (short)(vertex + 3);</span>
+<span class="nc" id="L192">			indices[i + 5] = (short)vertex;</span>
+		}
+<span class="nc" id="L194">	}</span>
+
+	private void allocRenderables (int capacity) {
+		// Free old meshes
+<span class="nc" id="L198">		int meshCount = MathUtils.ceil(capacity / MAX_PARTICLES_PER_MESH), free = renderablePool.getFree();</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (free &lt; meshCount) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">			for (int i = 0, left = meshCount - free; i &lt; left; ++i)</span>
+<span class="nc" id="L201">				renderablePool.free(renderablePool.newObject());</span>
+		}
+<span class="nc" id="L203">	}</span>
+
+	protected Shader getShader (Renderable renderable) {
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		Shader shader = useGPU ? new ParticleShader(renderable, new ParticleShader.Config(mode)) : new DefaultShader(renderable);</span>
+<span class="nc" id="L207">		shader.init();</span>
+<span class="nc" id="L208">		return shader;</span>
+	}
+
+	private void allocShader () {
+<span class="nc" id="L212">		Renderable newRenderable = allocRenderable();</span>
+<span class="nc" id="L213">		shader = newRenderable.shader = getShader(newRenderable);</span>
+<span class="nc" id="L214">		renderablePool.free(newRenderable);</span>
+<span class="nc" id="L215">	}</span>
+
+	private void clearRenderablesPool () {
+<span class="nc" id="L218">		renderablePool.freeAll(renderables);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">		for (int i = 0, free = renderablePool.getFree(); i &lt; free; ++i) {</span>
+<span class="nc" id="L220">			Renderable renderable = renderablePool.obtain();</span>
+<span class="nc" id="L221">			renderable.meshPart.mesh.dispose();</span>
+		}
+<span class="nc" id="L223">		renderables.clear();</span>
+<span class="nc" id="L224">	}</span>
+
+	/** Sets vertex attributes and size */
+	public void setVertexData () {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">		if (useGPU) {</span>
+<span class="nc" id="L229">			currentAttributes = GPU_ATTRIBUTES;</span>
+<span class="nc" id="L230">			currentVertexSize = GPU_VERTEX_SIZE;</span>
+			/*
+			 * if(mode == AlignMode.ParticleDirection){ currentAttributes = GPU_EXT_ATTRIBUTES; currentVertexSize =
+			 * GPU_EXT_VERTEX_SIZE; } else{ currentAttributes = GPU_ATTRIBUTES; currentVertexSize = GPU_VERTEX_SIZE; }
+			 */
+		} else {
+<span class="nc" id="L236">			currentAttributes = CPU_ATTRIBUTES;</span>
+<span class="nc" id="L237">			currentVertexSize = CPU_VERTEX_SIZE;</span>
+		}
+<span class="nc" id="L239">	}</span>
+
+	/** Allocates all the require rendering resources like Renderables,Shaders,Meshes according to the current batch configuration. */
+	private void initRenderData () {
+<span class="nc" id="L243">		setVertexData();</span>
+<span class="nc" id="L244">		clearRenderablesPool();</span>
+<span class="nc" id="L245">		allocShader();</span>
+<span class="nc" id="L246">		resetCapacity();</span>
+<span class="nc" id="L247">	}</span>
+
+	/** Sets the current align mode. It will reallocate internal data, use only when necessary. */
+	public void setAlignMode (AlignMode mode) {
+<span class="nc bnc" id="L251" title="All 2 branches missed.">		if (mode != this.mode) {</span>
+<span class="nc" id="L252">			this.mode = mode;</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">			if (useGPU) {</span>
+<span class="nc" id="L254">				initRenderData();</span>
+<span class="nc" id="L255">				allocRenderables(bufferedParticlesCount);</span>
+			}
+		}
+<span class="nc" id="L258">	}</span>
+
+	public AlignMode getAlignMode () {
+<span class="nc" id="L261">		return mode;</span>
+	}
+
+	/** Sets the current align mode. It will reallocate internal data, use only when necessary. */
+	public void setUseGpu (boolean useGPU) {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">		if (this.useGPU != useGPU) {</span>
+<span class="nc" id="L267">			this.useGPU = useGPU;</span>
+<span class="nc" id="L268">			initRenderData();</span>
+<span class="nc" id="L269">			allocRenderables(bufferedParticlesCount);</span>
+		}
+<span class="nc" id="L271">	}</span>
+
+	public boolean isUseGPU () {
+<span class="nc" id="L274">		return useGPU;</span>
+	}
+
+	public void setTexture (Texture texture) {
+<span class="nc" id="L278">		renderablePool.freeAll(renderables);</span>
+<span class="nc" id="L279">		renderables.clear();</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">		for (int i = 0, free = renderablePool.getFree(); i &lt; free; ++i) {</span>
+<span class="nc" id="L281">			Renderable renderable = renderablePool.obtain();</span>
+<span class="nc" id="L282">			TextureAttribute attribute = (TextureAttribute)renderable.material.get(TextureAttribute.Diffuse);</span>
+<span class="nc" id="L283">			attribute.textureDescription.texture = texture;</span>
+		}
+<span class="nc" id="L285">		this.texture = texture;</span>
+<span class="nc" id="L286">	}</span>
+
+	public Texture getTexture () {
+<span class="nc" id="L289">		return texture;</span>
+	}
+
+	@Override
+	public void begin () {
+<span class="nc" id="L294">		super.begin();</span>
+<span class="nc" id="L295">		renderablePool.freeAll(renderables);</span>
+<span class="nc" id="L296">		renderables.clear();</span>
+<span class="nc" id="L297">	}</span>
+
+	// GPU
+	// Required + Color + Rotation
+	private static void putVertex (float[] vertices, int offset, float x, float y, float z, float u, float v, float scaleX,
+		float scaleY, float cosRotation, float sinRotation, float r, float g, float b, float a) {
+		// Position
+<span class="nc" id="L304">		vertices[offset + GPU_POSITION_OFFSET] = x;</span>
+<span class="nc" id="L305">		vertices[offset + GPU_POSITION_OFFSET + 1] = y;</span>
+<span class="nc" id="L306">		vertices[offset + GPU_POSITION_OFFSET + 2] = z;</span>
+		// UV
+<span class="nc" id="L308">		vertices[offset + GPU_UV_OFFSET] = u;</span>
+<span class="nc" id="L309">		vertices[offset + GPU_UV_OFFSET + 1] = v;</span>
+		// Scale
+<span class="nc" id="L311">		vertices[offset + GPU_SIZE_ROTATION_OFFSET] = scaleX;</span>
+<span class="nc" id="L312">		vertices[offset + GPU_SIZE_ROTATION_OFFSET + 1] = scaleY;</span>
+<span class="nc" id="L313">		vertices[offset + GPU_SIZE_ROTATION_OFFSET + 2] = cosRotation;</span>
+<span class="nc" id="L314">		vertices[offset + GPU_SIZE_ROTATION_OFFSET + 3] = sinRotation;</span>
+		// Color
+<span class="nc" id="L316">		vertices[offset + GPU_COLOR_OFFSET] = r;</span>
+<span class="nc" id="L317">		vertices[offset + GPU_COLOR_OFFSET + 1] = g;</span>
+<span class="nc" id="L318">		vertices[offset + GPU_COLOR_OFFSET + 2] = b;</span>
+<span class="nc" id="L319">		vertices[offset + GPU_COLOR_OFFSET + 3] = a;</span>
+<span class="nc" id="L320">	}</span>
+
+	/*
+	 * //Required + Color + Rotation + Direction private static void putVertex( float[] vertices, int offset, float x, float y,
+	 * float z, float u, float v, float scaleX, float scaleY, float cosRotation, float sinRotation, float r, float g, float b,
+	 * float a, Vector3 direction) { //Position vertices[offset + GPU_EXT_POSITION_OFFSET] = x; vertices[offset +
+	 * GPU_EXT_POSITION_OFFSET+1] = y; vertices[offset + GPU_EXT_POSITION_OFFSET+2] = z; //UV vertices[offset + GPU_EXT_UV_OFFSET]
+	 * = u; vertices[offset + GPU_EXT_UV_OFFSET+1] = v; //Scale vertices[offset + GPU_EXT_SIZE_ROTATION_OFFSET] = scaleX;
+	 * vertices[offset + GPU_EXT_SIZE_ROTATION_OFFSET+1] = scaleY; vertices[offset + GPU_EXT_SIZE_ROTATION_OFFSET+2] = cosRotation;
+	 * vertices[offset + GPU_EXT_SIZE_ROTATION_OFFSET+3] = sinRotation; //Color vertices[offset + GPU_EXT_COLOR_OFFSET] = r;
+	 * vertices[offset + GPU_EXT_COLOR_OFFSET+1] = g; vertices[offset + GPU_EXT_COLOR_OFFSET+2] = b; vertices[offset +
+	 * GPU_EXT_COLOR_OFFSET+3] = a; //Direction vertices[offset + GPU_EXT_DIRECTION_OFFSET] = direction.x; vertices[offset +
+	 * GPU_EXT_DIRECTION_OFFSET +1] = direction.y; vertices[offset + GPU_EXT_DIRECTION_OFFSET +2] = direction.z; }
+	 */
+
+	// CPU
+	// Required
+	private static void putVertex (float[] vertices, int offset, Vector3 p, float u, float v, float r, float g, float b, float a) {
+		// Position
+<span class="nc" id="L339">		vertices[offset + CPU_POSITION_OFFSET] = p.x;</span>
+<span class="nc" id="L340">		vertices[offset + CPU_POSITION_OFFSET + 1] = p.y;</span>
+<span class="nc" id="L341">		vertices[offset + CPU_POSITION_OFFSET + 2] = p.z;</span>
+		// UV
+<span class="nc" id="L343">		vertices[offset + CPU_UV_OFFSET] = u;</span>
+<span class="nc" id="L344">		vertices[offset + CPU_UV_OFFSET + 1] = v;</span>
+		// Color
+<span class="nc" id="L346">		vertices[offset + CPU_COLOR_OFFSET] = r;</span>
+<span class="nc" id="L347">		vertices[offset + CPU_COLOR_OFFSET + 1] = g;</span>
+<span class="nc" id="L348">		vertices[offset + CPU_COLOR_OFFSET + 2] = b;</span>
+<span class="nc" id="L349">		vertices[offset + CPU_COLOR_OFFSET + 3] = a;</span>
+<span class="nc" id="L350">	}</span>
+
+	private void fillVerticesGPU (int[] particlesOffset) {
+<span class="nc" id="L353">		int tp = 0;</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		for (BillboardControllerRenderData data : renderData) {</span>
+<span class="nc" id="L355">			FloatChannel scaleChannel = data.scaleChannel;</span>
+<span class="nc" id="L356">			FloatChannel regionChannel = data.regionChannel;</span>
+<span class="nc" id="L357">			FloatChannel positionChannel = data.positionChannel;</span>
+<span class="nc" id="L358">			FloatChannel colorChannel = data.colorChannel;</span>
+<span class="nc" id="L359">			FloatChannel rotationChannel = data.rotationChannel;</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">			for (int p = 0, c = data.controller.particles.size; p &lt; c; ++p, ++tp) {</span>
+<span class="nc" id="L361">				int baseOffset = particlesOffset[tp] * currentVertexSize * 4;</span>
+<span class="nc" id="L362">				float scale = scaleChannel.data[p * scaleChannel.strideSize];</span>
+<span class="nc" id="L363">				int regionOffset = p * regionChannel.strideSize;</span>
+<span class="nc" id="L364">				int positionOffset = p * positionChannel.strideSize;</span>
+<span class="nc" id="L365">				int colorOffset = p * colorChannel.strideSize;</span>
+<span class="nc" id="L366">				int rotationOffset = p * rotationChannel.strideSize;</span>
+<span class="nc" id="L367">				float px = positionChannel.data[positionOffset + ParticleChannels.XOffset], py = positionChannel.data[positionOffset</span>
+<span class="nc" id="L368">					+ ParticleChannels.YOffset], pz = positionChannel.data[positionOffset + ParticleChannels.ZOffset];</span>
+<span class="nc" id="L369">				float u = regionChannel.data[regionOffset + ParticleChannels.UOffset];</span>
+<span class="nc" id="L370">				float v = regionChannel.data[regionOffset + ParticleChannels.VOffset];</span>
+<span class="nc" id="L371">				float u2 = regionChannel.data[regionOffset + ParticleChannels.U2Offset];</span>
+<span class="nc" id="L372">				float v2 = regionChannel.data[regionOffset + ParticleChannels.V2Offset];</span>
+<span class="nc" id="L373">				float sx = regionChannel.data[regionOffset + ParticleChannels.HalfWidthOffset] * scale, sy = regionChannel.data[regionOffset</span>
+					+ ParticleChannels.HalfHeightOffset]
+					* scale;
+<span class="nc" id="L376">				float r = colorChannel.data[colorOffset + ParticleChannels.RedOffset];</span>
+<span class="nc" id="L377">				float g = colorChannel.data[colorOffset + ParticleChannels.GreenOffset];</span>
+<span class="nc" id="L378">				float b = colorChannel.data[colorOffset + ParticleChannels.BlueOffset];</span>
+<span class="nc" id="L379">				float a = colorChannel.data[colorOffset + ParticleChannels.AlphaOffset];</span>
+<span class="nc" id="L380">				float cosRotation = rotationChannel.data[rotationOffset + ParticleChannels.CosineOffset];</span>
+<span class="nc" id="L381">				float sinRotation = rotationChannel.data[rotationOffset + ParticleChannels.SineOffset];</span>
+
+				// bottom left, bottom right, top right, top left
+<span class="nc" id="L384">				putVertex(vertices, baseOffset, px, py, pz, u, v2, -sx, -sy, cosRotation, sinRotation, r, g, b, a);</span>
+<span class="nc" id="L385">				baseOffset += currentVertexSize;</span>
+<span class="nc" id="L386">				putVertex(vertices, baseOffset, px, py, pz, u2, v2, sx, -sy, cosRotation, sinRotation, r, g, b, a);</span>
+<span class="nc" id="L387">				baseOffset += currentVertexSize;</span>
+<span class="nc" id="L388">				putVertex(vertices, baseOffset, px, py, pz, u2, v, sx, sy, cosRotation, sinRotation, r, g, b, a);</span>
+<span class="nc" id="L389">				baseOffset += currentVertexSize;</span>
+<span class="nc" id="L390">				putVertex(vertices, baseOffset, px, py, pz, u, v, -sx, sy, cosRotation, sinRotation, r, g, b, a);</span>
+<span class="nc" id="L391">				baseOffset += currentVertexSize;</span>
+			}
+<span class="nc" id="L393">		}</span>
+<span class="nc" id="L394">	}</span>
+
+	/*
+	 * private void fillVerticesToParticleDirectionGPU (int[] particlesOffset) { int tp=0; for(BillboardControllerRenderData data :
+	 * renderData){ FloatChannel scaleChannel = data.scaleChannel; FloatChannel regionChannel = data.regionChannel; FloatChannel
+	 * positionChannel = data.positionChannel; FloatChannel colorChannel = data.colorChannel; FloatChannel rotationChannel =
+	 * data.rotationChannel;
+	 * 
+	 * for(int p=0, c = data.controller.particles.size; p &lt; c; ++p, ++tp){ int baseOffset =
+	 * particlesOffset[tp]*currentVertexSize*4; float scale = scaleChannel.data[p* scaleChannel.strideSize]; int regionOffset =
+	 * p*regionChannel.strideSize; int positionOffset = p*positionChannel.strideSize; int colorOffset = p*colorChannel.strideSize;
+	 * int rotationOffset = p*rotationChannel.strideSize; int velocityOffset = p* velocityChannel.strideSize; float px =
+	 * positionChannel.data[positionOffset + ParticleChannels.XOffset], py = positionChannel.data[positionOffset +
+	 * ParticleChannels.YOffset], pz = positionChannel.data[positionOffset + ParticleChannels.ZOffset]; float u =
+	 * regionChannel.data[regionOffset +ParticleChannels.UOffset]; float v = regionChannel.data[regionOffset
+	 * +ParticleChannels.VOffset]; float u2 = regionChannel.data[regionOffset +ParticleChannels.U2Offset]; float v2 =
+	 * regionChannel.data[regionOffset +ParticleChannels.V2Offset]; float sx = regionChannel.data[regionOffset
+	 * +ParticleChannels.HalfWidthOffset] * scale, sy = regionChannel.data[regionOffset+ParticleChannels.HalfHeightOffset] * scale;
+	 * float r = colorChannel.data[colorOffset +ParticleChannels.RedOffset]; float g = colorChannel.data[colorOffset
+	 * +ParticleChannels.GreenOffset]; float b = colorChannel.data[colorOffset +ParticleChannels.BlueOffset]; float a =
+	 * colorChannel.data[colorOffset +ParticleChannels.AlphaOffset]; float cosRotation = rotationChannel.data[rotationOffset
+	 * +ParticleChannels.CosineOffset]; float sinRotation = rotationChannel.data[rotationOffset +ParticleChannels.SineOffset];
+	 * float vx = velocityChannel.data[velocityOffset + ParticleChannels.XOffset], vy = velocityChannel.data[velocityOffset +
+	 * ParticleChannels.YOffset], vz = velocityChannel.data[velocityOffset + ParticleChannels.ZOffset];
+	 * 
+	 * //bottom left, bottom right, top right, top left TMP_V1.set(vx, vy, vz).nor(); putVertex(vertices, baseOffset, px, py, pz,
+	 * u, v2, -sx, -sy, cosRotation, sinRotation, r, g, b, a, TMP_V1); baseOffset += currentVertexSize; putVertex(vertices,
+	 * baseOffset, px, py, pz, u2, v2, sx, -sy, cosRotation, sinRotation, r, g, b, a, TMP_V1); baseOffset += currentVertexSize;
+	 * putVertex(vertices, baseOffset, px, py, pz, u2, v, sx, sy, cosRotation, sinRotation, r, g, b, a, TMP_V1); baseOffset +=
+	 * currentVertexSize; putVertex(vertices, baseOffset, px, py, pz, u, v, -sx, sy, cosRotation, sinRotation, r, g, b, a, TMP_V1);
+	 * } } }
+	 * 
+	 * private void fillVerticesToParticleDirectionCPU (int[] particlesOffset) { int tp=0; for(ParticleController controller :
+	 * renderData){ FloatChannel scaleChannel = controller.particles.getChannel(ParticleChannels.Scale); FloatChannel regionChannel
+	 * = controller.particles.getChannel(ParticleChannels.TextureRegion); FloatChannel positionChannel =
+	 * controller.particles.getChannel(ParticleChannels.Position); FloatChannel colorChannel =
+	 * controller.particles.getChannel(ParticleChannels.Color); FloatChannel rotationChannel =
+	 * controller.particles.getChannel(ParticleChannels.Rotation2D); FloatChannel velocityChannel =
+	 * controller.particles.getChannel(ParticleChannels.Accelleration);
+	 * 
+	 * for(int p=0, c = controller.particles.size; p &lt; c; ++p, ++tp){ int baseOffset = particlesOffset[tp]*currentVertexSize*4;
+	 * float scale = scaleChannel.data[p* scaleChannel.strideSize]; int regionOffset = p*regionChannel.strideSize; int
+	 * positionOffset = p*positionChannel.strideSize; int colorOffset = p*colorChannel.strideSize; int rotationOffset =
+	 * p*rotationChannel.strideSize; int velocityOffset = p* velocityChannel.strideSize; float px =
+	 * positionChannel.data[positionOffset + ParticleChannels.XOffset], py = positionChannel.data[positionOffset +
+	 * ParticleChannels.YOffset], pz = positionChannel.data[positionOffset + ParticleChannels.ZOffset]; float u =
+	 * regionChannel.data[regionOffset +ParticleChannels.UOffset]; float v = regionChannel.data[regionOffset
+	 * +ParticleChannels.VOffset]; float u2 = regionChannel.data[regionOffset +ParticleChannels.U2Offset]; float v2 =
+	 * regionChannel.data[regionOffset +ParticleChannels.V2Offset]; float sx = regionChannel.data[regionOffset
+	 * +ParticleChannels.HalfWidthOffset] * scale, sy = regionChannel.data[regionOffset+ParticleChannels.HalfHeightOffset] * scale;
+	 * float r = colorChannel.data[colorOffset +ParticleChannels.RedOffset]; float g = colorChannel.data[colorOffset
+	 * +ParticleChannels.GreenOffset]; float b = colorChannel.data[colorOffset +ParticleChannels.BlueOffset]; float a =
+	 * colorChannel.data[colorOffset +ParticleChannels.AlphaOffset]; float cosRotation = rotationChannel.data[rotationOffset
+	 * +ParticleChannels.CosineOffset]; float sinRotation = rotationChannel.data[rotationOffset +ParticleChannels.SineOffset];
+	 * float vx = velocityChannel.data[velocityOffset + ParticleChannels.XOffset], vy = velocityChannel.data[velocityOffset +
+	 * ParticleChannels.YOffset], vz = velocityChannel.data[velocityOffset + ParticleChannels.ZOffset]; Vector3 up =
+	 * TMP_V1.set(vx,vy,vz).nor(), look = TMP_V3.set(camera.position).sub(px,py,pz).nor(), //normal right =
+	 * TMP_V2.set(up).crs(look).nor(); //tangent look.set(right).crs(up).nor(); right.scl(sx); up.scl(sy);
+	 * 
+	 * if(cosRotation != 1){ TMP_M3.setToRotation(look, cosRotation, sinRotation); putVertex(vertices, baseOffset,
+	 * TMP_V6.set(-TMP_V1.x-TMP_V2.x, -TMP_V1.y-TMP_V2.y, -TMP_V1.z-TMP_V2.z).mul(TMP_M3).add(px, py, pz), u, v2, r, g, b, a);
+	 * baseOffset += currentVertexSize; putVertex(vertices, baseOffset,TMP_V6.set(TMP_V1.x-TMP_V2.x, TMP_V1.y-TMP_V2.y,
+	 * TMP_V1.z-TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v2, r, g, b, a); baseOffset += currentVertexSize; putVertex(vertices,
+	 * baseOffset,TMP_V6.set(TMP_V1.x+TMP_V2.x, TMP_V1.y+TMP_V2.y, TMP_V1.z+TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v, r, g, b,
+	 * a); baseOffset += currentVertexSize; putVertex(vertices, baseOffset, TMP_V6.set(-TMP_V1.x+TMP_V2.x, -TMP_V1.y+TMP_V2.y,
+	 * -TMP_V1.z+TMP_V2.z).mul(TMP_M3).add(px, py, pz), u, v, r, g, b, a); } else { putVertex(vertices,
+	 * baseOffset,TMP_V6.set(-TMP_V1.x-TMP_V2.x+px, -TMP_V1.y-TMP_V2.y+py, -TMP_V1.z-TMP_V2.z+pz), u, v2, r, g, b, a); baseOffset
+	 * += currentVertexSize; putVertex(vertices, baseOffset,TMP_V6.set(TMP_V1.x-TMP_V2.x+px, TMP_V1.y-TMP_V2.y+py,
+	 * TMP_V1.z-TMP_V2.z+pz), u2, v2, r, g, b, a); baseOffset += currentVertexSize; putVertex(vertices,
+	 * baseOffset,TMP_V6.set(TMP_V1.x+TMP_V2.x+px, TMP_V1.y+TMP_V2.y+py, TMP_V1.z+TMP_V2.z+pz), u2, v, r, g, b, a); baseOffset +=
+	 * currentVertexSize; putVertex(vertices, baseOffset, TMP_V6.set(-TMP_V1.x+TMP_V2.x+px, -TMP_V1.y+TMP_V2.y+py,
+	 * -TMP_V1.z+TMP_V2.z+pz), u, v, r, g, b, a); } } } }
+	 */
+
+	private void fillVerticesToViewPointCPU (int[] particlesOffset) {
+<span class="nc" id="L469">		int tp = 0;</span>
+<span class="nc bnc" id="L470" title="All 2 branches missed.">		for (BillboardControllerRenderData data : renderData) {</span>
+<span class="nc" id="L471">			FloatChannel scaleChannel = data.scaleChannel;</span>
+<span class="nc" id="L472">			FloatChannel regionChannel = data.regionChannel;</span>
+<span class="nc" id="L473">			FloatChannel positionChannel = data.positionChannel;</span>
+<span class="nc" id="L474">			FloatChannel colorChannel = data.colorChannel;</span>
+<span class="nc" id="L475">			FloatChannel rotationChannel = data.rotationChannel;</span>
+
+<span class="nc bnc" id="L477" title="All 2 branches missed.">			for (int p = 0, c = data.controller.particles.size; p &lt; c; ++p, ++tp) {</span>
+<span class="nc" id="L478">				int baseOffset = particlesOffset[tp] * currentVertexSize * 4;</span>
+<span class="nc" id="L479">				float scale = scaleChannel.data[p * scaleChannel.strideSize];</span>
+<span class="nc" id="L480">				int regionOffset = p * regionChannel.strideSize;</span>
+<span class="nc" id="L481">				int positionOffset = p * positionChannel.strideSize;</span>
+<span class="nc" id="L482">				int colorOffset = p * colorChannel.strideSize;</span>
+<span class="nc" id="L483">				int rotationOffset = p * rotationChannel.strideSize;</span>
+<span class="nc" id="L484">				float px = positionChannel.data[positionOffset + ParticleChannels.XOffset], py = positionChannel.data[positionOffset</span>
+<span class="nc" id="L485">					+ ParticleChannels.YOffset], pz = positionChannel.data[positionOffset + ParticleChannels.ZOffset];</span>
+<span class="nc" id="L486">				float u = regionChannel.data[regionOffset + ParticleChannels.UOffset];</span>
+<span class="nc" id="L487">				float v = regionChannel.data[regionOffset + ParticleChannels.VOffset];</span>
+<span class="nc" id="L488">				float u2 = regionChannel.data[regionOffset + ParticleChannels.U2Offset];</span>
+<span class="nc" id="L489">				float v2 = regionChannel.data[regionOffset + ParticleChannels.V2Offset];</span>
+<span class="nc" id="L490">				float sx = regionChannel.data[regionOffset + ParticleChannels.HalfWidthOffset] * scale, sy = regionChannel.data[regionOffset</span>
+					+ ParticleChannels.HalfHeightOffset]
+					* scale;
+<span class="nc" id="L493">				float r = colorChannel.data[colorOffset + ParticleChannels.RedOffset];</span>
+<span class="nc" id="L494">				float g = colorChannel.data[colorOffset + ParticleChannels.GreenOffset];</span>
+<span class="nc" id="L495">				float b = colorChannel.data[colorOffset + ParticleChannels.BlueOffset];</span>
+<span class="nc" id="L496">				float a = colorChannel.data[colorOffset + ParticleChannels.AlphaOffset];</span>
+<span class="nc" id="L497">				float cosRotation = rotationChannel.data[rotationOffset + ParticleChannels.CosineOffset];</span>
+<span class="nc" id="L498">				float sinRotation = rotationChannel.data[rotationOffset + ParticleChannels.SineOffset];</span>
+<span class="nc" id="L499">				Vector3 look = TMP_V3.set(camera.position).sub(px, py, pz).nor(), // normal</span>
+<span class="nc" id="L500">				right = TMP_V1.set(camera.up).crs(look).nor(), // tangent</span>
+<span class="nc" id="L501">				up = TMP_V2.set(look).crs(right);</span>
+<span class="nc" id="L502">				right.scl(sx);</span>
+<span class="nc" id="L503">				up.scl(sy);</span>
+
+<span class="nc bnc" id="L505" title="All 2 branches missed.">				if (cosRotation != 1) {</span>
+<span class="nc" id="L506">					TMP_M3.setToRotation(look, cosRotation, sinRotation);</span>
+<span class="nc" id="L507">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L508">						TMP_V6.set(-TMP_V1.x - TMP_V2.x, -TMP_V1.y - TMP_V2.y, -TMP_V1.z - TMP_V2.z).mul(TMP_M3).add(px, py, pz), u,</span>
+						v2, r, g, b, a);
+<span class="nc" id="L510">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L511">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L512">						TMP_V6.set(TMP_V1.x - TMP_V2.x, TMP_V1.y - TMP_V2.y, TMP_V1.z - TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v2,</span>
+						r, g, b, a);
+<span class="nc" id="L514">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L515">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L516">						TMP_V6.set(TMP_V1.x + TMP_V2.x, TMP_V1.y + TMP_V2.y, TMP_V1.z + TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v,</span>
+						r, g, b, a);
+<span class="nc" id="L518">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L519">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L520">						TMP_V6.set(-TMP_V1.x + TMP_V2.x, -TMP_V1.y + TMP_V2.y, -TMP_V1.z + TMP_V2.z).mul(TMP_M3).add(px, py, pz), u, v,</span>
+						r, g, b, a);
+				} else {
+<span class="nc" id="L523">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L524">						TMP_V6.set(-TMP_V1.x - TMP_V2.x + px, -TMP_V1.y - TMP_V2.y + py, -TMP_V1.z - TMP_V2.z + pz), u, v2, r, g, b, a);</span>
+<span class="nc" id="L525">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L526">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L527">						TMP_V6.set(TMP_V1.x - TMP_V2.x + px, TMP_V1.y - TMP_V2.y + py, TMP_V1.z - TMP_V2.z + pz), u2, v2, r, g, b, a);</span>
+<span class="nc" id="L528">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L529">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L530">						TMP_V6.set(TMP_V1.x + TMP_V2.x + px, TMP_V1.y + TMP_V2.y + py, TMP_V1.z + TMP_V2.z + pz), u2, v, r, g, b, a);</span>
+<span class="nc" id="L531">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L532">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L533">						TMP_V6.set(-TMP_V1.x + TMP_V2.x + px, -TMP_V1.y + TMP_V2.y + py, -TMP_V1.z + TMP_V2.z + pz), u, v, r, g, b, a);</span>
+				}
+			}
+<span class="nc" id="L536">		}</span>
+<span class="nc" id="L537">	}</span>
+
+	private void fillVerticesToScreenCPU (int[] particlesOffset) {
+<span class="nc" id="L540">		Vector3 look = TMP_V3.set(camera.direction).scl(-1), // normal</span>
+<span class="nc" id="L541">		right = TMP_V4.set(camera.up).crs(look).nor(), // tangent</span>
+<span class="nc" id="L542">		up = camera.up;</span>
+
+<span class="nc" id="L544">		int tp = 0;</span>
+<span class="nc bnc" id="L545" title="All 2 branches missed.">		for (BillboardControllerRenderData data : renderData) {</span>
+<span class="nc" id="L546">			FloatChannel scaleChannel = data.scaleChannel;</span>
+<span class="nc" id="L547">			FloatChannel regionChannel = data.regionChannel;</span>
+<span class="nc" id="L548">			FloatChannel positionChannel = data.positionChannel;</span>
+<span class="nc" id="L549">			FloatChannel colorChannel = data.colorChannel;</span>
+<span class="nc" id="L550">			FloatChannel rotationChannel = data.rotationChannel;</span>
+
+<span class="nc bnc" id="L552" title="All 2 branches missed.">			for (int p = 0, c = data.controller.particles.size; p &lt; c; ++p, ++tp) {</span>
+<span class="nc" id="L553">				int baseOffset = particlesOffset[tp] * currentVertexSize * 4;</span>
+<span class="nc" id="L554">				float scale = scaleChannel.data[p * scaleChannel.strideSize];</span>
+<span class="nc" id="L555">				int regionOffset = p * regionChannel.strideSize;</span>
+<span class="nc" id="L556">				int positionOffset = p * positionChannel.strideSize;</span>
+<span class="nc" id="L557">				int colorOffset = p * colorChannel.strideSize;</span>
+<span class="nc" id="L558">				int rotationOffset = p * rotationChannel.strideSize;</span>
+<span class="nc" id="L559">				float px = positionChannel.data[positionOffset + ParticleChannels.XOffset], py = positionChannel.data[positionOffset</span>
+<span class="nc" id="L560">					+ ParticleChannels.YOffset], pz = positionChannel.data[positionOffset + ParticleChannels.ZOffset];</span>
+<span class="nc" id="L561">				float u = regionChannel.data[regionOffset + ParticleChannels.UOffset];</span>
+<span class="nc" id="L562">				float v = regionChannel.data[regionOffset + ParticleChannels.VOffset];</span>
+<span class="nc" id="L563">				float u2 = regionChannel.data[regionOffset + ParticleChannels.U2Offset];</span>
+<span class="nc" id="L564">				float v2 = regionChannel.data[regionOffset + ParticleChannels.V2Offset];</span>
+<span class="nc" id="L565">				float sx = regionChannel.data[regionOffset + ParticleChannels.HalfWidthOffset] * scale, sy = regionChannel.data[regionOffset</span>
+					+ ParticleChannels.HalfHeightOffset]
+					* scale;
+<span class="nc" id="L568">				float r = colorChannel.data[colorOffset + ParticleChannels.RedOffset];</span>
+<span class="nc" id="L569">				float g = colorChannel.data[colorOffset + ParticleChannels.GreenOffset];</span>
+<span class="nc" id="L570">				float b = colorChannel.data[colorOffset + ParticleChannels.BlueOffset];</span>
+<span class="nc" id="L571">				float a = colorChannel.data[colorOffset + ParticleChannels.AlphaOffset];</span>
+<span class="nc" id="L572">				float cosRotation = rotationChannel.data[rotationOffset + ParticleChannels.CosineOffset];</span>
+<span class="nc" id="L573">				float sinRotation = rotationChannel.data[rotationOffset + ParticleChannels.SineOffset];</span>
+<span class="nc" id="L574">				TMP_V1.set(right).scl(sx);</span>
+<span class="nc" id="L575">				TMP_V2.set(up).scl(sy);</span>
+
+<span class="nc bnc" id="L577" title="All 2 branches missed.">				if (cosRotation != 1) {</span>
+<span class="nc" id="L578">					TMP_M3.setToRotation(look, cosRotation, sinRotation);</span>
+<span class="nc" id="L579">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L580">						TMP_V6.set(-TMP_V1.x - TMP_V2.x, -TMP_V1.y - TMP_V2.y, -TMP_V1.z - TMP_V2.z).mul(TMP_M3).add(px, py, pz), u,</span>
+						v2, r, g, b, a);
+<span class="nc" id="L582">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L583">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L584">						TMP_V6.set(TMP_V1.x - TMP_V2.x, TMP_V1.y - TMP_V2.y, TMP_V1.z - TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v2,</span>
+						r, g, b, a);
+<span class="nc" id="L586">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L587">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L588">						TMP_V6.set(TMP_V1.x + TMP_V2.x, TMP_V1.y + TMP_V2.y, TMP_V1.z + TMP_V2.z).mul(TMP_M3).add(px, py, pz), u2, v,</span>
+						r, g, b, a);
+<span class="nc" id="L590">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L591">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L592">						TMP_V6.set(-TMP_V1.x + TMP_V2.x, -TMP_V1.y + TMP_V2.y, -TMP_V1.z + TMP_V2.z).mul(TMP_M3).add(px, py, pz), u, v,</span>
+						r, g, b, a);
+				} else {
+<span class="nc" id="L595">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L596">						TMP_V6.set(-TMP_V1.x - TMP_V2.x + px, -TMP_V1.y - TMP_V2.y + py, -TMP_V1.z - TMP_V2.z + pz), u, v2, r, g, b, a);</span>
+<span class="nc" id="L597">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L598">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L599">						TMP_V6.set(TMP_V1.x - TMP_V2.x + px, TMP_V1.y - TMP_V2.y + py, TMP_V1.z - TMP_V2.z + pz), u2, v2, r, g, b, a);</span>
+<span class="nc" id="L600">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L601">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L602">						TMP_V6.set(TMP_V1.x + TMP_V2.x + px, TMP_V1.y + TMP_V2.y + py, TMP_V1.z + TMP_V2.z + pz), u2, v, r, g, b, a);</span>
+<span class="nc" id="L603">					baseOffset += currentVertexSize;</span>
+<span class="nc" id="L604">					putVertex(vertices, baseOffset,</span>
+<span class="nc" id="L605">						TMP_V6.set(-TMP_V1.x + TMP_V2.x + px, -TMP_V1.y + TMP_V2.y + py, -TMP_V1.z + TMP_V2.z + pz), u, v, r, g, b, a);</span>
+				}
+			}
+<span class="nc" id="L608">		}</span>
+<span class="nc" id="L609">	}</span>
+
+	@Override
+	protected void flush (int[] offsets) {
+
+		// fill vertices
+<span class="nc bnc" id="L615" title="All 2 branches missed.">		if (useGPU) {</span>
+			// if(mode != AlignMode.ParticleDirection)
+<span class="nc" id="L617">			fillVerticesGPU(offsets);</span>
+			// else
+			// fillVerticesToParticleDirectionGPU(offsets);
+		} else {
+<span class="nc bnc" id="L621" title="All 2 branches missed.">			if (mode == AlignMode.Screen)</span>
+<span class="nc" id="L622">				fillVerticesToScreenCPU(offsets);</span>
+<span class="nc bnc" id="L623" title="All 2 branches missed.">			else if (mode == AlignMode.ViewPoint) fillVerticesToViewPointCPU(offsets);</span>
+			// else
+			// fillVerticesToParticleDirectionCPU(offsets);
+		}
+
+		// send vertices to meshes
+<span class="nc" id="L629">		int addedVertexCount = 0;</span>
+<span class="nc" id="L630">		int vCount = bufferedParticlesCount * 4;</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">		for (int v = 0; v &lt; vCount; v += addedVertexCount) {</span>
+<span class="nc" id="L632">			addedVertexCount = Math.min(vCount - v, MAX_VERTICES_PER_MESH);</span>
+<span class="nc" id="L633">			Renderable renderable = renderablePool.obtain();</span>
+<span class="nc" id="L634">			renderable.meshPart.size = (addedVertexCount / 4) * 6;</span>
+<span class="nc" id="L635">			renderable.meshPart.mesh.setVertices(vertices, currentVertexSize * v, currentVertexSize * addedVertexCount);</span>
+<span class="nc" id="L636">			renderable.meshPart.update();</span>
+<span class="nc" id="L637">			renderables.add(renderable);</span>
+		}
+<span class="nc" id="L639">	}</span>
+
+	@Override
+	public void getRenderables (Array&lt;Renderable&gt; renderables, Pool&lt;Renderable&gt; pool) {
+<span class="nc bnc" id="L643" title="All 2 branches missed.">		for (Renderable renderable : this.renderables)</span>
+<span class="nc" id="L644">			renderables.add(pool.obtain().set(renderable));</span>
+<span class="nc" id="L645">	}</span>
+
+	@Override
+	public void save (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L649">		SaveData data = resources.createSaveData(&quot;billboardBatch&quot;);</span>
+<span class="nc" id="L650">		data.save(&quot;cfg&quot;, new Config(useGPU, mode));</span>
+<span class="nc" id="L651">		data.saveAsset(manager.getAssetFileName(texture), Texture.class);</span>
+<span class="nc" id="L652">	}</span>
+
+	@Override
+	public void load (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L656">		SaveData data = resources.getSaveData(&quot;billboardBatch&quot;);</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">		if (data != null) {</span>
+<span class="nc" id="L658">			setTexture((Texture)manager.get(data.loadAsset()));</span>
+<span class="nc" id="L659">			Config cfg = (Config)data.load(&quot;cfg&quot;);</span>
+<span class="nc" id="L660">			setUseGpu(cfg.useGPU);</span>
+<span class="nc" id="L661">			setAlignMode(cfg.mode);</span>
+		}
+<span class="nc" id="L663">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

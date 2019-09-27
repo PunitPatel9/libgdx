@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModelInfluencer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">ModelInfluencer.java</span></div><h1>ModelInfluencer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.ObjectChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData.SaveData;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+
+/** It's an {@link Influencer} which controls which {@link Model} will be assigned to the particles as {@link ModelInstance}.
+ * @author Inferno */
+public abstract class ModelInfluencer extends Influencer {
+
+	/** Assigns the first model of {@link ModelInfluencer#models} to the particles. */
+	public static class Single extends ModelInfluencer {
+
+		public Single () {
+<span class="nc" id="L38">			super();</span>
+<span class="nc" id="L39">		}</span>
+
+		public Single (Single influencer) {
+<span class="nc" id="L42">			super(influencer);</span>
+<span class="nc" id="L43">		}</span>
+
+		public Single (Model... models) {
+<span class="nc" id="L46">			super(models);</span>
+<span class="nc" id="L47">		}</span>
+
+		@Override
+		public void init () {
+<span class="nc" id="L51">			Model first = models.first();</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">			for (int i = 0, c = controller.emitter.maxParticleCount; i &lt; c; ++i) {</span>
+<span class="nc" id="L53">				modelChannel.data[i] = new ModelInstance(first);</span>
+			}
+<span class="nc" id="L55">		}</span>
+
+		@Override
+		public Single copy () {
+<span class="nc" id="L59">			return new Single(this);</span>
+		}
+	}
+
+	/** Assigns a random model of {@link ModelInfluencer#models} to the particles. */
+	public static class Random extends ModelInfluencer {
+		private class ModelInstancePool extends Pool&lt;ModelInstance&gt; {
+<span class="nc" id="L66">			public ModelInstancePool () {</span>
+<span class="nc" id="L67">			}</span>
+
+			@Override
+			public ModelInstance newObject () {
+<span class="nc" id="L71">				return new ModelInstance(models.random());</span>
+			}
+		}
+
+		ModelInstancePool pool;
+
+		public Random () {
+<span class="nc" id="L78">			super();</span>
+<span class="nc" id="L79">			pool = new ModelInstancePool();</span>
+<span class="nc" id="L80">		}</span>
+
+		public Random (Random influencer) {
+<span class="nc" id="L83">			super(influencer);</span>
+<span class="nc" id="L84">			pool = new ModelInstancePool();</span>
+<span class="nc" id="L85">		}</span>
+
+		public Random (Model... models) {
+<span class="nc" id="L88">			super(models);</span>
+<span class="nc" id="L89">			pool = new ModelInstancePool();</span>
+<span class="nc" id="L90">		}</span>
+
+		@Override
+		public void init () {
+<span class="nc" id="L94">			pool.clear();</span>
+<span class="nc" id="L95">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L100">				modelChannel.data[i] = pool.obtain();</span>
+			}
+<span class="nc" id="L102">		}</span>
+
+		@Override
+		public void killParticles (int startIndex, int count) {
+<span class="nc bnc" id="L106" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L107">				pool.free(modelChannel.data[i]);</span>
+<span class="nc" id="L108">				modelChannel.data[i] = null;</span>
+			}
+<span class="nc" id="L110">		}</span>
+
+		@Override
+		public Random copy () {
+<span class="nc" id="L114">			return new Random(this);</span>
+		}
+	}
+
+	public Array&lt;Model&gt; models;
+	ObjectChannel&lt;ModelInstance&gt; modelChannel;
+
+<span class="nc" id="L121">	public ModelInfluencer () {</span>
+<span class="nc" id="L122">		this.models = new Array&lt;Model&gt;(true, 1, Model.class);</span>
+<span class="nc" id="L123">	}</span>
+
+<span class="nc" id="L125">	public ModelInfluencer (Model... models) {</span>
+<span class="nc" id="L126">		this.models = new Array&lt;Model&gt;(models);</span>
+<span class="nc" id="L127">	}</span>
+
+	public ModelInfluencer (ModelInfluencer influencer) {
+<span class="nc" id="L130">		this((Model[])influencer.models.toArray(Model.class));</span>
+<span class="nc" id="L131">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L135">		modelChannel = controller.particles.addChannel(ParticleChannels.ModelInstance);</span>
+<span class="nc" id="L136">	}</span>
+
+	@Override
+	public void save (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L140">		SaveData data = resources.createSaveData();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">		for (Model model : models)</span>
+<span class="nc" id="L142">			data.saveAsset(manager.getAssetFileName(model), Model.class);</span>
+<span class="nc" id="L143">	}</span>
+
+	@Override
+	public void load (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L147">		SaveData data = resources.getSaveData();</span>
+		AssetDescriptor descriptor;
+<span class="nc bnc" id="L149" title="All 2 branches missed.">		while ((descriptor = data.loadAsset()) != null) {</span>
+<span class="nc" id="L150">			Model model = (Model)manager.get(descriptor);</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">			if (model == null) throw new RuntimeException(&quot;Model is null&quot;);</span>
+<span class="nc" id="L152">			models.add(model);</span>
+<span class="nc" id="L153">		}</span>
+<span class="nc" id="L154">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

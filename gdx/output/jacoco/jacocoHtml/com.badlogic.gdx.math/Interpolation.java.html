@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Interpolation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.math</a> &gt; <span class="el_source">Interpolation.java</span></div><h1>Interpolation.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.math;
+
+/** Takes a linear value in the range of 0-1 and outputs a (usually) non-linear, interpolated value.
+ * @author Nathan Sweet */
+<span class="nc" id="L21">public abstract class Interpolation {</span>
+	/** @param a Alpha value between 0 and 1. */
+	abstract public float apply (float a);
+
+	/** @param a Alpha value between 0 and 1. */
+	public float apply (float start, float end, float a) {
+<span class="nc" id="L27">		return start + (end - start) * apply(a);</span>
+	}
+
+	//
+
+<span class="nc" id="L32">	static public final Interpolation linear = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L34">			return a;</span>
+		}
+	};
+
+	//
+
+	/** Aka &quot;smoothstep&quot;. */
+<span class="nc" id="L41">	static public final Interpolation smooth = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L43">			return a * a * (3 - 2 * a);</span>
+		}
+	};
+<span class="nc" id="L46">	static public final Interpolation smooth2 = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L48">			a = a * a * (3 - 2 * a);</span>
+<span class="nc" id="L49">			return a * a * (3 - 2 * a);</span>
+		}
+	};
+
+	/** By Ken Perlin. */
+<span class="nc" id="L54">	static public final Interpolation smoother = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L56">			return a * a * a * (a * (a * 6 - 15) + 10);</span>
+		}
+	};
+<span class="nc" id="L59">	static public final Interpolation fade = smoother;</span>
+
+	//
+
+<span class="nc" id="L63">	static public final Pow pow2 = new Pow(2);</span>
+	/** Slow, then fast. */
+<span class="nc" id="L65">	static public final PowIn pow2In = new PowIn(2);</span>
+<span class="nc" id="L66">	static public final PowIn slowFast = pow2In;</span>
+	/** Fast, then slow. */
+<span class="nc" id="L68">	static public final PowOut pow2Out = new PowOut(2);</span>
+<span class="nc" id="L69">	static public final PowOut fastSlow = pow2Out;</span>
+<span class="nc" id="L70">	static public final Interpolation pow2InInverse = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L72">			return (float)Math.sqrt(a);</span>
+		}
+	};
+<span class="nc" id="L75">	static public final Interpolation pow2OutInverse = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L77">			return 1 - (float)Math.sqrt(-(a - 1));</span>
+		}
+	};
+
+<span class="nc" id="L81">	static public final Pow pow3 = new Pow(3);</span>
+<span class="nc" id="L82">	static public final PowIn pow3In = new PowIn(3);</span>
+<span class="nc" id="L83">	static public final PowOut pow3Out = new PowOut(3);</span>
+<span class="nc" id="L84">	static public final Interpolation pow3InInverse = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L86">			return (float)Math.cbrt(a);</span>
+		}
+	};
+<span class="nc" id="L89">	static public final Interpolation pow3OutInverse = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L91">			return 1 - (float)Math.cbrt(-(a - 1));</span>
+		}
+	};
+
+<span class="nc" id="L95">	static public final Pow pow4 = new Pow(4);</span>
+<span class="nc" id="L96">	static public final PowIn pow4In = new PowIn(4);</span>
+<span class="nc" id="L97">	static public final PowOut pow4Out = new PowOut(4);</span>
+
+<span class="nc" id="L99">	static public final Pow pow5 = new Pow(5);</span>
+<span class="nc" id="L100">	static public final PowIn pow5In = new PowIn(5);</span>
+<span class="nc" id="L101">	static public final PowOut pow5Out = new PowOut(5);</span>
+
+<span class="nc" id="L103">	static public final Interpolation sine = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L105">			return (1 - MathUtils.cos(a * MathUtils.PI)) / 2;</span>
+		}
+	};
+
+<span class="nc" id="L109">	static public final Interpolation sineIn = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L111">			return 1 - MathUtils.cos(a * MathUtils.PI / 2);</span>
+		}
+	};
+
+<span class="nc" id="L115">	static public final Interpolation sineOut = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L117">			return MathUtils.sin(a * MathUtils.PI / 2);</span>
+		}
+	};
+
+<span class="nc" id="L121">	static public final Exp exp10 = new Exp(2, 10);</span>
+<span class="nc" id="L122">	static public final ExpIn exp10In = new ExpIn(2, 10);</span>
+<span class="nc" id="L123">	static public final ExpOut exp10Out = new ExpOut(2, 10);</span>
+
+<span class="nc" id="L125">	static public final Exp exp5 = new Exp(2, 5);</span>
+<span class="nc" id="L126">	static public final ExpIn exp5In = new ExpIn(2, 5);</span>
+<span class="nc" id="L127">	static public final ExpOut exp5Out = new ExpOut(2, 5);</span>
+
+<span class="nc" id="L129">	static public final Interpolation circle = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc bnc" id="L131" title="All 2 branches missed.">			if (a &lt;= 0.5f) {</span>
+<span class="nc" id="L132">				a *= 2;</span>
+<span class="nc" id="L133">				return (1 - (float)Math.sqrt(1 - a * a)) / 2;</span>
+			}
+<span class="nc" id="L135">			a--;</span>
+<span class="nc" id="L136">			a *= 2;</span>
+<span class="nc" id="L137">			return ((float)Math.sqrt(1 - a * a) + 1) / 2;</span>
+		}
+	};
+
+<span class="nc" id="L141">	static public final Interpolation circleIn = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L143">			return 1 - (float)Math.sqrt(1 - a * a);</span>
+		}
+	};
+
+<span class="nc" id="L147">	static public final Interpolation circleOut = new Interpolation() {</span>
+		public float apply (float a) {
+<span class="nc" id="L149">			a--;</span>
+<span class="nc" id="L150">			return (float)Math.sqrt(1 - a * a);</span>
+		}
+	};
+
+<span class="nc" id="L154">	static public final Elastic elastic = new Elastic(2, 10, 7, 1);</span>
+<span class="nc" id="L155">	static public final ElasticIn elasticIn = new ElasticIn(2, 10, 6, 1);</span>
+<span class="nc" id="L156">	static public final ElasticOut elasticOut = new ElasticOut(2, 10, 7, 1);</span>
+
+<span class="nc" id="L158">	static public final Swing swing = new Swing(1.5f);</span>
+<span class="nc" id="L159">	static public final SwingIn swingIn = new SwingIn(2f);</span>
+<span class="nc" id="L160">	static public final SwingOut swingOut = new SwingOut(2f);</span>
+
+<span class="nc" id="L162">	static public final Bounce bounce = new Bounce(4);</span>
+<span class="nc" id="L163">	static public final BounceIn bounceIn = new BounceIn(4);</span>
+<span class="nc" id="L164">	static public final BounceOut bounceOut = new BounceOut(4);</span>
+
+	//
+
+	static public class Pow extends Interpolation {
+		final int power;
+
+<span class="nc" id="L171">		public Pow (int power) {</span>
+<span class="nc" id="L172">			this.power = power;</span>
+<span class="nc" id="L173">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">			if (a &lt;= 0.5f) return (float)Math.pow(a * 2, power) / 2;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			return (float)Math.pow((a - 1) * 2, power) / (power % 2 == 0 ? -2 : 2) + 1;</span>
+		}
+	}
+
+	static public class PowIn extends Pow {
+		public PowIn (int power) {
+<span class="nc" id="L183">			super(power);</span>
+<span class="nc" id="L184">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L187">			return (float)Math.pow(a, power);</span>
+		}
+	}
+
+	static public class PowOut extends Pow {
+		public PowOut (int power) {
+<span class="nc" id="L193">			super(power);</span>
+<span class="nc" id="L194">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L197" title="All 2 branches missed.">			return (float)Math.pow(a - 1, power) * (power % 2 == 0 ? -1 : 1) + 1;</span>
+		}
+	}
+
+	//
+
+	static public class Exp extends Interpolation {
+		final float value, power, min, scale;
+
+<span class="nc" id="L206">		public Exp (float value, float power) {</span>
+<span class="nc" id="L207">			this.value = value;</span>
+<span class="nc" id="L208">			this.power = power;</span>
+<span class="nc" id="L209">			min = (float)Math.pow(value, -power);</span>
+<span class="nc" id="L210">			scale = 1 / (1 - min);</span>
+<span class="nc" id="L211">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">			if (a &lt;= 0.5f) return ((float)Math.pow(value, power * (a * 2 - 1)) - min) * scale / 2;</span>
+<span class="nc" id="L215">			return (2 - ((float)Math.pow(value, -power * (a * 2 - 1)) - min) * scale) / 2;</span>
+		}
+	};
+
+	static public class ExpIn extends Exp {
+		public ExpIn (float value, float power) {
+<span class="nc" id="L221">			super(value, power);</span>
+<span class="nc" id="L222">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L225">			return ((float)Math.pow(value, power * (a - 1)) - min) * scale;</span>
+		}
+	}
+
+	static public class ExpOut extends Exp {
+		public ExpOut (float value, float power) {
+<span class="nc" id="L231">			super(value, power);</span>
+<span class="nc" id="L232">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L235">			return 1 - ((float)Math.pow(value, -power * a) - min) * scale;</span>
+		}
+	}
+
+	//
+
+	static public class Elastic extends Interpolation {
+		final float value, power, scale, bounces;
+
+<span class="nc" id="L244">		public Elastic (float value, float power, int bounces, float scale) {</span>
+<span class="nc" id="L245">			this.value = value;</span>
+<span class="nc" id="L246">			this.power = power;</span>
+<span class="nc" id="L247">			this.scale = scale;</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">			this.bounces = bounces * MathUtils.PI * (bounces % 2 == 0 ? 1 : -1);</span>
+<span class="nc" id="L249">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">			if (a &lt;= 0.5f) {</span>
+<span class="nc" id="L253">				a *= 2;</span>
+<span class="nc" id="L254">				return (float)Math.pow(value, power * (a - 1)) * MathUtils.sin(a * bounces) * scale / 2;</span>
+			}
+<span class="nc" id="L256">			a = 1 - a;</span>
+<span class="nc" id="L257">			a *= 2;</span>
+<span class="nc" id="L258">			return 1 - (float)Math.pow(value, power * (a - 1)) * MathUtils.sin((a) * bounces) * scale / 2;</span>
+		}
+	}
+
+	static public class ElasticIn extends Elastic {
+		public ElasticIn (float value, float power, int bounces, float scale) {
+<span class="nc" id="L264">			super(value, power, bounces, scale);</span>
+<span class="nc" id="L265">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L268" title="All 2 branches missed.">			if (a &gt;= 0.99) return 1;</span>
+<span class="nc" id="L269">			return (float)Math.pow(value, power * (a - 1)) * MathUtils.sin(a * bounces) * scale;</span>
+		}
+	}
+
+	static public class ElasticOut extends Elastic {
+		public ElasticOut (float value, float power, int bounces, float scale) {
+<span class="nc" id="L275">			super(value, power, bounces, scale);</span>
+<span class="nc" id="L276">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L279" title="All 2 branches missed.">			if (a == 0) return 0;</span>
+<span class="nc" id="L280">			a = 1 - a;</span>
+<span class="nc" id="L281">			return (1 - (float)Math.pow(value, power * (a - 1)) * MathUtils.sin(a * bounces) * scale);</span>
+		}
+	}
+
+	//
+
+	static public class Bounce extends BounceOut {
+		public Bounce (float[] widths, float[] heights) {
+<span class="nc" id="L289">			super(widths, heights);</span>
+<span class="nc" id="L290">		}</span>
+
+		public Bounce (int bounces) {
+<span class="nc" id="L293">			super(bounces);</span>
+<span class="nc" id="L294">		}</span>
+
+		private float out (float a) {
+<span class="nc" id="L297">			float test = a + widths[0] / 2;</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">			if (test &lt; widths[0]) return test / (widths[0] / 2) - 1;</span>
+<span class="nc" id="L299">			return super.apply(a);</span>
+		}
+
+		public float apply (float a) {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">			if (a &lt;= 0.5f) return (1 - out(1 - a * 2)) / 2;</span>
+<span class="nc" id="L304">			return out(a * 2 - 1) / 2 + 0.5f;</span>
+		}
+	}
+
+	static public class BounceOut extends Interpolation {
+		final float[] widths, heights;
+
+<span class="nc" id="L311">		public BounceOut (float[] widths, float[] heights) {</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">			if (widths.length != heights.length)</span>
+<span class="nc" id="L313">				throw new IllegalArgumentException(&quot;Must be the same number of widths and heights.&quot;);</span>
+<span class="nc" id="L314">			this.widths = widths;</span>
+<span class="nc" id="L315">			this.heights = heights;</span>
+<span class="nc" id="L316">		}</span>
+
+<span class="nc" id="L318">		public BounceOut (int bounces) {</span>
+<span class="nc bnc" id="L319" title="All 4 branches missed.">			if (bounces &lt; 2 || bounces &gt; 5) throw new IllegalArgumentException(&quot;bounces cannot be &lt; 2 or &gt; 5: &quot; + bounces);</span>
+<span class="nc" id="L320">			widths = new float[bounces];</span>
+<span class="nc" id="L321">			heights = new float[bounces];</span>
+<span class="nc" id="L322">			heights[0] = 1;</span>
+<span class="nc bnc" id="L323" title="All 5 branches missed.">			switch (bounces) {</span>
+			case 2:
+<span class="nc" id="L325">				widths[0] = 0.6f;</span>
+<span class="nc" id="L326">				widths[1] = 0.4f;</span>
+<span class="nc" id="L327">				heights[1] = 0.33f;</span>
+<span class="nc" id="L328">				break;</span>
+			case 3:
+<span class="nc" id="L330">				widths[0] = 0.4f;</span>
+<span class="nc" id="L331">				widths[1] = 0.4f;</span>
+<span class="nc" id="L332">				widths[2] = 0.2f;</span>
+<span class="nc" id="L333">				heights[1] = 0.33f;</span>
+<span class="nc" id="L334">				heights[2] = 0.1f;</span>
+<span class="nc" id="L335">				break;</span>
+			case 4:
+<span class="nc" id="L337">				widths[0] = 0.34f;</span>
+<span class="nc" id="L338">				widths[1] = 0.34f;</span>
+<span class="nc" id="L339">				widths[2] = 0.2f;</span>
+<span class="nc" id="L340">				widths[3] = 0.15f;</span>
+<span class="nc" id="L341">				heights[1] = 0.26f;</span>
+<span class="nc" id="L342">				heights[2] = 0.11f;</span>
+<span class="nc" id="L343">				heights[3] = 0.03f;</span>
+<span class="nc" id="L344">				break;</span>
+			case 5:
+<span class="nc" id="L346">				widths[0] = 0.3f;</span>
+<span class="nc" id="L347">				widths[1] = 0.3f;</span>
+<span class="nc" id="L348">				widths[2] = 0.2f;</span>
+<span class="nc" id="L349">				widths[3] = 0.1f;</span>
+<span class="nc" id="L350">				widths[4] = 0.1f;</span>
+<span class="nc" id="L351">				heights[1] = 0.45f;</span>
+<span class="nc" id="L352">				heights[2] = 0.3f;</span>
+<span class="nc" id="L353">				heights[3] = 0.15f;</span>
+<span class="nc" id="L354">				heights[4] = 0.06f;</span>
+				break;
+			}
+<span class="nc" id="L357">			widths[0] *= 2;</span>
+<span class="nc" id="L358">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L361" title="All 2 branches missed.">			if (a == 1) return 1;</span>
+<span class="nc" id="L362">			a += widths[0] / 2;</span>
+<span class="nc" id="L363">			float width = 0, height = 0;</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">			for (int i = 0, n = widths.length; i &lt; n; i++) {</span>
+<span class="nc" id="L365">				width = widths[i];</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">				if (a &lt;= width) {</span>
+<span class="nc" id="L367">					height = heights[i];</span>
+<span class="nc" id="L368">					break;</span>
+				}
+<span class="nc" id="L370">				a -= width;</span>
+			}
+<span class="nc" id="L372">			a /= width;</span>
+<span class="nc" id="L373">			float z = 4 / width * height * a;</span>
+<span class="nc" id="L374">			return 1 - (z - z * a) * width;</span>
+		}
+	}
+
+	static public class BounceIn extends BounceOut {
+		public BounceIn (float[] widths, float[] heights) {
+<span class="nc" id="L380">			super(widths, heights);</span>
+<span class="nc" id="L381">		}</span>
+
+		public BounceIn (int bounces) {
+<span class="nc" id="L384">			super(bounces);</span>
+<span class="nc" id="L385">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L388">			return 1 - super.apply(1 - a);</span>
+		}
+	}
+
+	//
+
+	static public class Swing extends Interpolation {
+		private final float scale;
+
+<span class="nc" id="L397">		public Swing (float scale) {</span>
+<span class="nc" id="L398">			this.scale = scale * 2;</span>
+<span class="nc" id="L399">		}</span>
+
+		public float apply (float a) {
+<span class="nc bnc" id="L402" title="All 2 branches missed.">			if (a &lt;= 0.5f) {</span>
+<span class="nc" id="L403">				a *= 2;</span>
+<span class="nc" id="L404">				return a * a * ((scale + 1) * a - scale) / 2;</span>
+			}
+<span class="nc" id="L406">			a--;</span>
+<span class="nc" id="L407">			a *= 2;</span>
+<span class="nc" id="L408">			return a * a * ((scale + 1) * a + scale) / 2 + 1;</span>
+		}
+	}
+
+	static public class SwingOut extends Interpolation {
+		private final float scale;
+
+<span class="nc" id="L415">		public SwingOut (float scale) {</span>
+<span class="nc" id="L416">			this.scale = scale;</span>
+<span class="nc" id="L417">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L420">			a--;</span>
+<span class="nc" id="L421">			return a * a * ((scale + 1) * a + scale) + 1;</span>
+		}
+	}
+
+	static public class SwingIn extends Interpolation {
+		private final float scale;
+
+<span class="nc" id="L428">		public SwingIn (float scale) {</span>
+<span class="nc" id="L429">			this.scale = scale;</span>
+<span class="nc" id="L430">		}</span>
+
+		public float apply (float a) {
+<span class="nc" id="L433">			return a * a * ((scale + 1) * a - scale);</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

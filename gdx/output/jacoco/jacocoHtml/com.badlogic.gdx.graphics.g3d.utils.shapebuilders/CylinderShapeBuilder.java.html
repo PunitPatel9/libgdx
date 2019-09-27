@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CylinderShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">CylinderShapeBuilder.java</span></div><h1>CylinderShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.MathUtils;
+
+/** Helper class with static methods to build cylinders shapes using {@link MeshPartBuilder}.
+ * @author xoppa */
+<span class="nc" id="L25">public class CylinderShapeBuilder extends BaseShapeBuilder {</span>
+	/** Build a cylinder */
+	public static void build (MeshPartBuilder builder, float width, float height, float depth, int divisions) {
+<span class="nc" id="L28">		build(builder, width, height, depth, divisions, 0, 360);</span>
+<span class="nc" id="L29">	}</span>
+	
+	/** Build a cylinder */
+	public static void build (MeshPartBuilder builder, float width, float height, float depth, int divisions, float angleFrom, float angleTo) {
+<span class="nc" id="L33">		build(builder, width, height, depth, divisions, angleFrom, angleTo, true);</span>
+<span class="nc" id="L34">	}</span>
+	
+	/** Build a cylinder */
+	public static void build (MeshPartBuilder builder, float width, float height, float depth, int divisions, float angleFrom,
+		float angleTo, boolean close) {
+		// FIXME create better cylinder method (- axis on which to create the cylinder (matrix?))
+<span class="nc" id="L40">		final float hw = width * 0.5f;</span>
+<span class="nc" id="L41">		final float hh = height * 0.5f;</span>
+<span class="nc" id="L42">		final float hd = depth * 0.5f;</span>
+<span class="nc" id="L43">		final float ao = MathUtils.degreesToRadians * angleFrom;</span>
+<span class="nc" id="L44">		final float step = (MathUtils.degreesToRadians * (angleTo - angleFrom)) / divisions;</span>
+<span class="nc" id="L45">		final float us = 1f / divisions;</span>
+<span class="nc" id="L46">		float u = 0f;</span>
+<span class="nc" id="L47">		float angle = 0f;</span>
+<span class="nc" id="L48">		VertexInfo curr1 = vertTmp3.set(null, null, null, null);</span>
+<span class="nc" id="L49">		curr1.hasUV = curr1.hasPosition = curr1.hasNormal = true;</span>
+<span class="nc" id="L50">		VertexInfo curr2 = vertTmp4.set(null, null, null, null);</span>
+<span class="nc" id="L51">		curr2.hasUV = curr2.hasPosition = curr2.hasNormal = true;</span>
+<span class="nc" id="L52">		short i1, i2, i3 = 0, i4 = 0;</span>
+
+<span class="nc" id="L54">		builder.ensureVertices(2 * (divisions + 1));</span>
+<span class="nc" id="L55">		builder.ensureRectangleIndices(divisions);</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">		for (int i = 0; i &lt;= divisions; i++) {</span>
+<span class="nc" id="L57">			angle = ao + step * i;</span>
+<span class="nc" id="L58">			u = 1f - us * i;</span>
+<span class="nc" id="L59">			curr1.position.set(MathUtils.cos(angle) * hw, 0f, MathUtils.sin(angle) * hd);</span>
+<span class="nc" id="L60">			curr1.normal.set(curr1.position).nor();</span>
+<span class="nc" id="L61">			curr1.position.y = -hh;</span>
+<span class="nc" id="L62">			curr1.uv.set(u, 1);</span>
+<span class="nc" id="L63">			curr2.position.set(curr1.position);</span>
+<span class="nc" id="L64">			curr2.normal.set(curr1.normal);</span>
+<span class="nc" id="L65">			curr2.position.y = hh;</span>
+<span class="nc" id="L66">			curr2.uv.set(u, 0);</span>
+<span class="nc" id="L67">			i2 = builder.vertex(curr1);</span>
+<span class="nc" id="L68">			i1 = builder.vertex(curr2);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">			if (i != 0) builder.rect(i3, i1, i2, i4); // FIXME don't duplicate lines and points</span>
+<span class="nc" id="L70">			i4 = i2;</span>
+<span class="nc" id="L71">			i3 = i1;</span>
+		}
+<span class="nc bnc" id="L73" title="All 2 branches missed.">		if (close) {</span>
+<span class="nc" id="L74">			EllipseShapeBuilder.build(builder, width, depth, 0, 0, divisions, 0, hh, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, angleFrom,</span>
+				angleTo);
+<span class="nc" id="L76">			EllipseShapeBuilder.build(builder, width, depth, 0, 0, divisions, 0, -hh, 0, 0, -1, 0, -1, 0, 0, 0, 0, 1,</span>
+				180f - angleTo, 180f - angleFrom);
+		}
+<span class="nc" id="L79">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResourceData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles</a> &gt; <span class="el_source">ResourceData.java</span></div><h1>ResourceData.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.ObjectMap.Entry;
+import com.badlogic.gdx.utils.reflect.ClassReflection;
+import com.badlogic.gdx.utils.reflect.ReflectionException;
+
+/** This class handles the assets and configurations required by a given resource when de/serialized. It's handy when a given
+ * object or one of its members requires some assets to be loaded to work properly after being deserialized. To save the assets,
+ * the object should implement the {@link Configurable} interface and obtain a {@link SaveData} object to store every required
+ * asset or information which will be used during the loading phase. The passed in {@link AssetManager} is generally used to find
+ * the asset file name for a given resource of a given type. The class can also store global configurations, this is useful when
+ * dealing with objects which should be allocated once (i.e singleton). The deserialization process must happen in the same order
+ * of serialization, because the per object {@link SaveData} blocks are stored as an {@link Array} within the {@link ResourceData}
+ * , while the global {@link SaveData} instances can be accessed in any order because require a unique {@link String} and are
+ * stored in an {@link ObjectMap}.
+ * @author Inferno */
+public class ResourceData&lt;T&gt; implements Json.Serializable {
+
+	/** This interface must be implemented by any class requiring additional assets to be loaded/saved */
+	public static interface Configurable&lt;T&gt; {
+		public void save (AssetManager manager, ResourceData&lt;T&gt; resources);
+
+		public void load (AssetManager manager, ResourceData&lt;T&gt; resources);
+	}
+
+	/** Contains all the saved data. {@link #data} is a map which link an asset name to its instance. {@link #assets} is an array of
+	 * indices addressing a given {@link com.badlogic.gdx.graphics.g3d.particles.ResourceData.AssetData} in the
+	 * {@link ResourceData} */
+	public static class SaveData implements Json.Serializable {
+		ObjectMap&lt;String, Object&gt; data;
+		IntArray assets;
+		private int loadIndex;
+		protected ResourceData resources;
+
+<span class="nc" id="L59">		public SaveData () {</span>
+<span class="nc" id="L60">			data = new ObjectMap&lt;String, Object&gt;();</span>
+<span class="nc" id="L61">			assets = new IntArray();</span>
+<span class="nc" id="L62">			loadIndex = 0;</span>
+<span class="nc" id="L63">		}</span>
+
+<span class="nc" id="L65">		public SaveData (ResourceData resources) {</span>
+<span class="nc" id="L66">			data = new ObjectMap&lt;String, Object&gt;();</span>
+<span class="nc" id="L67">			assets = new IntArray();</span>
+<span class="nc" id="L68">			loadIndex = 0;</span>
+<span class="nc" id="L69">			this.resources = resources;</span>
+<span class="nc" id="L70">		}</span>
+
+		public &lt;K&gt; void saveAsset (String filename, Class&lt;K&gt; type) {
+<span class="nc" id="L73">			int i = resources.getAssetData(filename, type);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">			if (i == -1) {</span>
+<span class="nc" id="L75">				resources.sharedAssets.add(new AssetData(filename, type));</span>
+<span class="nc" id="L76">				i = resources.sharedAssets.size - 1;</span>
+			}
+<span class="nc" id="L78">			assets.add(i);</span>
+<span class="nc" id="L79">		}</span>
+
+		public void save (String key, Object value) {
+<span class="nc" id="L82">			data.put(key, value);</span>
+<span class="nc" id="L83">		}</span>
+
+		public AssetDescriptor loadAsset () {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">			if (loadIndex == assets.size) return null;</span>
+<span class="nc" id="L87">			AssetData data = (AssetData)resources.sharedAssets.get(assets.get(loadIndex++));</span>
+<span class="nc" id="L88">			return new AssetDescriptor(data.filename, data.type);</span>
+		}
+
+		public &lt;K&gt; K load (String key) {
+<span class="nc" id="L92">			return (K)data.get(key);</span>
+		}
+
+		@Override
+		public void write (Json json) {
+<span class="nc" id="L97">			json.writeValue(&quot;data&quot;, data, ObjectMap.class);</span>
+<span class="nc" id="L98">			json.writeValue(&quot;indices&quot;, assets.toArray(), int[].class);</span>
+<span class="nc" id="L99">		}</span>
+
+		@Override
+		public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L103">			data = json.readValue(&quot;data&quot;, ObjectMap.class, jsonData);</span>
+<span class="nc" id="L104">			assets.addAll(json.readValue(&quot;indices&quot;, int[].class, jsonData));</span>
+<span class="nc" id="L105">		}</span>
+	}
+
+	/** This class contains all the information related to a given asset */
+	public static class AssetData&lt;T&gt; implements Json.Serializable {
+		public String filename;
+		public Class&lt;T&gt; type;
+
+<span class="nc" id="L113">		public AssetData () {</span>
+<span class="nc" id="L114">		}</span>
+
+<span class="nc" id="L116">		public AssetData (String filename, Class&lt;T&gt; type) {</span>
+<span class="nc" id="L117">			this.filename = filename;</span>
+<span class="nc" id="L118">			this.type = type;</span>
+<span class="nc" id="L119">		}</span>
+
+		@Override
+		public void write (Json json) {
+<span class="nc" id="L123">			json.writeValue(&quot;filename&quot;, filename);</span>
+<span class="nc" id="L124">			json.writeValue(&quot;type&quot;, type.getName());</span>
+<span class="nc" id="L125">		}</span>
+
+		@Override
+		public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L129">			filename = json.readValue(&quot;filename&quot;, String.class, jsonData);</span>
+<span class="nc" id="L130">			String className = json.readValue(&quot;type&quot;, String.class, jsonData);</span>
+			try {
+<span class="nc" id="L132">				type = (Class&lt;T&gt;)ClassReflection.forName(className);</span>
+<span class="nc" id="L133">			} catch (ReflectionException e) {</span>
+<span class="nc" id="L134">				throw new GdxRuntimeException(&quot;Class not found: &quot; + className, e);</span>
+<span class="nc" id="L135">			}</span>
+<span class="nc" id="L136">		}</span>
+	}
+
+	/** Unique data, can be used to save/load generic data which is not always loaded back after saving. Must be used to store data
+	 * which is uniquely addressable by a given string (i.e a system configuration). */
+	private ObjectMap&lt;String, SaveData&gt; uniqueData;
+
+	/** Objects save data, must be loaded in the same saving order */
+	private Array&lt;SaveData&gt; data;
+
+	/** Shared assets among all the configurable objects */
+	Array&lt;AssetData&gt; sharedAssets;
+	private int currentLoadIndex;
+	public T resource;
+
+<span class="nc" id="L151">	public ResourceData () {</span>
+<span class="nc" id="L152">		uniqueData = new ObjectMap&lt;String, SaveData&gt;();</span>
+<span class="nc" id="L153">		data = new Array&lt;SaveData&gt;(true, 3, SaveData.class);</span>
+<span class="nc" id="L154">		sharedAssets = new Array&lt;AssetData&gt;();</span>
+<span class="nc" id="L155">		currentLoadIndex = 0;</span>
+<span class="nc" id="L156">	}</span>
+
+	public ResourceData (T resource) {
+<span class="nc" id="L159">		this();</span>
+<span class="nc" id="L160">		this.resource = resource;</span>
+<span class="nc" id="L161">	}</span>
+
+	&lt;K&gt; int getAssetData (String filename, Class&lt;K&gt; type) {
+<span class="nc" id="L164">		int i = 0;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		for (AssetData data : sharedAssets) {</span>
+<span class="nc bnc" id="L166" title="All 4 branches missed.">			if (data.filename.equals(filename) &amp;&amp; data.type.equals(type)) {</span>
+<span class="nc" id="L167">				return i;</span>
+			}
+<span class="nc" id="L169">			++i;</span>
+<span class="nc" id="L170">		}</span>
+<span class="nc" id="L171">		return -1;</span>
+	}
+
+	public Array&lt;AssetDescriptor&gt; getAssetDescriptors () {
+<span class="nc" id="L175">		Array&lt;AssetDescriptor&gt; descriptors = new Array&lt;AssetDescriptor&gt;();</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">		for (AssetData data : sharedAssets) {</span>
+<span class="nc" id="L177">			descriptors.add(new AssetDescriptor&lt;T&gt;(data.filename, data.type));</span>
+<span class="nc" id="L178">		}</span>
+<span class="nc" id="L179">		return descriptors;</span>
+	}
+
+	public Array&lt;AssetData&gt; getAssets () {
+<span class="nc" id="L183">		return sharedAssets;</span>
+	}
+
+	/** Creates and adds a new SaveData object to the save data list */
+	public SaveData createSaveData () {
+<span class="nc" id="L188">		SaveData saveData = new SaveData(this);</span>
+<span class="nc" id="L189">		data.add(saveData);</span>
+<span class="nc" id="L190">		return saveData;</span>
+	}
+
+	/** Creates and adds a new and unique SaveData object to the save data map */
+	public SaveData createSaveData (String key) {
+<span class="nc" id="L195">		SaveData saveData = new SaveData(this);</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">		if (uniqueData.containsKey(key)) throw new RuntimeException(&quot;Key already used, data must be unique, use a different key&quot;);</span>
+<span class="nc" id="L197">		uniqueData.put(key, saveData);</span>
+<span class="nc" id="L198">		return saveData;</span>
+	}
+
+	/** @return the next save data in the list */
+	public SaveData getSaveData () {
+<span class="nc" id="L203">		return data.get(currentLoadIndex++);</span>
+	}
+
+	/** @return the unique save data in the map */
+	public SaveData getSaveData (String key) {
+<span class="nc" id="L208">		return uniqueData.get(key);</span>
+	}
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L213">		json.writeValue(&quot;unique&quot;, uniqueData, ObjectMap.class);</span>
+<span class="nc" id="L214">		json.writeValue(&quot;data&quot;, data, Array.class, SaveData.class);</span>
+<span class="nc" id="L215">		json.writeValue(&quot;assets&quot;, sharedAssets.toArray(AssetData.class), AssetData[].class);</span>
+<span class="nc" id="L216">		json.writeValue(&quot;resource&quot;, resource, null);</span>
+<span class="nc" id="L217">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L221">		uniqueData = json.readValue(&quot;unique&quot;, ObjectMap.class, jsonData);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">		for (Entry&lt;String, SaveData&gt; entry : uniqueData.entries()) {</span>
+<span class="nc" id="L223">			entry.value.resources = this;</span>
+<span class="nc" id="L224">		}</span>
+
+<span class="nc" id="L226">		data = json.readValue(&quot;data&quot;, Array.class, SaveData.class, jsonData);</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">		for (SaveData saveData : data) {</span>
+<span class="nc" id="L228">			saveData.resources = this;</span>
+<span class="nc" id="L229">		}</span>
+
+<span class="nc" id="L231">		sharedAssets.addAll(json.readValue(&quot;assets&quot;, Array.class, AssetData.class, jsonData));</span>
+<span class="nc" id="L232">		resource = json.readValue(&quot;resource&quot;, null, jsonData);</span>
+<span class="nc" id="L233">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

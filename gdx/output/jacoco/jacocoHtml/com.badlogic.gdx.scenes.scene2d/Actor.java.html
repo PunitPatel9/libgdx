@@ -1,0 +1,974 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Actor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d</a> &gt; <span class="el_source">Actor.java</span></div><h1>Actor.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d;
+
+import static com.badlogic.gdx.utils.Align.*;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.InputEvent.Type;
+import com.badlogic.gdx.scenes.scene2d.utils.ActorGestureListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.DelayedRemovalArray;
+import com.badlogic.gdx.utils.Pools;
+import com.badlogic.gdx.utils.reflect.ClassReflection;
+
+/** 2D scene graph node. An actor has a position, rectangular size, origin, scale, rotation, Z index, and color. The position
+ * corresponds to the unrotated, unscaled bottom left corner of the actor. The position is relative to the actor's parent. The
+ * origin is relative to the position and is used for scale and rotation.
+ * &lt;p&gt;
+ * An actor has a list of in progress {@link Action actions} that are applied to the actor (often over time). These are generally
+ * used to change the presentation of the actor (moving it, resizing it, etc). See {@link #act(float)}, {@link Action}, and its
+ * many subclasses.
+ * &lt;p&gt;
+ * An actor has two kinds of listeners associated with it: &quot;capture&quot; and regular. The listeners are notified of events the actor
+ * or its children receive. The regular listeners are designed to allow an actor to respond to events that have been delivered.
+ * The capture listeners are designed to allow a parent or container actor to handle events before child actors. See {@link #fire}
+ * for more details.
+ * &lt;p&gt;
+ * An {@link InputListener} can receive all the basic input events. More complex listeners (like {@link ClickListener} and
+ * {@link ActorGestureListener}) can listen for and combine primitive events and recognize complex interactions like multi-touch
+ * or pinch.
+ * @author mzechner
+ * @author Nathan Sweet */
+<span class="nc" id="L57">public class Actor {</span>
+	private Stage stage;
+	Group parent;
+<span class="nc" id="L60">	private final DelayedRemovalArray&lt;EventListener&gt; listeners = new DelayedRemovalArray(0);</span>
+<span class="nc" id="L61">	private final DelayedRemovalArray&lt;EventListener&gt; captureListeners = new DelayedRemovalArray(0);</span>
+<span class="nc" id="L62">	private final Array&lt;Action&gt; actions = new Array(0);</span>
+
+	private String name;
+<span class="nc" id="L65">	private Touchable touchable = Touchable.enabled;</span>
+<span class="nc" id="L66">	private boolean visible = true, debug;</span>
+	float x, y;
+	float width, height;
+	float originX, originY;
+<span class="nc" id="L70">	float scaleX = 1, scaleY = 1;</span>
+	float rotation;
+<span class="nc" id="L72">	final Color color = new Color(1, 1, 1, 1);</span>
+	private Object userObject;
+
+	/** Draws the actor. The batch is configured to draw in the parent's coordinate system.
+	 * {@link Batch#draw(com.badlogic.gdx.graphics.g2d.TextureRegion, float, float, float, float, float, float, float, float, float)
+	 * This draw method} is convenient to draw a rotated and scaled TextureRegion. {@link Batch#begin()} has already been called on
+	 * the batch. If {@link Batch#end()} is called to draw without the batch then {@link Batch#begin()} must be called before the
+	 * method returns.
+	 * &lt;p&gt;
+	 * The default implementation does nothing.
+	 * @param parentAlpha The parent alpha, to be multiplied with this actor's alpha, allowing the parent's alpha to affect all
+	 *           children. */
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L85">	}</span>
+
+	/** Updates the actor based on time. Typically this is called each frame by {@link Stage#act(float)}.
+	 * &lt;p&gt;
+	 * The default implementation calls {@link Action#act(float)} on each action and removes actions that are complete.
+	 * @param delta Time in seconds since the last frame. */
+	public void act (float delta) {
+<span class="nc" id="L92">		Array&lt;Action&gt; actions = this.actions;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">		if (actions.size == 0) return;</span>
+<span class="nc bnc" id="L94" title="All 4 branches missed.">		if (stage != null &amp;&amp; stage.getActionsRequestRendering()) Gdx.graphics.requestRendering();</span>
+		try {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">			for (int i = 0; i &lt; actions.size; i++) {</span>
+<span class="nc" id="L97">				Action action = actions.get(i);</span>
+<span class="nc bnc" id="L98" title="All 4 branches missed.">				if (action.act(delta) &amp;&amp; i &lt; actions.size) {</span>
+<span class="nc" id="L99">					Action current = actions.get(i);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">					int actionIndex = current == action ? i : actions.indexOf(action, true);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">					if (actionIndex != -1) {</span>
+<span class="nc" id="L102">						actions.removeIndex(actionIndex);</span>
+<span class="nc" id="L103">						action.setActor(null);</span>
+<span class="nc" id="L104">						i--;</span>
+					}
+				}
+			}
+<span class="nc" id="L108">		} catch (RuntimeException ex) {</span>
+<span class="nc" id="L109">			String context = toString();</span>
+<span class="nc" id="L110">			throw new RuntimeException(&quot;Actor: &quot; + context.substring(0, Math.min(context.length(), 128)), ex);</span>
+<span class="nc" id="L111">		}</span>
+<span class="nc" id="L112">	}</span>
+
+	/** Sets this actor as the event {@link Event#setTarget(Actor) target} and propagates the event to this actor and ancestor
+	 * actors as necessary. If this actor is not in the stage, the stage must be set before calling this method.
+	 * &lt;p&gt;
+	 * Events are fired in 2 phases:
+	 * &lt;ol&gt;
+	 * &lt;li&gt;The first phase (the &quot;capture&quot; phase) notifies listeners on each actor starting at the root and propagating downward to
+	 * (and including) this actor.&lt;/li&gt;
+	 * &lt;li&gt;The second phase notifies listeners on each actor starting at this actor and, if {@link Event#getBubbles()} is true,
+	 * propagating upward to the root.&lt;/li&gt;
+	 * &lt;/ol&gt;
+	 * If the event is {@link Event#stop() stopped} at any time, it will not propagate to the next actor.
+	 * @return true if the event was {@link Event#cancel() cancelled}. */
+	public boolean fire (Event event) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">		if (event.getStage() == null) event.setStage(getStage());</span>
+<span class="nc" id="L128">		event.setTarget(this);</span>
+
+		// Collect ancestors so event propagation is unaffected by hierarchy changes.
+<span class="nc" id="L131">		Array&lt;Group&gt; ancestors = Pools.obtain(Array.class);</span>
+<span class="nc" id="L132">		Group parent = this.parent;</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		while (parent != null) {</span>
+<span class="nc" id="L134">			ancestors.add(parent);</span>
+<span class="nc" id="L135">			parent = parent.parent;</span>
+		}
+
+		try {
+			// Notify all parent capture listeners, starting at the root. Ancestors may stop an event before children receive it.
+<span class="nc" id="L140">			Object[] ancestorsArray = ancestors.items;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">			for (int i = ancestors.size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L142">				Group currentTarget = (Group)ancestorsArray[i];</span>
+<span class="nc" id="L143">				currentTarget.notify(event, true);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">				if (event.isStopped()) return event.isCancelled();</span>
+			}
+
+			// Notify the target capture listeners.
+<span class="nc" id="L148">			notify(event, true);</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">			if (event.isStopped()) return event.isCancelled();</span>
+
+			// Notify the target listeners.
+<span class="nc" id="L152">			notify(event, false);</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">			if (!event.getBubbles()) return event.isCancelled();</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (event.isStopped()) return event.isCancelled();</span>
+
+			// Notify all parent listeners, starting at the target. Children may stop an event before ancestors receive it.
+<span class="nc bnc" id="L157" title="All 2 branches missed.">			for (int i = 0, n = ancestors.size; i &lt; n; i++) {</span>
+<span class="nc" id="L158">				((Group)ancestorsArray[i]).notify(event, false);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">				if (event.isStopped()) return event.isCancelled();</span>
+			}
+
+<span class="nc" id="L162">			return event.isCancelled();</span>
+		} finally {
+<span class="nc" id="L164">			ancestors.clear();</span>
+<span class="nc" id="L165">			Pools.free(ancestors);</span>
+		}
+	}
+
+	/** Notifies this actor's listeners of the event. The event is not propagated to any parents. Before notifying the listeners,
+	 * this actor is set as the {@link Event#getListenerActor() listener actor}. The event {@link Event#setTarget(Actor) target}
+	 * must be set before calling this method. If this actor is not in the stage, the stage must be set before calling this method.
+	 * @param capture If true, the capture listeners will be notified instead of the regular listeners.
+	 * @return true of the event was {@link Event#cancel() cancelled}. */
+	public boolean notify (Event event, boolean capture) {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		if (event.getTarget() == null) throw new IllegalArgumentException(&quot;The event target cannot be null.&quot;);</span>
+
+<span class="nc bnc" id="L177" title="All 2 branches missed.">		DelayedRemovalArray&lt;EventListener&gt; listeners = capture ? captureListeners : this.listeners;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		if (listeners.size == 0) return event.isCancelled();</span>
+
+<span class="nc" id="L180">		event.setListenerActor(this);</span>
+<span class="nc" id="L181">		event.setCapture(capture);</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">		if (event.getStage() == null) event.setStage(stage);</span>
+
+		try {
+<span class="nc" id="L185">			listeners.begin();</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">			for (int i = 0, n = listeners.size; i &lt; n; i++) {</span>
+<span class="nc" id="L187">				EventListener listener = listeners.get(i);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">				if (listener.handle(event)) {</span>
+<span class="nc" id="L189">					event.handle();</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">					if (event instanceof InputEvent) {</span>
+<span class="nc" id="L191">						InputEvent inputEvent = (InputEvent)event;</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">						if (inputEvent.getType() == Type.touchDown) {</span>
+<span class="nc" id="L193">							event.getStage().addTouchFocus(listener, this, inputEvent.getTarget(), inputEvent.getPointer(),</span>
+<span class="nc" id="L194">								inputEvent.getButton());</span>
+						}
+					}
+				}
+			}
+<span class="nc" id="L199">			listeners.end();</span>
+<span class="nc" id="L200">		} catch (RuntimeException ex) {</span>
+<span class="nc" id="L201">			String context = toString();</span>
+<span class="nc" id="L202">			throw new RuntimeException(&quot;Actor: &quot; + context.substring(0, Math.min(context.length(), 128)), ex);</span>
+<span class="nc" id="L203">		}</span>
+
+<span class="nc" id="L205">		return event.isCancelled();</span>
+	}
+
+	/** Returns the deepest {@link #isVisible() visible} (and optionally, {@link #getTouchable() touchable}) actor that contains
+	 * the specified point, or null if no actor was hit. The point is specified in the actor's local coordinate system (0,0 is the
+	 * bottom left of the actor and width,height is the upper right).
+	 * &lt;p&gt;
+	 * This method is used to delegate touchDown, mouse, and enter/exit events. If this method returns null, those events will not
+	 * occur on this Actor.
+	 * &lt;p&gt;
+	 * The default implementation returns this actor if the point is within this actor's bounds and this actor is visible.
+	 * @param touchable If true, hit detection will respect the {@link #setTouchable(Touchable) touchability}.
+	 * @see Touchable */
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L219" title="All 4 branches missed.">		if (touchable &amp;&amp; this.touchable != Touchable.enabled) return null;</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">		if (!isVisible()) return null;</span>
+<span class="nc bnc" id="L221" title="All 8 branches missed.">		return x &gt;= 0 &amp;&amp; x &lt; width &amp;&amp; y &gt;= 0 &amp;&amp; y &lt; height ? this : null;</span>
+	}
+
+	/** Removes this actor from its parent, if it has a parent.
+	 * @see Group#removeActor(Actor) */
+	public boolean remove () {
+<span class="nc bnc" id="L227" title="All 2 branches missed.">		if (parent != null) return parent.removeActor(this, true);</span>
+<span class="nc" id="L228">		return false;</span>
+	}
+
+	/** Add a listener to receive events that {@link #hit(float, float, boolean) hit} this actor. See {@link #fire(Event)}.
+	 * @see InputListener
+	 * @see ClickListener */
+	public boolean addListener (EventListener listener) {
+<span class="nc bnc" id="L235" title="All 2 branches missed.">		if (listener == null) throw new IllegalArgumentException(&quot;listener cannot be null.&quot;);</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		if (!listeners.contains(listener, true)) {</span>
+<span class="nc" id="L237">			listeners.add(listener);</span>
+<span class="nc" id="L238">			return true;</span>
+		}
+<span class="nc" id="L240">		return false;</span>
+	}
+
+	public boolean removeListener (EventListener listener) {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">		if (listener == null) throw new IllegalArgumentException(&quot;listener cannot be null.&quot;);</span>
+<span class="nc" id="L245">		return listeners.removeValue(listener, true);</span>
+	}
+
+	public DelayedRemovalArray&lt;EventListener&gt; getListeners () {
+<span class="nc" id="L249">		return listeners;</span>
+	}
+
+	/** Adds a listener that is only notified during the capture phase.
+	 * @see #fire(Event) */
+	public boolean addCaptureListener (EventListener listener) {
+<span class="nc bnc" id="L255" title="All 2 branches missed.">		if (listener == null) throw new IllegalArgumentException(&quot;listener cannot be null.&quot;);</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">		if (!captureListeners.contains(listener, true)) captureListeners.add(listener);</span>
+<span class="nc" id="L257">		return true;</span>
+	}
+
+	public boolean removeCaptureListener (EventListener listener) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		if (listener == null) throw new IllegalArgumentException(&quot;listener cannot be null.&quot;);</span>
+<span class="nc" id="L262">		return captureListeners.removeValue(listener, true);</span>
+	}
+
+	public DelayedRemovalArray&lt;EventListener&gt; getCaptureListeners () {
+<span class="nc" id="L266">		return captureListeners;</span>
+	}
+
+	public void addAction (Action action) {
+<span class="nc" id="L270">		action.setActor(this);</span>
+<span class="nc" id="L271">		actions.add(action);</span>
+
+<span class="nc bnc" id="L273" title="All 4 branches missed.">		if (stage != null &amp;&amp; stage.getActionsRequestRendering()) Gdx.graphics.requestRendering();</span>
+<span class="nc" id="L274">	}</span>
+
+	public void removeAction (Action action) {
+<span class="nc bnc" id="L277" title="All 2 branches missed.">		if (actions.removeValue(action, true)) action.setActor(null);</span>
+<span class="nc" id="L278">	}</span>
+
+	public Array&lt;Action&gt; getActions () {
+<span class="nc" id="L281">		return actions;</span>
+	}
+
+	/** Returns true if the actor has one or more actions. */
+	public boolean hasActions () {
+<span class="nc bnc" id="L286" title="All 2 branches missed.">		return actions.size &gt; 0;</span>
+	}
+
+	/** Removes all actions on this actor. */
+	public void clearActions () {
+<span class="nc bnc" id="L291" title="All 2 branches missed.">		for (int i = actions.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L292">			actions.get(i).setActor(null);</span>
+<span class="nc" id="L293">		actions.clear();</span>
+<span class="nc" id="L294">	}</span>
+
+	/** Removes all listeners on this actor. */
+	public void clearListeners () {
+<span class="nc" id="L298">		listeners.clear();</span>
+<span class="nc" id="L299">		captureListeners.clear();</span>
+<span class="nc" id="L300">	}</span>
+
+	/** Removes all actions and listeners on this actor. */
+	public void clear () {
+<span class="nc" id="L304">		clearActions();</span>
+<span class="nc" id="L305">		clearListeners();</span>
+<span class="nc" id="L306">	}</span>
+
+	/** Returns the stage that this actor is currently in, or null if not in a stage. */
+	public Stage getStage () {
+<span class="nc" id="L310">		return stage;</span>
+	}
+
+	/** Called by the framework when this actor or any parent is added to a group that is in the stage.
+	 * @param stage May be null if the actor or any parent is no longer in a stage. */
+	protected void setStage (Stage stage) {
+<span class="nc" id="L316">		this.stage = stage;</span>
+<span class="nc" id="L317">	}</span>
+
+	/** Returns true if this actor is the same as or is the descendant of the specified actor. */
+	public boolean isDescendantOf (Actor actor) {
+<span class="nc bnc" id="L321" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc" id="L322">		Actor parent = this;</span>
+		do {
+<span class="nc bnc" id="L324" title="All 2 branches missed.">			if (parent == actor) return true;</span>
+<span class="nc" id="L325">			parent = parent.parent;</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">		} while (parent != null);</span>
+<span class="nc" id="L327">		return false;</span>
+	}
+
+	/** Returns true if this actor is the same as or is the ascendant of the specified actor. */
+	public boolean isAscendantOf (Actor actor) {
+<span class="nc bnc" id="L332" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+		do {
+<span class="nc bnc" id="L334" title="All 2 branches missed.">			if (actor == this) return true;</span>
+<span class="nc" id="L335">			actor = actor.parent;</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">		} while (actor != null);</span>
+<span class="nc" id="L337">		return false;</span>
+	}
+
+	/** Returns this actor or the first ascendant of this actor that is assignable with the specified type, or null if none were
+	 * found. */
+	public &lt;T extends Actor&gt; T firstAscendant (Class&lt;T&gt; type) {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">		if (type == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc" id="L344">		Actor actor = this;</span>
+		do {
+<span class="nc bnc" id="L346" title="All 2 branches missed.">			if (ClassReflection.isInstance(type, actor)) return (T)actor;</span>
+<span class="nc" id="L347">			actor = actor.parent;</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">		} while (actor != null);</span>
+<span class="nc" id="L349">		return null;</span>
+	}
+
+	/** Returns true if the actor's parent is not null. */
+	public boolean hasParent () {
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		return parent != null;</span>
+	}
+
+	/** Returns the parent actor, or null if not in a group. */
+	public Group getParent () {
+<span class="nc" id="L359">		return parent;</span>
+	}
+
+	/** Called by the framework when an actor is added to or removed from a group.
+	 * @param parent May be null if the actor has been removed from the parent. */
+	protected void setParent (Group parent) {
+<span class="nc" id="L365">		this.parent = parent;</span>
+<span class="nc" id="L366">	}</span>
+
+	/** Returns true if input events are processed by this actor. */
+	public boolean isTouchable () {
+<span class="nc bnc" id="L370" title="All 2 branches missed.">		return touchable == Touchable.enabled;</span>
+	}
+
+	public Touchable getTouchable () {
+<span class="nc" id="L374">		return touchable;</span>
+	}
+
+	/** Determines how touch events are distributed to this actor. Default is {@link Touchable#enabled}. */
+	public void setTouchable (Touchable touchable) {
+<span class="nc" id="L379">		this.touchable = touchable;</span>
+<span class="nc" id="L380">	}</span>
+
+	public boolean isVisible () {
+<span class="nc" id="L383">		return visible;</span>
+	}
+
+	/** If false, the actor will not be drawn and will not receive touch events. Default is true. */
+	public void setVisible (boolean visible) {
+<span class="nc" id="L388">		this.visible = visible;</span>
+<span class="nc" id="L389">	}</span>
+
+	/** Returns true if this actor and all ancestors are visible. */
+	public boolean ancestorsVisible () {
+<span class="nc" id="L393">		Actor actor = this;</span>
+		do {
+<span class="nc bnc" id="L395" title="All 2 branches missed.">			if (!actor.isVisible()) return false;</span>
+<span class="nc" id="L396">			actor = actor.parent;</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">		} while (actor != null);</span>
+<span class="nc" id="L398">		return true;</span>
+	}
+
+	/** Returns true if this actor is the {@link Stage#getKeyboardFocus() keyboard focus} actor. */
+	public boolean hasKeyboardFocus () {
+<span class="nc" id="L403">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L404" title="All 4 branches missed.">		return stage != null &amp;&amp; stage.getKeyboardFocus() == this;</span>
+	}
+
+	/** Returns true if this actor is the {@link Stage#getScrollFocus() scroll focus} actor. */
+	public boolean hasScrollFocus () {
+<span class="nc" id="L409">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L410" title="All 4 branches missed.">		return stage != null &amp;&amp; stage.getScrollFocus() == this;</span>
+	}
+
+	/** Returns true if this actor is a target actor for touch focus.
+	 * @see Stage#addTouchFocus(EventListener, Actor, Actor, int, int) */
+	public boolean isTouchFocusTarget () {
+<span class="nc" id="L416">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">		if (stage == null) return false;</span>
+<span class="nc bnc" id="L418" title="All 2 branches missed.">		for (int i = 0, n = stage.touchFocuses.size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L419" title="All 2 branches missed.">			if (stage.touchFocuses.get(i).target == this) return true;</span>
+<span class="nc" id="L420">		return false;</span>
+	}
+
+	/** Returns true if this actor is a listener actor for touch focus.
+	 * @see Stage#addTouchFocus(EventListener, Actor, Actor, int, int) */
+	public boolean isTouchFocusListener () {
+<span class="nc" id="L426">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L427" title="All 2 branches missed.">		if (stage == null) return false;</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">		for (int i = 0, n = stage.touchFocuses.size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">			if (stage.touchFocuses.get(i).listenerActor == this) return true;</span>
+<span class="nc" id="L430">		return false;</span>
+	}
+
+	/** Returns an application specific object for convenience, or null. */
+	public Object getUserObject () {
+<span class="nc" id="L435">		return userObject;</span>
+	}
+
+	/** Sets an application specific object for convenience. */
+	public void setUserObject (Object userObject) {
+<span class="nc" id="L440">		this.userObject = userObject;</span>
+<span class="nc" id="L441">	}</span>
+
+	/** Returns the X position of the actor's left edge. */
+	public float getX () {
+<span class="nc" id="L445">		return x;</span>
+	}
+
+	/** Returns the X position of the specified {@link Align alignment}. */
+	public float getX (int alignment) {
+<span class="nc" id="L450">		float x = this.x;</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">		if ((alignment &amp; right) != 0)</span>
+<span class="nc" id="L452">			x += width;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">		else if ((alignment &amp; left) == 0) //</span>
+<span class="nc" id="L454">			x += width / 2;</span>
+<span class="nc" id="L455">		return x;</span>
+	}
+
+	public void setX (float x) {
+<span class="nc bnc" id="L459" title="All 2 branches missed.">		if (this.x != x) {</span>
+<span class="nc" id="L460">			this.x = x;</span>
+<span class="nc" id="L461">			positionChanged();</span>
+		}
+<span class="nc" id="L463">	}</span>
+
+	/** Sets the x position using the specified {@link Align alignment}. Note this may set the position to non-integer
+	 * coordinates. */
+	public void setX (float x, int alignment) {
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">		if ((alignment &amp; right) != 0)</span>
+<span class="nc" id="L470">			x -= width;</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">		else if ((alignment &amp; left) == 0) //</span>
+<span class="nc" id="L472">			x -= width / 2;</span>
+
+<span class="nc bnc" id="L474" title="All 2 branches missed.">		if (this.x != x) {</span>
+<span class="nc" id="L475">			this.x = x;</span>
+<span class="nc" id="L476">			positionChanged();</span>
+		}
+<span class="nc" id="L478">	}</span>
+
+	/** Returns the Y position of the actor's bottom edge. */
+	public float getY () {
+<span class="nc" id="L482">		return y;</span>
+	}
+
+	public void setY (float y) {
+<span class="nc bnc" id="L486" title="All 2 branches missed.">		if (this.y != y) {</span>
+<span class="nc" id="L487">			this.y = y;</span>
+<span class="nc" id="L488">			positionChanged();</span>
+		}
+<span class="nc" id="L490">	}</span>
+
+	/** Sets the y position using the specified {@link Align alignment}. Note this may set the position to non-integer
+	 * coordinates. */
+	public void setY (float y, int alignment) {
+
+<span class="nc bnc" id="L496" title="All 2 branches missed.">		if ((alignment &amp; top) != 0)</span>
+<span class="nc" id="L497">			y -= height;</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">		else if ((alignment &amp; bottom) == 0) //</span>
+<span class="nc" id="L499">			y -= height / 2;</span>
+
+<span class="nc bnc" id="L501" title="All 2 branches missed.">		if (this.y != y) {</span>
+<span class="nc" id="L502">			this.y = y;</span>
+<span class="nc" id="L503">			positionChanged();</span>
+		}
+<span class="nc" id="L505">	}</span>
+
+	/** Returns the Y position of the specified {@link Align alignment}. */
+	public float getY (int alignment) {
+<span class="nc" id="L509">		float y = this.y;</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">		if ((alignment &amp; top) != 0)</span>
+<span class="nc" id="L511">			y += height;</span>
+<span class="nc bnc" id="L512" title="All 2 branches missed.">		else if ((alignment &amp; bottom) == 0) //</span>
+<span class="nc" id="L513">			y += height / 2;</span>
+<span class="nc" id="L514">		return y;</span>
+	}
+
+	/** Sets the position of the actor's bottom left corner. */
+	public void setPosition (float x, float y) {
+<span class="nc bnc" id="L519" title="All 4 branches missed.">		if (this.x != x || this.y != y) {</span>
+<span class="nc" id="L520">			this.x = x;</span>
+<span class="nc" id="L521">			this.y = y;</span>
+<span class="nc" id="L522">			positionChanged();</span>
+		}
+<span class="nc" id="L524">	}</span>
+
+	/** Sets the position using the specified {@link Align alignment}. Note this may set the position to non-integer
+	 * coordinates. */
+	public void setPosition (float x, float y, int alignment) {
+<span class="nc bnc" id="L529" title="All 2 branches missed.">		if ((alignment &amp; right) != 0)</span>
+<span class="nc" id="L530">			x -= width;</span>
+<span class="nc bnc" id="L531" title="All 2 branches missed.">		else if ((alignment &amp; left) == 0) //</span>
+<span class="nc" id="L532">			x -= width / 2;</span>
+
+<span class="nc bnc" id="L534" title="All 2 branches missed.">		if ((alignment &amp; top) != 0)</span>
+<span class="nc" id="L535">			y -= height;</span>
+<span class="nc bnc" id="L536" title="All 2 branches missed.">		else if ((alignment &amp; bottom) == 0) //</span>
+<span class="nc" id="L537">			y -= height / 2;</span>
+
+<span class="nc bnc" id="L539" title="All 4 branches missed.">		if (this.x != x || this.y != y) {</span>
+<span class="nc" id="L540">			this.x = x;</span>
+<span class="nc" id="L541">			this.y = y;</span>
+<span class="nc" id="L542">			positionChanged();</span>
+		}
+<span class="nc" id="L544">	}</span>
+
+	/** Add x and y to current position */
+	public void moveBy (float x, float y) {
+<span class="nc bnc" id="L548" title="All 4 branches missed.">		if (x != 0 || y != 0) {</span>
+<span class="nc" id="L549">			this.x += x;</span>
+<span class="nc" id="L550">			this.y += y;</span>
+<span class="nc" id="L551">			positionChanged();</span>
+		}
+<span class="nc" id="L553">	}</span>
+
+	public float getWidth () {
+<span class="nc" id="L556">		return width;</span>
+	}
+
+	public void setWidth (float width) {
+<span class="nc bnc" id="L560" title="All 2 branches missed.">		if (this.width != width) {</span>
+<span class="nc" id="L561">			this.width = width;</span>
+<span class="nc" id="L562">			sizeChanged();</span>
+		}
+<span class="nc" id="L564">	}</span>
+
+	public float getHeight () {
+<span class="nc" id="L567">		return height;</span>
+	}
+
+	public void setHeight (float height) {
+<span class="nc bnc" id="L571" title="All 2 branches missed.">		if (this.height != height) {</span>
+<span class="nc" id="L572">			this.height = height;</span>
+<span class="nc" id="L573">			sizeChanged();</span>
+		}
+<span class="nc" id="L575">	}</span>
+
+	/** Returns y plus height. */
+	public float getTop () {
+<span class="nc" id="L579">		return y + height;</span>
+	}
+
+	/** Returns x plus width. */
+	public float getRight () {
+<span class="nc" id="L584">		return x + width;</span>
+	}
+
+	/** Called when the actor's position has been changed. */
+	protected void positionChanged () {
+<span class="nc" id="L589">	}</span>
+
+	/** Called when the actor's size has been changed. */
+	protected void sizeChanged () {
+<span class="nc" id="L593">	}</span>
+
+	/** Called when the actor's rotation has been changed. */
+	protected void rotationChanged () {
+<span class="nc" id="L597">	}</span>
+
+	/** Sets the width and height. */
+	public void setSize (float width, float height) {
+<span class="nc bnc" id="L601" title="All 4 branches missed.">		if (this.width != width || this.height != height) {</span>
+<span class="nc" id="L602">			this.width = width;</span>
+<span class="nc" id="L603">			this.height = height;</span>
+<span class="nc" id="L604">			sizeChanged();</span>
+		}
+<span class="nc" id="L606">	}</span>
+
+	/** Adds the specified size to the current size. */
+	public void sizeBy (float size) {
+<span class="nc bnc" id="L610" title="All 2 branches missed.">		if (size != 0) {</span>
+<span class="nc" id="L611">			width += size;</span>
+<span class="nc" id="L612">			height += size;</span>
+<span class="nc" id="L613">			sizeChanged();</span>
+		}
+<span class="nc" id="L615">	}</span>
+
+	/** Adds the specified size to the current size. */
+	public void sizeBy (float width, float height) {
+<span class="nc bnc" id="L619" title="All 4 branches missed.">		if (width != 0 || height != 0) {</span>
+<span class="nc" id="L620">			this.width += width;</span>
+<span class="nc" id="L621">			this.height += height;</span>
+<span class="nc" id="L622">			sizeChanged();</span>
+		}
+<span class="nc" id="L624">	}</span>
+
+	/** Set bounds the x, y, width, and height. */
+	public void setBounds (float x, float y, float width, float height) {
+<span class="nc bnc" id="L628" title="All 4 branches missed.">		if (this.x != x || this.y != y) {</span>
+<span class="nc" id="L629">			this.x = x;</span>
+<span class="nc" id="L630">			this.y = y;</span>
+<span class="nc" id="L631">			positionChanged();</span>
+		}
+<span class="nc bnc" id="L633" title="All 4 branches missed.">		if (this.width != width || this.height != height) {</span>
+<span class="nc" id="L634">			this.width = width;</span>
+<span class="nc" id="L635">			this.height = height;</span>
+<span class="nc" id="L636">			sizeChanged();</span>
+		}
+<span class="nc" id="L638">	}</span>
+
+	public float getOriginX () {
+<span class="nc" id="L641">		return originX;</span>
+	}
+
+	public void setOriginX (float originX) {
+<span class="nc" id="L645">		this.originX = originX;</span>
+<span class="nc" id="L646">	}</span>
+
+	public float getOriginY () {
+<span class="nc" id="L649">		return originY;</span>
+	}
+
+	public void setOriginY (float originY) {
+<span class="nc" id="L653">		this.originY = originY;</span>
+<span class="nc" id="L654">	}</span>
+
+	/** Sets the origin position which is relative to the actor's bottom left corner. */
+	public void setOrigin (float originX, float originY) {
+<span class="nc" id="L658">		this.originX = originX;</span>
+<span class="nc" id="L659">		this.originY = originY;</span>
+<span class="nc" id="L660">	}</span>
+
+	/** Sets the origin position to the specified {@link Align alignment}. */
+	public void setOrigin (int alignment) {
+<span class="nc bnc" id="L664" title="All 2 branches missed.">		if ((alignment &amp; left) != 0)</span>
+<span class="nc" id="L665">			originX = 0;</span>
+<span class="nc bnc" id="L666" title="All 2 branches missed.">		else if ((alignment &amp; right) != 0)</span>
+<span class="nc" id="L667">			originX = width;</span>
+		else
+<span class="nc" id="L669">			originX = width / 2;</span>
+
+<span class="nc bnc" id="L671" title="All 2 branches missed.">		if ((alignment &amp; bottom) != 0)</span>
+<span class="nc" id="L672">			originY = 0;</span>
+<span class="nc bnc" id="L673" title="All 2 branches missed.">		else if ((alignment &amp; top) != 0)</span>
+<span class="nc" id="L674">			originY = height;</span>
+		else
+<span class="nc" id="L676">			originY = height / 2;</span>
+<span class="nc" id="L677">	}</span>
+
+	public float getScaleX () {
+<span class="nc" id="L680">		return scaleX;</span>
+	}
+
+	public void setScaleX (float scaleX) {
+<span class="nc" id="L684">		this.scaleX = scaleX;</span>
+<span class="nc" id="L685">	}</span>
+
+	public float getScaleY () {
+<span class="nc" id="L688">		return scaleY;</span>
+	}
+
+	public void setScaleY (float scaleY) {
+<span class="nc" id="L692">		this.scaleY = scaleY;</span>
+<span class="nc" id="L693">	}</span>
+
+	/** Sets the scale for both X and Y */
+	public void setScale (float scaleXY) {
+<span class="nc" id="L697">		this.scaleX = scaleXY;</span>
+<span class="nc" id="L698">		this.scaleY = scaleXY;</span>
+<span class="nc" id="L699">	}</span>
+
+	/** Sets the scale X and scale Y. */
+	public void setScale (float scaleX, float scaleY) {
+<span class="nc" id="L703">		this.scaleX = scaleX;</span>
+<span class="nc" id="L704">		this.scaleY = scaleY;</span>
+<span class="nc" id="L705">	}</span>
+
+	/** Adds the specified scale to the current scale. */
+	public void scaleBy (float scale) {
+<span class="nc" id="L709">		scaleX += scale;</span>
+<span class="nc" id="L710">		scaleY += scale;</span>
+<span class="nc" id="L711">	}</span>
+
+	/** Adds the specified scale to the current scale. */
+	public void scaleBy (float scaleX, float scaleY) {
+<span class="nc" id="L715">		this.scaleX += scaleX;</span>
+<span class="nc" id="L716">		this.scaleY += scaleY;</span>
+<span class="nc" id="L717">	}</span>
+
+	public float getRotation () {
+<span class="nc" id="L720">		return rotation;</span>
+	}
+
+	public void setRotation (float degrees) {
+<span class="nc bnc" id="L724" title="All 2 branches missed.">		if (this.rotation != degrees) {</span>
+<span class="nc" id="L725">			this.rotation = degrees;</span>
+<span class="nc" id="L726">			rotationChanged();</span>
+		}
+<span class="nc" id="L728">	}</span>
+
+	/** Adds the specified rotation to the current rotation. */
+	public void rotateBy (float amountInDegrees) {
+<span class="nc bnc" id="L732" title="All 2 branches missed.">		if (amountInDegrees != 0) {</span>
+<span class="nc" id="L733">			rotation = (rotation + amountInDegrees) % 360;</span>
+<span class="nc" id="L734">			rotationChanged();</span>
+		}
+<span class="nc" id="L736">	}</span>
+
+	public void setColor (Color color) {
+<span class="nc" id="L739">		this.color.set(color);</span>
+<span class="nc" id="L740">	}</span>
+
+	public void setColor (float r, float g, float b, float a) {
+<span class="nc" id="L743">		color.set(r, g, b, a);</span>
+<span class="nc" id="L744">	}</span>
+
+	/** Returns the color the actor will be tinted when drawn. The returned instance can be modified to change the color. */
+	public Color getColor () {
+<span class="nc" id="L748">		return color;</span>
+	}
+
+	/** @see #setName(String)
+	 * @return May be null. */
+	public String getName () {
+<span class="nc" id="L754">		return name;</span>
+	}
+
+	/** Set the actor's name, which is used for identification convenience and by {@link #toString()}.
+	 * @param name May be null.
+	 * @see Group#findActor(String) */
+	public void setName (String name) {
+<span class="nc" id="L761">		this.name = name;</span>
+<span class="nc" id="L762">	}</span>
+
+	/** Changes the z-order for this actor so it is in front of all siblings. */
+	public void toFront () {
+<span class="nc" id="L766">		setZIndex(Integer.MAX_VALUE);</span>
+<span class="nc" id="L767">	}</span>
+
+	/** Changes the z-order for this actor so it is in back of all siblings. */
+	public void toBack () {
+<span class="nc" id="L771">		setZIndex(0);</span>
+<span class="nc" id="L772">	}</span>
+
+	/** Sets the z-index of this actor. The z-index is the index into the parent's {@link Group#getChildren() children}, where a
+	 * lower index is below a higher index. Setting a z-index higher than the number of children will move the child to the front.
+	 * Setting a z-index less than zero is invalid.
+	 * @return true if the z-index changed. */
+	public boolean setZIndex (int index) {
+<span class="nc bnc" id="L779" title="All 2 branches missed.">		if (index &lt; 0) throw new IllegalArgumentException(&quot;ZIndex cannot be &lt; 0.&quot;);</span>
+<span class="nc" id="L780">		Group parent = this.parent;</span>
+<span class="nc bnc" id="L781" title="All 2 branches missed.">		if (parent == null) return false;</span>
+<span class="nc" id="L782">		Array&lt;Actor&gt; children = parent.children;</span>
+<span class="nc bnc" id="L783" title="All 2 branches missed.">		if (children.size == 1) return false;</span>
+<span class="nc" id="L784">		index = Math.min(index, children.size - 1);</span>
+<span class="nc bnc" id="L785" title="All 2 branches missed.">		if (children.get(index) == this) return false;</span>
+<span class="nc bnc" id="L786" title="All 2 branches missed.">		if (!children.removeValue(this, true)) return false;</span>
+<span class="nc" id="L787">		children.insert(index, this);</span>
+<span class="nc" id="L788">		return true;</span>
+	}
+
+	/** Returns the z-index of this actor.
+	 * @see #setZIndex(int) */
+	public int getZIndex () {
+<span class="nc" id="L794">		Group parent = this.parent;</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">		if (parent == null) return -1;</span>
+<span class="nc" id="L796">		return parent.children.indexOf(this, true);</span>
+	}
+
+	/** Calls {@link #clipBegin(float, float, float, float)} to clip this actor's bounds. */
+	public boolean clipBegin () {
+<span class="nc" id="L801">		return clipBegin(x, y, width, height);</span>
+	}
+
+	/** Clips the specified screen aligned rectangle, specified relative to the transform matrix of the stage's Batch. The
+	 * transform matrix and the stage's camera must not have rotational components. Calling this method must be followed by a call
+	 * to {@link #clipEnd()} if true is returned.
+	 * @return false if the clipping area is zero and no drawing should occur.
+	 * @see ScissorStack */
+	public boolean clipBegin (float x, float y, float width, float height) {
+<span class="nc bnc" id="L810" title="All 4 branches missed.">		if (width &lt;= 0 || height &lt;= 0) return false;</span>
+<span class="nc" id="L811">		Stage stage = this.stage;</span>
+<span class="nc bnc" id="L812" title="All 2 branches missed.">		if (stage == null) return false;</span>
+<span class="nc" id="L813">		Rectangle tableBounds = Rectangle.tmp;</span>
+<span class="nc" id="L814">		tableBounds.x = x;</span>
+<span class="nc" id="L815">		tableBounds.y = y;</span>
+<span class="nc" id="L816">		tableBounds.width = width;</span>
+<span class="nc" id="L817">		tableBounds.height = height;</span>
+<span class="nc" id="L818">		Rectangle scissorBounds = Pools.obtain(Rectangle.class);</span>
+<span class="nc" id="L819">		stage.calculateScissors(tableBounds, scissorBounds);</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">		if (ScissorStack.pushScissors(scissorBounds)) return true;</span>
+<span class="nc" id="L821">		Pools.free(scissorBounds);</span>
+<span class="nc" id="L822">		return false;</span>
+	}
+
+	/** Ends clipping begun by {@link #clipBegin(float, float, float, float)}. */
+	public void clipEnd () {
+<span class="nc" id="L827">		Pools.free(ScissorStack.popScissors());</span>
+<span class="nc" id="L828">	}</span>
+
+	/** Transforms the specified point in screen coordinates to the actor's local coordinate system.
+	 * @see Stage#screenToStageCoordinates(Vector2) */
+	public Vector2 screenToLocalCoordinates (Vector2 screenCoords) {
+<span class="nc" id="L833">		Stage stage = this.stage;</span>
+<span class="nc bnc" id="L834" title="All 2 branches missed.">		if (stage == null) return screenCoords;</span>
+<span class="nc" id="L835">		return stageToLocalCoordinates(stage.screenToStageCoordinates(screenCoords));</span>
+	}
+
+	/** Transforms the specified point in the stage's coordinates to the actor's local coordinate system. */
+	public Vector2 stageToLocalCoordinates (Vector2 stageCoords) {
+<span class="nc bnc" id="L840" title="All 2 branches missed.">		if (parent != null) parent.stageToLocalCoordinates(stageCoords);</span>
+<span class="nc" id="L841">		parentToLocalCoordinates(stageCoords);</span>
+<span class="nc" id="L842">		return stageCoords;</span>
+	}
+
+	/** Converts the coordinates given in the parent's coordinate system to this actor's coordinate system. */
+	public Vector2 parentToLocalCoordinates (Vector2 parentCoords) {
+<span class="nc" id="L847">		final float rotation = this.rotation;</span>
+<span class="nc" id="L848">		final float scaleX = this.scaleX;</span>
+<span class="nc" id="L849">		final float scaleY = this.scaleY;</span>
+<span class="nc" id="L850">		final float childX = x;</span>
+<span class="nc" id="L851">		final float childY = y;</span>
+<span class="nc bnc" id="L852" title="All 2 branches missed.">		if (rotation == 0) {</span>
+<span class="nc bnc" id="L853" title="All 4 branches missed.">			if (scaleX == 1 &amp;&amp; scaleY == 1) {</span>
+<span class="nc" id="L854">				parentCoords.x -= childX;</span>
+<span class="nc" id="L855">				parentCoords.y -= childY;</span>
+			} else {
+<span class="nc" id="L857">				final float originX = this.originX;</span>
+<span class="nc" id="L858">				final float originY = this.originY;</span>
+<span class="nc" id="L859">				parentCoords.x = (parentCoords.x - childX - originX) / scaleX + originX;</span>
+<span class="nc" id="L860">				parentCoords.y = (parentCoords.y - childY - originY) / scaleY + originY;</span>
+<span class="nc" id="L861">			}</span>
+		} else {
+<span class="nc" id="L863">			final float cos = (float)Math.cos(rotation * MathUtils.degreesToRadians);</span>
+<span class="nc" id="L864">			final float sin = (float)Math.sin(rotation * MathUtils.degreesToRadians);</span>
+<span class="nc" id="L865">			final float originX = this.originX;</span>
+<span class="nc" id="L866">			final float originY = this.originY;</span>
+<span class="nc" id="L867">			final float tox = parentCoords.x - childX - originX;</span>
+<span class="nc" id="L868">			final float toy = parentCoords.y - childY - originY;</span>
+<span class="nc" id="L869">			parentCoords.x = (tox * cos + toy * sin) / scaleX + originX;</span>
+<span class="nc" id="L870">			parentCoords.y = (tox * -sin + toy * cos) / scaleY + originY;</span>
+		}
+<span class="nc" id="L872">		return parentCoords;</span>
+	}
+
+	/** Transforms the specified point in the actor's coordinates to be in screen coordinates.
+	 * @see Stage#stageToScreenCoordinates(Vector2) */
+	public Vector2 localToScreenCoordinates (Vector2 localCoords) {
+<span class="nc" id="L878">		Stage stage = this.stage;</span>
+<span class="nc bnc" id="L879" title="All 2 branches missed.">		if (stage == null) return localCoords;</span>
+<span class="nc" id="L880">		return stage.stageToScreenCoordinates(localToAscendantCoordinates(null, localCoords));</span>
+	}
+
+	/** Transforms the specified point in the actor's coordinates to be in the stage's coordinates. */
+	public Vector2 localToStageCoordinates (Vector2 localCoords) {
+<span class="nc" id="L885">		return localToAscendantCoordinates(null, localCoords);</span>
+	}
+
+	/** Transforms the specified point in the actor's coordinates to be in the parent's coordinates. */
+	public Vector2 localToParentCoordinates (Vector2 localCoords) {
+<span class="nc" id="L890">		final float rotation = -this.rotation;</span>
+<span class="nc" id="L891">		final float scaleX = this.scaleX;</span>
+<span class="nc" id="L892">		final float scaleY = this.scaleY;</span>
+<span class="nc" id="L893">		final float x = this.x;</span>
+<span class="nc" id="L894">		final float y = this.y;</span>
+<span class="nc bnc" id="L895" title="All 2 branches missed.">		if (rotation == 0) {</span>
+<span class="nc bnc" id="L896" title="All 4 branches missed.">			if (scaleX == 1 &amp;&amp; scaleY == 1) {</span>
+<span class="nc" id="L897">				localCoords.x += x;</span>
+<span class="nc" id="L898">				localCoords.y += y;</span>
+			} else {
+<span class="nc" id="L900">				final float originX = this.originX;</span>
+<span class="nc" id="L901">				final float originY = this.originY;</span>
+<span class="nc" id="L902">				localCoords.x = (localCoords.x - originX) * scaleX + originX + x;</span>
+<span class="nc" id="L903">				localCoords.y = (localCoords.y - originY) * scaleY + originY + y;</span>
+<span class="nc" id="L904">			}</span>
+		} else {
+<span class="nc" id="L906">			final float cos = (float)Math.cos(rotation * MathUtils.degreesToRadians);</span>
+<span class="nc" id="L907">			final float sin = (float)Math.sin(rotation * MathUtils.degreesToRadians);</span>
+<span class="nc" id="L908">			final float originX = this.originX;</span>
+<span class="nc" id="L909">			final float originY = this.originY;</span>
+<span class="nc" id="L910">			final float tox = (localCoords.x - originX) * scaleX;</span>
+<span class="nc" id="L911">			final float toy = (localCoords.y - originY) * scaleY;</span>
+<span class="nc" id="L912">			localCoords.x = (tox * cos + toy * sin) + originX + x;</span>
+<span class="nc" id="L913">			localCoords.y = (tox * -sin + toy * cos) + originY + y;</span>
+		}
+<span class="nc" id="L915">		return localCoords;</span>
+	}
+
+	/** Converts coordinates for this actor to those of a parent actor. The ascendant does not need to be a direct parent. */
+	public Vector2 localToAscendantCoordinates (Actor ascendant, Vector2 localCoords) {
+<span class="nc" id="L920">		Actor actor = this;</span>
+		do {
+<span class="nc" id="L922">			actor.localToParentCoordinates(localCoords);</span>
+<span class="nc" id="L923">			actor = actor.parent;</span>
+<span class="nc bnc" id="L924" title="All 2 branches missed.">			if (actor == ascendant) break;</span>
+<span class="nc bnc" id="L925" title="All 2 branches missed.">		} while (actor != null);</span>
+<span class="nc" id="L926">		return localCoords;</span>
+	}
+
+	/** Converts coordinates for this actor to those of another actor, which can be anywhere in the stage. */
+	public Vector2 localToActorCoordinates (Actor actor, Vector2 localCoords) {
+<span class="nc" id="L931">		localToStageCoordinates(localCoords);</span>
+<span class="nc" id="L932">		return actor.stageToLocalCoordinates(localCoords);</span>
+	}
+
+	/** Draws this actor's debug lines if {@link #getDebug()} is true. */
+	public void drawDebug (ShapeRenderer shapes) {
+<span class="nc" id="L937">		drawDebugBounds(shapes);</span>
+<span class="nc" id="L938">	}</span>
+
+	/** Draws a rectange for the bounds of this actor if {@link #getDebug()} is true. */
+	protected void drawDebugBounds (ShapeRenderer shapes) {
+<span class="nc bnc" id="L942" title="All 2 branches missed.">		if (!debug) return;</span>
+<span class="nc" id="L943">		shapes.set(ShapeType.Line);</span>
+<span class="nc bnc" id="L944" title="All 2 branches missed.">		if (stage != null) shapes.setColor(stage.getDebugColor());</span>
+<span class="nc" id="L945">		shapes.rect(x, y, originX, originY, width, height, scaleX, scaleY, rotation);</span>
+<span class="nc" id="L946">	}</span>
+
+	/** If true, {@link #drawDebug(ShapeRenderer)} will be called for this actor. */
+	public void setDebug (boolean enabled) {
+<span class="nc" id="L950">		debug = enabled;</span>
+<span class="nc bnc" id="L951" title="All 2 branches missed.">		if (enabled) Stage.debug = true;</span>
+<span class="nc" id="L952">	}</span>
+
+	public boolean getDebug () {
+<span class="nc" id="L955">		return debug;</span>
+	}
+
+	/** Calls {@link #setDebug(boolean)} with {@code true}. */
+	public Actor debug () {
+<span class="nc" id="L960">		setDebug(true);</span>
+<span class="nc" id="L961">		return this;</span>
+	}
+
+	public String toString () {
+<span class="nc" id="L965">		String name = this.name;</span>
+<span class="nc bnc" id="L966" title="All 2 branches missed.">		if (name == null) {</span>
+<span class="nc" id="L967">			name = getClass().getName();</span>
+<span class="nc" id="L968">			int dotIndex = name.lastIndexOf('.');</span>
+<span class="nc bnc" id="L969" title="All 2 branches missed.">			if (dotIndex != -1) name = name.substring(dotIndex + 1);</span>
+		}
+<span class="nc" id="L971">		return name;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

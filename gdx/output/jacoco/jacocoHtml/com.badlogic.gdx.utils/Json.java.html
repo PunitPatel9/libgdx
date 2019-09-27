@@ -1,0 +1,1222 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Json.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">Json.java</span></div><h1>Json.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.security.AccessControlException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.utils.IntSet.IntSetIterator;
+import com.badlogic.gdx.utils.JsonValue.PrettyPrintSettings;
+import com.badlogic.gdx.utils.JsonWriter.OutputType;
+import com.badlogic.gdx.utils.ObjectMap.Entry;
+import com.badlogic.gdx.utils.reflect.ArrayReflection;
+import com.badlogic.gdx.utils.reflect.ClassReflection;
+import com.badlogic.gdx.utils.reflect.Constructor;
+import com.badlogic.gdx.utils.reflect.Field;
+import com.badlogic.gdx.utils.reflect.ReflectionException;
+
+/** Reads/writes Java objects to/from JSON, automatically. See the wiki for usage:
+ * https://github.com/libgdx/libgdx/wiki/Reading-%26-writing-JSON
+ * @author Nathan Sweet */
+public class Json {
+	static private final boolean debug = false;
+
+	private JsonWriter writer;
+<span class="nc" id="L50">	private String typeName = &quot;class&quot;;</span>
+<span class="nc" id="L51">	private boolean usePrototypes = true;</span>
+	private OutputType outputType;
+	private boolean quoteLongValues;
+	private boolean ignoreUnknownFields;
+	private boolean ignoreDeprecated;
+	private boolean readDeprecated;
+<span class="nc" id="L57">	private boolean enumNames = true;</span>
+	private boolean sortFields;
+	private Serializer defaultSerializer;
+<span class="nc" id="L60">	private final ObjectMap&lt;Class, OrderedMap&lt;String, FieldMetadata&gt;&gt; typeToFields = new ObjectMap();</span>
+<span class="nc" id="L61">	private final ObjectMap&lt;String, Class&gt; tagToClass = new ObjectMap();</span>
+<span class="nc" id="L62">	private final ObjectMap&lt;Class, String&gt; classToTag = new ObjectMap();</span>
+<span class="nc" id="L63">	private final ObjectMap&lt;Class, Serializer&gt; classToSerializer = new ObjectMap();</span>
+<span class="nc" id="L64">	private final ObjectMap&lt;Class, Object[]&gt; classToDefaultValues = new ObjectMap();</span>
+<span class="nc" id="L65">	private final Object[] equals1 = {null}, equals2 = {null};</span>
+
+<span class="nc" id="L67">	public Json () {</span>
+<span class="nc" id="L68">		outputType = OutputType.minimal;</span>
+<span class="nc" id="L69">	}</span>
+
+<span class="nc" id="L71">	public Json (OutputType outputType) {</span>
+<span class="nc" id="L72">		this.outputType = outputType;</span>
+<span class="nc" id="L73">	}</span>
+
+	/** When true, fields in the JSON that are not found on the class will not throw a {@link SerializationException}. Default is
+	 * false. */
+	public void setIgnoreUnknownFields (boolean ignoreUnknownFields) {
+<span class="nc" id="L78">		this.ignoreUnknownFields = ignoreUnknownFields;</span>
+<span class="nc" id="L79">	}</span>
+
+	public boolean getIgnoreUnknownFields () {
+<span class="nc" id="L82">		return ignoreUnknownFields;</span>
+	}
+
+	/** When true, fields with the {@link Deprecated} annotation will not be read or written. Default is false.
+	 * @see #setReadDeprecated(boolean)
+	 * @see #setDeprecated(Class, String, boolean) */
+	public void setIgnoreDeprecated (boolean ignoreDeprecated) {
+<span class="nc" id="L89">		this.ignoreDeprecated = ignoreDeprecated;</span>
+<span class="nc" id="L90">	}</span>
+
+	/** When true, fields with the {@link Deprecated} annotation will be read (but not written) when
+	 * {@link #setIgnoreDeprecated(boolean)} is true. Default is false.
+	 * @see #setDeprecated(Class, String, boolean) */
+	public void setReadDeprecated (boolean readDeprecated) {
+<span class="nc" id="L96">		this.readDeprecated = readDeprecated;</span>
+<span class="nc" id="L97">	}</span>
+
+	/** Default is {@link OutputType#minimal}.
+	 * @see JsonWriter#setOutputType(OutputType) */
+	public void setOutputType (OutputType outputType) {
+<span class="nc" id="L102">		this.outputType = outputType;</span>
+<span class="nc" id="L103">	}</span>
+
+	/** Default is false.
+	 * @see JsonWriter#setQuoteLongValues(boolean) */
+	public void setQuoteLongValues (boolean quoteLongValues) {
+<span class="nc" id="L108">		this.quoteLongValues = quoteLongValues;</span>
+<span class="nc" id="L109">	}</span>
+
+	/** When true, {@link Enum#name()} is used to write enum values. When false, {@link Enum#toString()} is used which may not be
+	 * unique. Default is true. */
+	public void setEnumNames (boolean enumNames) {
+<span class="nc" id="L114">		this.enumNames = enumNames;</span>
+<span class="nc" id="L115">	}</span>
+
+	/** Sets a tag to use instead of the fully qualifier class name. This can make the JSON easier to read. */
+	public void addClassTag (String tag, Class type) {
+<span class="nc" id="L119">		tagToClass.put(tag, type);</span>
+<span class="nc" id="L120">		classToTag.put(type, tag);</span>
+<span class="nc" id="L121">	}</span>
+
+	/** Returns the class for the specified tag, or null. */
+	public Class getClass (String tag) {
+<span class="nc" id="L125">		return tagToClass.get(tag);</span>
+	}
+
+	/** Returns the tag for the specified class, or null. */
+	public String getTag (Class type) {
+<span class="nc" id="L130">		return classToTag.get(type);</span>
+	}
+
+	/** Sets the name of the JSON field to store the Java class name or class tag when required to avoid ambiguity during
+	 * deserialization. Set to null to never output this information, but be warned that deserialization may fail. Default is
+	 * &quot;class&quot;. */
+	public void setTypeName (String typeName) {
+<span class="nc" id="L137">		this.typeName = typeName;</span>
+<span class="nc" id="L138">	}</span>
+
+	/** Sets the serializer to use when the type being deserialized is not known (null).
+	 * @param defaultSerializer May be null. */
+	public void setDefaultSerializer (Serializer defaultSerializer) {
+<span class="nc" id="L143">		this.defaultSerializer = defaultSerializer;</span>
+<span class="nc" id="L144">	}</span>
+
+	/** Registers a serializer to use for the specified type instead of the default behavior of serializing all of an objects
+	 * fields. */
+	public &lt;T&gt; void setSerializer (Class&lt;T&gt; type, Serializer&lt;T&gt; serializer) {
+<span class="nc" id="L149">		classToSerializer.put(type, serializer);</span>
+<span class="nc" id="L150">	}</span>
+
+	public &lt;T&gt; Serializer&lt;T&gt; getSerializer (Class&lt;T&gt; type) {
+<span class="nc" id="L153">		return classToSerializer.get(type);</span>
+	}
+
+	/** When true, field values that are identical to a newly constructed instance are not written. Default is true. */
+	public void setUsePrototypes (boolean usePrototypes) {
+<span class="nc" id="L158">		this.usePrototypes = usePrototypes;</span>
+<span class="nc" id="L159">	}</span>
+
+	/** Sets the type of elements in a collection. When the element type is known, the class for each element in the collection
+	 * does not need to be written unless different from the element type. */
+	public void setElementType (Class type, String fieldName, Class elementType) {
+<span class="nc" id="L164">		FieldMetadata metadata = getFields(type).get(fieldName);</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		if (metadata == null) throw new SerializationException(&quot;Field not found: &quot; + fieldName + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L166">		metadata.elementType = elementType;</span>
+<span class="nc" id="L167">	}</span>
+
+	/** The specified field will be treated as if it has or does not have the {@link Deprecated} annotation.
+	 * @see #setIgnoreDeprecated(boolean)
+	 * @see #setReadDeprecated(boolean) */
+	public void setDeprecated (Class type, String fieldName, boolean deprecated) {
+<span class="nc" id="L173">		FieldMetadata metadata = getFields(type).get(fieldName);</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">		if (metadata == null) throw new SerializationException(&quot;Field not found: &quot; + fieldName + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L175">		metadata.deprecated = deprecated;</span>
+<span class="nc" id="L176">	}</span>
+
+	/** When true, fields are sorted alphabetically when written, otherwise the source code order is used. Default is false. */
+	public void setSortFields (boolean sortFields) {
+<span class="nc" id="L180">		this.sortFields = sortFields;</span>
+<span class="nc" id="L181">	}</span>
+
+	private OrderedMap&lt;String, FieldMetadata&gt; getFields (Class type) {
+<span class="nc" id="L184">		OrderedMap&lt;String, FieldMetadata&gt; fields = typeToFields.get(type);</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">		if (fields != null) return fields;</span>
+
+<span class="nc" id="L187">		Array&lt;Class&gt; classHierarchy = new Array();</span>
+<span class="nc" id="L188">		Class nextClass = type;</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		while (nextClass != Object.class) {</span>
+<span class="nc" id="L190">			classHierarchy.add(nextClass);</span>
+<span class="nc" id="L191">			nextClass = nextClass.getSuperclass();</span>
+		}
+<span class="nc" id="L193">		ArrayList&lt;Field&gt; allFields = new ArrayList();</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		for (int i = classHierarchy.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L195">			Collections.addAll(allFields, ClassReflection.getDeclaredFields(classHierarchy.get(i)));</span>
+
+<span class="nc" id="L197">		OrderedMap&lt;String, FieldMetadata&gt; nameToField = new OrderedMap(allFields.size());</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">		for (int i = 0, n = allFields.size(); i &lt; n; i++) {</span>
+<span class="nc" id="L199">			Field field = allFields.get(i);</span>
+
+<span class="nc bnc" id="L201" title="All 2 branches missed.">			if (field.isTransient()) continue;</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">			if (field.isStatic()) continue;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">			if (field.isSynthetic()) continue;</span>
+
+<span class="nc bnc" id="L205" title="All 2 branches missed.">			if (!field.isAccessible()) {</span>
+				try {
+<span class="nc" id="L207">					field.setAccessible(true);</span>
+<span class="nc" id="L208">				} catch (AccessControlException ex) {</span>
+<span class="nc" id="L209">					continue;</span>
+<span class="nc" id="L210">				}</span>
+			}
+
+<span class="nc" id="L213">			nameToField.put(field.getName(), new FieldMetadata(field));</span>
+		}
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (sortFields) nameToField.keys.sort();</span>
+<span class="nc" id="L216">		typeToFields.put(type, nameToField);</span>
+<span class="nc" id="L217">		return nameToField;</span>
+	}
+
+	public String toJson (Object object) {
+<span class="nc bnc" id="L221" title="All 2 branches missed.">		return toJson(object, object == null ? null : object.getClass(), (Class)null);</span>
+	}
+
+	public String toJson (Object object, Class knownType) {
+<span class="nc" id="L225">		return toJson(object, knownType, (Class)null);</span>
+	}
+
+	/** @param knownType May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown. */
+	public String toJson (Object object, Class knownType, Class elementType) {
+<span class="nc" id="L231">		StringWriter buffer = new StringWriter();</span>
+<span class="nc" id="L232">		toJson(object, knownType, elementType, buffer);</span>
+<span class="nc" id="L233">		return buffer.toString();</span>
+	}
+
+	public void toJson (Object object, FileHandle file) {
+<span class="nc bnc" id="L237" title="All 2 branches missed.">		toJson(object, object == null ? null : object.getClass(), null, file);</span>
+<span class="nc" id="L238">	}</span>
+
+	/** @param knownType May be null if the type is unknown. */
+	public void toJson (Object object, Class knownType, FileHandle file) {
+<span class="nc" id="L242">		toJson(object, knownType, null, file);</span>
+<span class="nc" id="L243">	}</span>
+
+	/** @param knownType May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown. */
+	public void toJson (Object object, Class knownType, Class elementType, FileHandle file) {
+<span class="nc" id="L248">		Writer writer = null;</span>
+		try {
+<span class="nc" id="L250">			writer = file.writer(false, &quot;UTF-8&quot;);</span>
+<span class="nc" id="L251">			toJson(object, knownType, elementType, writer);</span>
+<span class="nc" id="L252">		} catch (Exception ex) {</span>
+<span class="nc" id="L253">			throw new SerializationException(&quot;Error writing file: &quot; + file, ex);</span>
+		} finally {
+<span class="nc" id="L255">			StreamUtils.closeQuietly(writer);</span>
+		}
+<span class="nc" id="L257">	}</span>
+
+	public void toJson (Object object, Writer writer) {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">		toJson(object, object == null ? null : object.getClass(), null, writer);</span>
+<span class="nc" id="L261">	}</span>
+
+	/** @param knownType May be null if the type is unknown. */
+	public void toJson (Object object, Class knownType, Writer writer) {
+<span class="nc" id="L265">		toJson(object, knownType, null, writer);</span>
+<span class="nc" id="L266">	}</span>
+
+	/** @param knownType May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown. */
+	public void toJson (Object object, Class knownType, Class elementType, Writer writer) {
+<span class="nc" id="L271">		setWriter(writer);</span>
+		try {
+<span class="nc" id="L273">			writeValue(object, knownType, elementType);</span>
+		} finally {
+<span class="nc" id="L275">			StreamUtils.closeQuietly(this.writer);</span>
+<span class="nc" id="L276">			this.writer = null;</span>
+		}
+<span class="nc" id="L278">	}</span>
+
+	/** Sets the writer where JSON output will be written. This is only necessary when not using the toJson methods. */
+	public void setWriter (Writer writer) {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">		if (!(writer instanceof JsonWriter)) writer = new JsonWriter(writer);</span>
+<span class="nc" id="L283">		this.writer = (JsonWriter)writer;</span>
+<span class="nc" id="L284">		this.writer.setOutputType(outputType);</span>
+<span class="nc" id="L285">		this.writer.setQuoteLongValues(quoteLongValues);</span>
+<span class="nc" id="L286">	}</span>
+
+	public JsonWriter getWriter () {
+<span class="nc" id="L289">		return writer;</span>
+	}
+
+	/** Writes all fields of the specified object to the current JSON object. */
+	public void writeFields (Object object) {
+<span class="nc" id="L294">		Class type = object.getClass();</span>
+
+<span class="nc" id="L296">		Object[] defaultValues = getDefaultValues(type);</span>
+
+<span class="nc" id="L298">		OrderedMap&lt;String, FieldMetadata&gt; fields = getFields(type);</span>
+<span class="nc" id="L299">		int defaultIndex = 0;</span>
+<span class="nc" id="L300">		Array&lt;String&gt; fieldNames = fields.orderedKeys();</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		for (int i = 0, n = fieldNames.size; i &lt; n; i++) {</span>
+<span class="nc" id="L302">			FieldMetadata metadata = fields.get(fieldNames.get(i));</span>
+<span class="nc bnc" id="L303" title="All 4 branches missed.">			if (ignoreDeprecated &amp;&amp; metadata.deprecated) continue;</span>
+<span class="nc" id="L304">			Field field = metadata.field;</span>
+			try {
+<span class="nc" id="L306">				Object value = field.get(object);</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">				if (defaultValues != null) {</span>
+<span class="nc" id="L308">					Object defaultValue = defaultValues[defaultIndex++];</span>
+<span class="nc bnc" id="L309" title="All 4 branches missed.">					if (value == null &amp;&amp; defaultValue == null) continue;</span>
+<span class="nc bnc" id="L310" title="All 4 branches missed.">					if (value != null &amp;&amp; defaultValue != null) {</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">						if (value.equals(defaultValue)) continue;</span>
+<span class="nc bnc" id="L312" title="All 4 branches missed.">						if (value.getClass().isArray() &amp;&amp; defaultValue.getClass().isArray()) {</span>
+<span class="nc" id="L313">							equals1[0] = value;</span>
+<span class="nc" id="L314">							equals2[0] = defaultValue;</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">							if (Arrays.deepEquals(equals1, equals2)) continue;</span>
+						}
+					}
+				}
+
+				if (debug) System.out.println(&quot;Writing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;);
+<span class="nc" id="L321">				writer.name(field.getName());</span>
+<span class="nc" id="L322">				writeValue(value, field.getType(), metadata.elementType);</span>
+<span class="nc" id="L323">			} catch (ReflectionException ex) {</span>
+<span class="nc" id="L324">				throw new SerializationException(&quot;Error accessing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;, ex);</span>
+<span class="nc" id="L325">			} catch (SerializationException ex) {</span>
+<span class="nc" id="L326">				ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L327">				throw ex;</span>
+<span class="nc" id="L328">			} catch (Exception runtimeEx) {</span>
+<span class="nc" id="L329">				SerializationException ex = new SerializationException(runtimeEx);</span>
+<span class="nc" id="L330">				ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L331">				throw ex;</span>
+<span class="nc" id="L332">			}</span>
+		}
+<span class="nc" id="L334">	}</span>
+
+	private Object[] getDefaultValues (Class type) {
+<span class="nc bnc" id="L337" title="All 2 branches missed.">		if (!usePrototypes) return null;</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (classToDefaultValues.containsKey(type)) return classToDefaultValues.get(type);</span>
+		Object object;
+		try {
+<span class="nc" id="L341">			object = newInstance(type);</span>
+<span class="nc" id="L342">		} catch (Exception ex) {</span>
+<span class="nc" id="L343">			classToDefaultValues.put(type, null);</span>
+<span class="nc" id="L344">			return null;</span>
+<span class="nc" id="L345">		}</span>
+
+<span class="nc" id="L347">		OrderedMap&lt;String, FieldMetadata&gt; fields = getFields(type);</span>
+<span class="nc" id="L348">		Object[] values = new Object[fields.size];</span>
+<span class="nc" id="L349">		classToDefaultValues.put(type, values);</span>
+
+<span class="nc" id="L351">		int defaultIndex = 0;</span>
+<span class="nc" id="L352">		Array&lt;String&gt; fieldNames = fields.orderedKeys();</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">		for (int i = 0, n = fieldNames.size; i &lt; n; i++) {</span>
+<span class="nc" id="L354">			FieldMetadata metadata = fields.get(fieldNames.get(i));</span>
+<span class="nc bnc" id="L355" title="All 4 branches missed.">			if (ignoreDeprecated &amp;&amp; metadata.deprecated) continue;</span>
+<span class="nc" id="L356">			Field field = metadata.field;</span>
+			try {
+<span class="nc" id="L358">				values[defaultIndex++] = field.get(object);</span>
+<span class="nc" id="L359">			} catch (ReflectionException ex) {</span>
+<span class="nc" id="L360">				throw new SerializationException(&quot;Error accessing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;, ex);</span>
+<span class="nc" id="L361">			} catch (SerializationException ex) {</span>
+<span class="nc" id="L362">				ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L363">				throw ex;</span>
+<span class="nc" id="L364">			} catch (RuntimeException runtimeEx) {</span>
+<span class="nc" id="L365">				SerializationException ex = new SerializationException(runtimeEx);</span>
+<span class="nc" id="L366">				ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L367">				throw ex;</span>
+<span class="nc" id="L368">			}</span>
+		}
+<span class="nc" id="L370">		return values;</span>
+	}
+
+	/** @see #writeField(Object, String, String, Class) */
+	public void writeField (Object object, String name) {
+<span class="nc" id="L375">		writeField(object, name, name, null);</span>
+<span class="nc" id="L376">	}</span>
+
+	/** @param elementType May be null if the type is unknown.
+	 * @see #writeField(Object, String, String, Class) */
+	public void writeField (Object object, String name, Class elementType) {
+<span class="nc" id="L381">		writeField(object, name, name, elementType);</span>
+<span class="nc" id="L382">	}</span>
+
+	/** @see #writeField(Object, String, String, Class) */
+	public void writeField (Object object, String fieldName, String jsonName) {
+<span class="nc" id="L386">		writeField(object, fieldName, jsonName, null);</span>
+<span class="nc" id="L387">	}</span>
+
+	/** Writes the specified field to the current JSON object.
+	 * @param elementType May be null if the type is unknown. */
+	public void writeField (Object object, String fieldName, String jsonName, Class elementType) {
+<span class="nc" id="L392">		Class type = object.getClass();</span>
+<span class="nc" id="L393">		FieldMetadata metadata = getFields(type).get(fieldName);</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">		if (metadata == null) throw new SerializationException(&quot;Field not found: &quot; + fieldName + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L395">		Field field = metadata.field;</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">		if (elementType == null) elementType = metadata.elementType;</span>
+		try {
+			if (debug) System.out.println(&quot;Writing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;);
+<span class="nc" id="L399">			writer.name(jsonName);</span>
+<span class="nc" id="L400">			writeValue(field.get(object), field.getType(), elementType);</span>
+<span class="nc" id="L401">		} catch (ReflectionException ex) {</span>
+<span class="nc" id="L402">			throw new SerializationException(&quot;Error accessing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;, ex);</span>
+<span class="nc" id="L403">		} catch (SerializationException ex) {</span>
+<span class="nc" id="L404">			ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L405">			throw ex;</span>
+<span class="nc" id="L406">		} catch (Exception runtimeEx) {</span>
+<span class="nc" id="L407">			SerializationException ex = new SerializationException(runtimeEx);</span>
+<span class="nc" id="L408">			ex.addTrace(field + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L409">			throw ex;</span>
+<span class="nc" id="L410">		}</span>
+<span class="nc" id="L411">	}</span>
+
+	/** Writes the value as a field on the current JSON object, without writing the actual class.
+	 * @param value May be null.
+	 * @see #writeValue(String, Object, Class, Class) */
+	public void writeValue (String name, Object value) {
+		try {
+<span class="nc" id="L418">			writer.name(name);</span>
+<span class="nc" id="L419">		} catch (IOException ex) {</span>
+<span class="nc" id="L420">			throw new SerializationException(ex);</span>
+<span class="nc" id="L421">		}</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">		if (value == null)</span>
+<span class="nc" id="L423">			writeValue(value, null, null);</span>
+		else
+<span class="nc" id="L425">			writeValue(value, value.getClass(), null);</span>
+<span class="nc" id="L426">	}</span>
+
+	/** Writes the value as a field on the current JSON object, writing the class of the object if it differs from the specified
+	 * known type.
+	 * @param value May be null.
+	 * @param knownType May be null if the type is unknown.
+	 * @see #writeValue(String, Object, Class, Class) */
+	public void writeValue (String name, Object value, Class knownType) {
+		try {
+<span class="nc" id="L435">			writer.name(name);</span>
+<span class="nc" id="L436">		} catch (IOException ex) {</span>
+<span class="nc" id="L437">			throw new SerializationException(ex);</span>
+<span class="nc" id="L438">		}</span>
+<span class="nc" id="L439">		writeValue(value, knownType, null);</span>
+<span class="nc" id="L440">	}</span>
+
+	/** Writes the value as a field on the current JSON object, writing the class of the object if it differs from the specified
+	 * known type. The specified element type is used as the default type for collections.
+	 * @param value May be null.
+	 * @param knownType May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown. */
+	public void writeValue (String name, Object value, Class knownType, Class elementType) {
+		try {
+<span class="nc" id="L449">			writer.name(name);</span>
+<span class="nc" id="L450">		} catch (IOException ex) {</span>
+<span class="nc" id="L451">			throw new SerializationException(ex);</span>
+<span class="nc" id="L452">		}</span>
+<span class="nc" id="L453">		writeValue(value, knownType, elementType);</span>
+<span class="nc" id="L454">	}</span>
+
+	/** Writes the value, without writing the class of the object.
+	 * @param value May be null. */
+	public void writeValue (Object value) {
+<span class="nc bnc" id="L459" title="All 2 branches missed.">		if (value == null)</span>
+<span class="nc" id="L460">			writeValue(value, null, null);</span>
+		else
+<span class="nc" id="L462">			writeValue(value, value.getClass(), null);</span>
+<span class="nc" id="L463">	}</span>
+
+	/** Writes the value, writing the class of the object if it differs from the specified known type.
+	 * @param value May be null.
+	 * @param knownType May be null if the type is unknown. */
+	public void writeValue (Object value, Class knownType) {
+<span class="nc" id="L469">		writeValue(value, knownType, null);</span>
+<span class="nc" id="L470">	}</span>
+
+	/** Writes the value, writing the class of the object if it differs from the specified known type. The specified element type
+	 * is used as the default type for collections.
+	 * @param value May be null.
+	 * @param knownType May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown. */
+	public void writeValue (Object value, Class knownType, Class elementType) {
+		try {
+<span class="nc bnc" id="L479" title="All 2 branches missed.">			if (value == null) {</span>
+<span class="nc" id="L480">				writer.value(null);</span>
+<span class="nc" id="L481">				return;</span>
+			}
+
+<span class="nc bnc" id="L484" title="All 22 branches missed.">			if ((knownType != null &amp;&amp; knownType.isPrimitive()) || knownType == String.class || knownType == Integer.class</span>
+				|| knownType == Boolean.class || knownType == Float.class || knownType == Long.class || knownType == Double.class
+				|| knownType == Short.class || knownType == Byte.class || knownType == Character.class) {
+<span class="nc" id="L487">				writer.value(value);</span>
+<span class="nc" id="L488">				return;</span>
+			}
+
+<span class="nc" id="L491">			Class actualType = value.getClass();</span>
+
+<span class="nc bnc" id="L493" title="All 20 branches missed.">			if (actualType.isPrimitive() || actualType == String.class || actualType == Integer.class || actualType == Boolean.class</span>
+				|| actualType == Float.class || actualType == Long.class || actualType == Double.class || actualType == Short.class
+				|| actualType == Byte.class || actualType == Character.class) {
+<span class="nc" id="L496">				writeObjectStart(actualType, null);</span>
+<span class="nc" id="L497">				writeValue(&quot;value&quot;, value);</span>
+<span class="nc" id="L498">				writeObjectEnd();</span>
+<span class="nc" id="L499">				return;</span>
+			}
+
+<span class="nc bnc" id="L502" title="All 2 branches missed.">			if (value instanceof Serializable) {</span>
+<span class="nc" id="L503">				writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L504">				((Serializable)value).write(this);</span>
+<span class="nc" id="L505">				writeObjectEnd();</span>
+<span class="nc" id="L506">				return;</span>
+			}
+
+<span class="nc" id="L509">			Serializer serializer = classToSerializer.get(actualType);</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">			if (serializer != null) {</span>
+<span class="nc" id="L511">				serializer.write(this, value, knownType);</span>
+<span class="nc" id="L512">				return;</span>
+			}
+
+			// JSON array special cases.
+<span class="nc bnc" id="L516" title="All 2 branches missed.">			if (value instanceof Array) {</span>
+<span class="nc bnc" id="L517" title="All 6 branches missed.">				if (knownType != null &amp;&amp; actualType != knownType &amp;&amp; actualType != Array.class)</span>
+<span class="nc" id="L518">					throw new SerializationException(&quot;Serialization of an Array other than the known type is not supported.\n&quot;</span>
+						+ &quot;Known type: &quot; + knownType + &quot;\nActual type: &quot; + actualType);
+<span class="nc" id="L520">				writeArrayStart();</span>
+<span class="nc" id="L521">				Array array = (Array)value;</span>
+<span class="nc bnc" id="L522" title="All 2 branches missed.">				for (int i = 0, n = array.size; i &lt; n; i++)</span>
+<span class="nc" id="L523">					writeValue(array.get(i), elementType, null);</span>
+<span class="nc" id="L524">				writeArrayEnd();</span>
+<span class="nc" id="L525">				return;</span>
+			}
+<span class="nc bnc" id="L527" title="All 2 branches missed.">			if (value instanceof Queue) {</span>
+<span class="nc bnc" id="L528" title="All 6 branches missed.">				if (knownType != null &amp;&amp; actualType != knownType &amp;&amp; actualType != Queue.class)</span>
+<span class="nc" id="L529">					throw new SerializationException(&quot;Serialization of a Queue other than the known type is not supported.\n&quot;</span>
+						+ &quot;Known type: &quot; + knownType + &quot;\nActual type: &quot; + actualType);
+<span class="nc" id="L531">				writeArrayStart();</span>
+<span class="nc" id="L532">				Queue queue = (Queue)value;</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">				for (int i = 0, n = queue.size; i &lt; n; i++)</span>
+<span class="nc" id="L534">					writeValue(queue.get(i), elementType, null);</span>
+<span class="nc" id="L535">				writeArrayEnd();</span>
+<span class="nc" id="L536">				return;</span>
+			}
+<span class="nc bnc" id="L538" title="All 2 branches missed.">			if (value instanceof Collection) {</span>
+<span class="nc bnc" id="L539" title="All 8 branches missed.">				if (typeName != null &amp;&amp; actualType != ArrayList.class &amp;&amp; (knownType == null || knownType != actualType)) {</span>
+<span class="nc" id="L540">					writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L541">					writeArrayStart(&quot;items&quot;);</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">					for (Object item : (Collection)value)</span>
+<span class="nc" id="L543">						writeValue(item, elementType, null);</span>
+<span class="nc" id="L544">					writeArrayEnd();</span>
+<span class="nc" id="L545">					writeObjectEnd();</span>
+				} else {
+<span class="nc" id="L547">					writeArrayStart();</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">					for (Object item : (Collection)value)</span>
+<span class="nc" id="L549">						writeValue(item, elementType, null);</span>
+<span class="nc" id="L550">					writeArrayEnd();</span>
+				}
+<span class="nc" id="L552">				return;</span>
+			}
+<span class="nc bnc" id="L554" title="All 2 branches missed.">			if (actualType.isArray()) {</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">				if (elementType == null) elementType = actualType.getComponentType();</span>
+<span class="nc" id="L556">				int length = ArrayReflection.getLength(value);</span>
+<span class="nc" id="L557">				writeArrayStart();</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">				for (int i = 0; i &lt; length; i++)</span>
+<span class="nc" id="L559">					writeValue(ArrayReflection.get(value, i), elementType, null);</span>
+<span class="nc" id="L560">				writeArrayEnd();</span>
+<span class="nc" id="L561">				return;</span>
+			}
+
+			// JSON object special cases.
+<span class="nc bnc" id="L565" title="All 2 branches missed.">			if (value instanceof ObjectMap) {</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">				if (knownType == null) knownType = ObjectMap.class;</span>
+<span class="nc" id="L567">				writeObjectStart(actualType, knownType);</span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">				for (Entry entry : ((ObjectMap&lt;?, ?&gt;)value).entries()) {</span>
+<span class="nc" id="L569">					writer.name(convertToString(entry.key));</span>
+<span class="nc" id="L570">					writeValue(entry.value, elementType, null);</span>
+<span class="nc" id="L571">				}</span>
+<span class="nc" id="L572">				writeObjectEnd();</span>
+<span class="nc" id="L573">				return;</span>
+			}
+<span class="nc bnc" id="L575" title="All 2 branches missed.">			if (value instanceof ObjectSet) {</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">				if (knownType == null) knownType = ObjectSet.class;</span>
+<span class="nc" id="L577">				writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L578">				writer.name(&quot;values&quot;);</span>
+<span class="nc" id="L579">				writeArrayStart();</span>
+<span class="nc bnc" id="L580" title="All 2 branches missed.">				for (Object entry : (ObjectSet)value)</span>
+<span class="nc" id="L581">					writeValue(entry, elementType, null);</span>
+<span class="nc" id="L582">				writeArrayEnd();</span>
+<span class="nc" id="L583">				writeObjectEnd();</span>
+<span class="nc" id="L584">				return;</span>
+			}
+<span class="nc bnc" id="L586" title="All 2 branches missed.">			if (value instanceof IntSet) {</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">				if (knownType == null) knownType = IntSet.class;</span>
+<span class="nc" id="L588">				writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L589">				writer.name(&quot;values&quot;);</span>
+<span class="nc" id="L590">				writeArrayStart();</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">				for (IntSetIterator iter = ((IntSet)value).iterator(); iter.hasNext;)</span>
+<span class="nc" id="L592">					writeValue(Integer.valueOf(iter.next()), Integer.class, null);</span>
+<span class="nc" id="L593">				writeArrayEnd();</span>
+<span class="nc" id="L594">				writeObjectEnd();</span>
+<span class="nc" id="L595">				return;</span>
+			}
+<span class="nc bnc" id="L597" title="All 2 branches missed.">			if (value instanceof ArrayMap) {</span>
+<span class="nc bnc" id="L598" title="All 2 branches missed.">				if (knownType == null) knownType = ArrayMap.class;</span>
+<span class="nc" id="L599">				writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L600">				ArrayMap map = (ArrayMap)value;</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">				for (int i = 0, n = map.size; i &lt; n; i++) {</span>
+<span class="nc" id="L602">					writer.name(convertToString(map.keys[i]));</span>
+<span class="nc" id="L603">					writeValue(map.values[i], elementType, null);</span>
+				}
+<span class="nc" id="L605">				writeObjectEnd();</span>
+<span class="nc" id="L606">				return;</span>
+			}
+<span class="nc bnc" id="L608" title="All 2 branches missed.">			if (value instanceof Map) {</span>
+<span class="nc bnc" id="L609" title="All 2 branches missed.">				if (knownType == null) knownType = HashMap.class;</span>
+<span class="nc" id="L610">				writeObjectStart(actualType, knownType);</span>
+<span class="nc bnc" id="L611" title="All 2 branches missed.">				for (Map.Entry entry : ((Map&lt;?, ?&gt;)value).entrySet()) {</span>
+<span class="nc" id="L612">					writer.name(convertToString(entry.getKey()));</span>
+<span class="nc" id="L613">					writeValue(entry.getValue(), elementType, null);</span>
+<span class="nc" id="L614">				}</span>
+<span class="nc" id="L615">				writeObjectEnd();</span>
+<span class="nc" id="L616">				return;</span>
+			}
+
+			// Enum special case.
+<span class="nc bnc" id="L620" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Enum.class, actualType)) {</span>
+<span class="nc bnc" id="L621" title="All 6 branches missed.">				if (typeName != null &amp;&amp; (knownType == null || knownType != actualType)) {</span>
+					// Ensures that enums with specific implementations (abstract logic) serialize correctly.
+<span class="nc bnc" id="L623" title="All 2 branches missed.">					if (actualType.getEnumConstants() == null) actualType = actualType.getSuperclass();</span>
+
+<span class="nc" id="L625">					writeObjectStart(actualType, null);</span>
+<span class="nc" id="L626">					writer.name(&quot;value&quot;);</span>
+<span class="nc" id="L627">					writer.value(convertToString((Enum)value));</span>
+<span class="nc" id="L628">					writeObjectEnd();</span>
+				} else {
+<span class="nc" id="L630">					writer.value(convertToString((Enum)value));</span>
+				}
+<span class="nc" id="L632">				return;</span>
+			}
+
+<span class="nc" id="L635">			writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L636">			writeFields(value);</span>
+<span class="nc" id="L637">			writeObjectEnd();</span>
+<span class="nc" id="L638">		} catch (IOException ex) {</span>
+<span class="nc" id="L639">			throw new SerializationException(ex);</span>
+<span class="nc" id="L640">		}</span>
+<span class="nc" id="L641">	}</span>
+
+	public void writeObjectStart (String name) {
+		try {
+<span class="nc" id="L645">			writer.name(name);</span>
+<span class="nc" id="L646">		} catch (IOException ex) {</span>
+<span class="nc" id="L647">			throw new SerializationException(ex);</span>
+<span class="nc" id="L648">		}</span>
+<span class="nc" id="L649">		writeObjectStart();</span>
+<span class="nc" id="L650">	}</span>
+
+	/** @param knownType May be null if the type is unknown. */
+	public void writeObjectStart (String name, Class actualType, Class knownType) {
+		try {
+<span class="nc" id="L655">			writer.name(name);</span>
+<span class="nc" id="L656">		} catch (IOException ex) {</span>
+<span class="nc" id="L657">			throw new SerializationException(ex);</span>
+<span class="nc" id="L658">		}</span>
+<span class="nc" id="L659">		writeObjectStart(actualType, knownType);</span>
+<span class="nc" id="L660">	}</span>
+
+	public void writeObjectStart () {
+		try {
+<span class="nc" id="L664">			writer.object();</span>
+<span class="nc" id="L665">		} catch (IOException ex) {</span>
+<span class="nc" id="L666">			throw new SerializationException(ex);</span>
+<span class="nc" id="L667">		}</span>
+<span class="nc" id="L668">	}</span>
+
+	/** Starts writing an object, writing the actualType to a field if needed.
+	 * @param knownType May be null if the type is unknown. */
+	public void writeObjectStart (Class actualType, Class knownType) {
+		try {
+<span class="nc" id="L674">			writer.object();</span>
+<span class="nc" id="L675">		} catch (IOException ex) {</span>
+<span class="nc" id="L676">			throw new SerializationException(ex);</span>
+<span class="nc" id="L677">		}</span>
+<span class="nc bnc" id="L678" title="All 4 branches missed.">		if (knownType == null || knownType != actualType) writeType(actualType);</span>
+<span class="nc" id="L679">	}</span>
+
+	public void writeObjectEnd () {
+		try {
+<span class="nc" id="L683">			writer.pop();</span>
+<span class="nc" id="L684">		} catch (IOException ex) {</span>
+<span class="nc" id="L685">			throw new SerializationException(ex);</span>
+<span class="nc" id="L686">		}</span>
+<span class="nc" id="L687">	}</span>
+
+	public void writeArrayStart (String name) {
+		try {
+<span class="nc" id="L691">			writer.name(name);</span>
+<span class="nc" id="L692">			writer.array();</span>
+<span class="nc" id="L693">		} catch (IOException ex) {</span>
+<span class="nc" id="L694">			throw new SerializationException(ex);</span>
+<span class="nc" id="L695">		}</span>
+<span class="nc" id="L696">	}</span>
+
+	public void writeArrayStart () {
+		try {
+<span class="nc" id="L700">			writer.array();</span>
+<span class="nc" id="L701">		} catch (IOException ex) {</span>
+<span class="nc" id="L702">			throw new SerializationException(ex);</span>
+<span class="nc" id="L703">		}</span>
+<span class="nc" id="L704">	}</span>
+
+	public void writeArrayEnd () {
+		try {
+<span class="nc" id="L708">			writer.pop();</span>
+<span class="nc" id="L709">		} catch (IOException ex) {</span>
+<span class="nc" id="L710">			throw new SerializationException(ex);</span>
+<span class="nc" id="L711">		}</span>
+<span class="nc" id="L712">	}</span>
+
+	public void writeType (Class type) {
+<span class="nc bnc" id="L715" title="All 2 branches missed.">		if (typeName == null) return;</span>
+<span class="nc" id="L716">		String className = getTag(type);</span>
+<span class="nc bnc" id="L717" title="All 2 branches missed.">		if (className == null) className = type.getName();</span>
+		try {
+<span class="nc" id="L719">			writer.set(typeName, className);</span>
+<span class="nc" id="L720">		} catch (IOException ex) {</span>
+<span class="nc" id="L721">			throw new SerializationException(ex);</span>
+<span class="nc" id="L722">		}</span>
+		if (debug) System.out.println(&quot;Writing type: &quot; + type.getName());
+<span class="nc" id="L724">	}</span>
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Reader reader) {
+<span class="nc" id="L729">		return (T)readValue(type, null, new JsonReader().parse(reader));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Class elementType, Reader reader) {
+<span class="nc" id="L736">		return (T)readValue(type, elementType, new JsonReader().parse(reader));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, InputStream input) {
+<span class="nc" id="L742">		return (T)readValue(type, null, new JsonReader().parse(input));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Class elementType, InputStream input) {
+<span class="nc" id="L749">		return (T)readValue(type, elementType, new JsonReader().parse(input));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, FileHandle file) {
+		try {
+<span class="nc" id="L756">			return (T)readValue(type, null, new JsonReader().parse(file));</span>
+<span class="nc" id="L757">		} catch (Exception ex) {</span>
+<span class="nc" id="L758">			throw new SerializationException(&quot;Error reading file: &quot; + file, ex);</span>
+		}
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Class elementType, FileHandle file) {
+		try {
+<span class="nc" id="L767">			return (T)readValue(type, elementType, new JsonReader().parse(file));</span>
+<span class="nc" id="L768">		} catch (Exception ex) {</span>
+<span class="nc" id="L769">			throw new SerializationException(&quot;Error reading file: &quot; + file, ex);</span>
+		}
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, char[] data, int offset, int length) {
+<span class="nc" id="L776">		return (T)readValue(type, null, new JsonReader().parse(data, offset, length));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Class elementType, char[] data, int offset, int length) {
+<span class="nc" id="L783">		return (T)readValue(type, elementType, new JsonReader().parse(data, offset, length));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, String json) {
+<span class="nc" id="L789">		return (T)readValue(type, null, new JsonReader().parse(json));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T fromJson (Class&lt;T&gt; type, Class elementType, String json) {
+<span class="nc" id="L795">		return (T)readValue(type, elementType, new JsonReader().parse(json));</span>
+	}
+
+	public void readField (Object object, String name, JsonValue jsonData) {
+<span class="nc" id="L799">		readField(object, name, name, null, jsonData);</span>
+<span class="nc" id="L800">	}</span>
+
+	public void readField (Object object, String name, Class elementType, JsonValue jsonData) {
+<span class="nc" id="L803">		readField(object, name, name, elementType, jsonData);</span>
+<span class="nc" id="L804">	}</span>
+
+	public void readField (Object object, String fieldName, String jsonName, JsonValue jsonData) {
+<span class="nc" id="L807">		readField(object, fieldName, jsonName, null, jsonData);</span>
+<span class="nc" id="L808">	}</span>
+
+	/** @param elementType May be null if the type is unknown. */
+	public void readField (Object object, String fieldName, String jsonName, Class elementType, JsonValue jsonMap) {
+<span class="nc" id="L812">		Class type = object.getClass();</span>
+<span class="nc" id="L813">		FieldMetadata metadata = getFields(type).get(fieldName);</span>
+<span class="nc bnc" id="L814" title="All 2 branches missed.">		if (metadata == null) throw new SerializationException(&quot;Field not found: &quot; + fieldName + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L815">		Field field = metadata.field;</span>
+<span class="nc bnc" id="L816" title="All 2 branches missed.">		if (elementType == null) elementType = metadata.elementType;</span>
+<span class="nc" id="L817">		readField(object, field, jsonName, elementType, jsonMap);</span>
+<span class="nc" id="L818">	}</span>
+
+	/** @param object May be null if the field is static.
+	 * @param elementType May be null if the type is unknown. */
+	public void readField (Object object, Field field, String jsonName, Class elementType, JsonValue jsonMap) {
+<span class="nc" id="L823">		JsonValue jsonValue = jsonMap.get(jsonName);</span>
+<span class="nc bnc" id="L824" title="All 2 branches missed.">		if (jsonValue == null) return;</span>
+		try {
+<span class="nc" id="L826">			field.set(object, readValue(field.getType(), elementType, jsonValue));</span>
+<span class="nc" id="L827">		} catch (ReflectionException ex) {</span>
+<span class="nc" id="L828">			throw new SerializationException(</span>
+<span class="nc" id="L829">				&quot;Error accessing field: &quot; + field.getName() + &quot; (&quot; + field.getDeclaringClass().getName() + &quot;)&quot;, ex);</span>
+<span class="nc" id="L830">		} catch (SerializationException ex) {</span>
+<span class="nc" id="L831">			ex.addTrace(field.getName() + &quot; (&quot; + field.getDeclaringClass().getName() + &quot;)&quot;);</span>
+<span class="nc" id="L832">			throw ex;</span>
+<span class="nc" id="L833">		} catch (RuntimeException runtimeEx) {</span>
+<span class="nc" id="L834">			SerializationException ex = new SerializationException(runtimeEx);</span>
+<span class="nc" id="L835">			ex.addTrace(jsonValue.trace());</span>
+<span class="nc" id="L836">			ex.addTrace(field.getName() + &quot; (&quot; + field.getDeclaringClass().getName() + &quot;)&quot;);</span>
+<span class="nc" id="L837">			throw ex;</span>
+<span class="nc" id="L838">		}</span>
+<span class="nc" id="L839">	}</span>
+
+	public void readFields (Object object, JsonValue jsonMap) {
+<span class="nc" id="L842">		Class type = object.getClass();</span>
+<span class="nc" id="L843">		OrderedMap&lt;String, FieldMetadata&gt; fields = getFields(type);</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">		for (JsonValue child = jsonMap.child; child != null; child = child.next) {</span>
+<span class="nc" id="L845">			FieldMetadata metadata = fields.get(child.name().replace(&quot; &quot;, &quot;_&quot;));</span>
+<span class="nc bnc" id="L846" title="All 2 branches missed.">			if (metadata == null) {</span>
+<span class="nc bnc" id="L847" title="All 2 branches missed.">				if (child.name.equals(typeName)) continue;</span>
+<span class="nc bnc" id="L848" title="All 4 branches missed.">				if (ignoreUnknownFields || ignoreUnknownField(type, child.name)) {</span>
+					if (debug) System.out.println(&quot;Ignoring unknown field: &quot; + child.name + &quot; (&quot; + type.getName() + &quot;)&quot;);
+<span class="nc" id="L850">					continue;</span>
+				} else {
+<span class="nc" id="L852">					SerializationException ex = new SerializationException(</span>
+<span class="nc" id="L853">						&quot;Field not found: &quot; + child.name + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L854">					ex.addTrace(child.trace());</span>
+<span class="nc" id="L855">					throw ex;</span>
+				}
+			} else {
+<span class="nc bnc" id="L858" title="All 6 branches missed.">				if (ignoreDeprecated &amp;&amp; !readDeprecated &amp;&amp; metadata.deprecated) continue;</span>
+			}
+<span class="nc" id="L860">			Field field = metadata.field;</span>
+			try {
+<span class="nc" id="L862">				field.set(object, readValue(field.getType(), metadata.elementType, child));</span>
+<span class="nc" id="L863">			} catch (ReflectionException ex) {</span>
+<span class="nc" id="L864">				throw new SerializationException(&quot;Error accessing field: &quot; + field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;, ex);</span>
+<span class="nc" id="L865">			} catch (SerializationException ex) {</span>
+<span class="nc" id="L866">				ex.addTrace(field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L867">				throw ex;</span>
+<span class="nc" id="L868">			} catch (RuntimeException runtimeEx) {</span>
+<span class="nc" id="L869">				SerializationException ex = new SerializationException(runtimeEx);</span>
+<span class="nc" id="L870">				ex.addTrace(child.trace());</span>
+<span class="nc" id="L871">				ex.addTrace(field.getName() + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+<span class="nc" id="L872">				throw ex;</span>
+<span class="nc" id="L873">			}</span>
+		}
+<span class="nc" id="L875">	}</span>
+
+	/** Called for each unknown field name encountered by {@link #readFields(Object, JsonValue)} when {@link #ignoreUnknownFields}
+	 * is false to determine whether the unknown field name should be ignored.
+	 * @param type The object type being read.
+	 * @param fieldName A field name encountered in the JSON for which there is no matching class field.
+	 * @return true if the field name should be ignored and an exception won't be thrown by
+	 *         {@link #readFields(Object, JsonValue)}. */
+	protected boolean ignoreUnknownField (Class type, String fieldName) {
+<span class="nc" id="L884">		return false;</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (String name, Class&lt;T&gt; type, JsonValue jsonMap) {
+<span class="nc" id="L890">		return (T)readValue(type, null, jsonMap.get(name));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (String name, Class&lt;T&gt; type, T defaultValue, JsonValue jsonMap) {
+<span class="nc" id="L896">		JsonValue jsonValue = jsonMap.get(name);</span>
+<span class="nc bnc" id="L897" title="All 2 branches missed.">		if (jsonValue == null) return defaultValue;</span>
+<span class="nc" id="L898">		return (T)readValue(type, null, jsonValue);</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (String name, Class&lt;T&gt; type, Class elementType, JsonValue jsonMap) {
+<span class="nc" id="L905">		return (T)readValue(type, elementType, jsonMap.get(name));</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (String name, Class&lt;T&gt; type, Class elementType, T defaultValue, JsonValue jsonMap) {
+<span class="nc" id="L912">		JsonValue jsonValue = jsonMap.get(name);</span>
+<span class="nc" id="L913">		return (T)readValue(type, elementType, defaultValue, jsonValue);</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (Class&lt;T&gt; type, Class elementType, T defaultValue, JsonValue jsonData) {
+<span class="nc bnc" id="L920" title="All 2 branches missed.">		if (jsonData == null) return defaultValue;</span>
+<span class="nc" id="L921">		return (T)readValue(type, elementType, jsonData);</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (Class&lt;T&gt; type, JsonValue jsonData) {
+<span class="nc" id="L927">		return (T)readValue(type, null, jsonData);</span>
+	}
+
+	/** @param type May be null if the type is unknown.
+	 * @param elementType May be null if the type is unknown.
+	 * @return May be null. */
+	public &lt;T&gt; T readValue (Class&lt;T&gt; type, Class elementType, JsonValue jsonData) {
+<span class="nc bnc" id="L934" title="All 2 branches missed.">		if (jsonData == null) return null;</span>
+
+<span class="nc bnc" id="L936" title="All 2 branches missed.">		if (jsonData.isObject()) {</span>
+<span class="nc bnc" id="L937" title="All 2 branches missed.">			String className = typeName == null ? null : jsonData.getString(typeName, null);</span>
+<span class="nc bnc" id="L938" title="All 2 branches missed.">			if (className != null) {</span>
+<span class="nc" id="L939">				type = getClass(className);</span>
+<span class="nc bnc" id="L940" title="All 2 branches missed.">				if (type == null) {</span>
+					try {
+<span class="nc" id="L942">						type = (Class&lt;T&gt;)ClassReflection.forName(className);</span>
+<span class="nc" id="L943">					} catch (ReflectionException ex) {</span>
+<span class="nc" id="L944">						throw new SerializationException(ex);</span>
+<span class="nc" id="L945">					}</span>
+				}
+			}
+
+<span class="nc bnc" id="L949" title="All 2 branches missed.">			if (type == null) {</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">				if (defaultSerializer != null) return (T)defaultSerializer.read(this, jsonData, type);</span>
+<span class="nc" id="L951">				return (T)jsonData;</span>
+			}
+
+<span class="nc bnc" id="L954" title="All 4 branches missed.">			if (typeName != null &amp;&amp; ClassReflection.isAssignableFrom(Collection.class, type)) {</span>
+				// JSON object wrapper to specify type.
+<span class="nc" id="L956">				jsonData = jsonData.get(&quot;items&quot;);</span>
+<span class="nc bnc" id="L957" title="All 2 branches missed.">				if (jsonData == null) throw new SerializationException(</span>
+<span class="nc" id="L958">					&quot;Unable to convert object to collection: &quot; + jsonData + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+			} else {
+<span class="nc" id="L960">				Serializer serializer = classToSerializer.get(type);</span>
+<span class="nc bnc" id="L961" title="All 2 branches missed.">				if (serializer != null) return (T)serializer.read(this, jsonData, type);</span>
+
+<span class="nc bnc" id="L963" title="All 18 branches missed.">				if (type == String.class || type == Integer.class || type == Boolean.class || type == Float.class</span>
+					|| type == Long.class || type == Double.class || type == Short.class || type == Byte.class
+<span class="nc bnc" id="L965" title="All 2 branches missed.">					|| type == Character.class || ClassReflection.isAssignableFrom(Enum.class, type)) {</span>
+<span class="nc" id="L966">					return readValue(&quot;value&quot;, type, jsonData);</span>
+				}
+
+<span class="nc" id="L969">				Object object = newInstance(type);</span>
+
+<span class="nc bnc" id="L971" title="All 2 branches missed.">				if (object instanceof Serializable) {</span>
+<span class="nc" id="L972">					((Serializable)object).read(this, jsonData);</span>
+<span class="nc" id="L973">					return (T)object;</span>
+				}
+
+				// JSON object special cases.
+<span class="nc bnc" id="L977" title="All 2 branches missed.">				if (object instanceof ObjectMap) {</span>
+<span class="nc" id="L978">					ObjectMap result = (ObjectMap)object;</span>
+<span class="nc bnc" id="L979" title="All 2 branches missed.">					for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L980">						result.put(child.name, readValue(elementType, null, child));</span>
+<span class="nc" id="L981">					return (T)result;</span>
+				}
+<span class="nc bnc" id="L983" title="All 2 branches missed.">				if (object instanceof ObjectSet) {</span>
+<span class="nc" id="L984">					ObjectSet result = (ObjectSet)object;</span>
+<span class="nc bnc" id="L985" title="All 2 branches missed.">					for (JsonValue child = jsonData.getChild(&quot;values&quot;); child != null; child = child.next)</span>
+<span class="nc" id="L986">						result.add(readValue(elementType, null, child));</span>
+<span class="nc" id="L987">					return (T)result;</span>
+				}
+<span class="nc bnc" id="L989" title="All 2 branches missed.">				if (object instanceof IntSet) {</span>
+<span class="nc" id="L990">					IntSet result = (IntSet)object;</span>
+<span class="nc bnc" id="L991" title="All 2 branches missed.">					for (JsonValue child = jsonData.getChild(&quot;values&quot;); child != null; child = child.next)</span>
+<span class="nc" id="L992">						result.add(child.asInt());</span>
+<span class="nc" id="L993">					return (T)result;</span>
+				}
+<span class="nc bnc" id="L995" title="All 2 branches missed.">				if (object instanceof ArrayMap) {</span>
+<span class="nc" id="L996">					ArrayMap result = (ArrayMap)object;</span>
+<span class="nc bnc" id="L997" title="All 2 branches missed.">					for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L998">						result.put(child.name, readValue(elementType, null, child));</span>
+<span class="nc" id="L999">					return (T)result;</span>
+				}
+<span class="nc bnc" id="L1001" title="All 2 branches missed.">				if (object instanceof Map) {</span>
+<span class="nc" id="L1002">					Map result = (Map)object;</span>
+<span class="nc bnc" id="L1003" title="All 2 branches missed.">					for (JsonValue child = jsonData.child; child != null; child = child.next) {</span>
+<span class="nc bnc" id="L1004" title="All 2 branches missed.">						if (child.name.equals(typeName)) continue;</span>
+<span class="nc" id="L1005">						result.put(child.name, readValue(elementType, null, child));</span>
+					}
+<span class="nc" id="L1007">					return (T)result;</span>
+				}
+
+<span class="nc" id="L1010">				readFields(object, jsonData);</span>
+<span class="nc" id="L1011">				return (T)object;</span>
+			}
+		}
+
+<span class="nc bnc" id="L1015" title="All 2 branches missed.">		if (type != null) {</span>
+<span class="nc" id="L1016">			Serializer serializer = classToSerializer.get(type);</span>
+<span class="nc bnc" id="L1017" title="All 2 branches missed.">			if (serializer != null) return (T)serializer.read(this, jsonData, type);</span>
+
+<span class="nc bnc" id="L1019" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Serializable.class, type)) {</span>
+				// A Serializable may be read as an array, string, etc, even though it will be written as an object.
+<span class="nc" id="L1021">				Object object = newInstance(type);</span>
+<span class="nc" id="L1022">				((Serializable)object).read(this, jsonData);</span>
+<span class="nc" id="L1023">				return (T)object;</span>
+			}
+		}
+
+<span class="nc bnc" id="L1027" title="All 2 branches missed.">		if (jsonData.isArray()) {</span>
+			// JSON array special cases.
+<span class="nc bnc" id="L1029" title="All 4 branches missed.">			if (type == null || type == Object.class) type = (Class&lt;T&gt;)Array.class;</span>
+<span class="nc bnc" id="L1030" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Array.class, type)) {</span>
+<span class="nc bnc" id="L1031" title="All 2 branches missed.">				Array result = type == Array.class ? new Array() : (Array)newInstance(type);</span>
+<span class="nc bnc" id="L1032" title="All 2 branches missed.">				for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L1033">					result.add(readValue(elementType, null, child));</span>
+<span class="nc" id="L1034">				return (T)result;</span>
+			}
+<span class="nc bnc" id="L1036" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Queue.class, type)) {</span>
+<span class="nc bnc" id="L1037" title="All 2 branches missed.">				Queue result = type == Queue.class ? new Queue() : (Queue)newInstance(type);</span>
+<span class="nc bnc" id="L1038" title="All 2 branches missed.">				for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L1039">					result.addLast(readValue(elementType, null, child));</span>
+<span class="nc" id="L1040">				return (T)result;</span>
+			}
+<span class="nc bnc" id="L1042" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Collection.class, type)) {</span>
+<span class="nc bnc" id="L1043" title="All 2 branches missed.">				Collection result = type.isInterface() ? new ArrayList() : (Collection)newInstance(type);</span>
+<span class="nc bnc" id="L1044" title="All 2 branches missed.">				for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L1045">					result.add(readValue(elementType, null, child));</span>
+<span class="nc" id="L1046">				return (T)result;</span>
+			}
+<span class="nc bnc" id="L1048" title="All 2 branches missed.">			if (type.isArray()) {</span>
+<span class="nc" id="L1049">				Class componentType = type.getComponentType();</span>
+<span class="nc bnc" id="L1050" title="All 2 branches missed.">				if (elementType == null) elementType = componentType;</span>
+<span class="nc" id="L1051">				Object result = ArrayReflection.newInstance(componentType, jsonData.size);</span>
+<span class="nc" id="L1052">				int i = 0;</span>
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">				for (JsonValue child = jsonData.child; child != null; child = child.next)</span>
+<span class="nc" id="L1054">					ArrayReflection.set(result, i++, readValue(elementType, null, child));</span>
+<span class="nc" id="L1055">				return (T)result;</span>
+			}
+<span class="nc" id="L1057">			throw new SerializationException(&quot;Unable to convert value to required type: &quot; + jsonData + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+		}
+
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">		if (jsonData.isNumber()) {</span>
+			try {
+<span class="nc bnc" id="L1062" title="All 6 branches missed.">				if (type == null || type == float.class || type == Float.class) return (T)(Float)jsonData.asFloat();</span>
+<span class="nc bnc" id="L1063" title="All 4 branches missed.">				if (type == int.class || type == Integer.class) return (T)(Integer)jsonData.asInt();</span>
+<span class="nc bnc" id="L1064" title="All 4 branches missed.">				if (type == long.class || type == Long.class) return (T)(Long)jsonData.asLong();</span>
+<span class="nc bnc" id="L1065" title="All 4 branches missed.">				if (type == double.class || type == Double.class) return (T)(Double)jsonData.asDouble();</span>
+<span class="nc bnc" id="L1066" title="All 2 branches missed.">				if (type == String.class) return (T)jsonData.asString();</span>
+<span class="nc bnc" id="L1067" title="All 4 branches missed.">				if (type == short.class || type == Short.class) return (T)(Short)jsonData.asShort();</span>
+<span class="nc bnc" id="L1068" title="All 4 branches missed.">				if (type == byte.class || type == Byte.class) return (T)(Byte)jsonData.asByte();</span>
+<span class="nc" id="L1069">			} catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L1070">			}</span>
+<span class="nc" id="L1071">			jsonData = new JsonValue(jsonData.asString());</span>
+		}
+
+<span class="nc bnc" id="L1074" title="All 2 branches missed.">		if (jsonData.isBoolean()) {</span>
+			try {
+<span class="nc bnc" id="L1076" title="All 6 branches missed.">				if (type == null || type == boolean.class || type == Boolean.class) return (T)(Boolean)jsonData.asBoolean();</span>
+<span class="nc" id="L1077">			} catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L1078">			}</span>
+<span class="nc" id="L1079">			jsonData = new JsonValue(jsonData.asString());</span>
+		}
+
+<span class="nc bnc" id="L1082" title="All 2 branches missed.">		if (jsonData.isString()) {</span>
+<span class="nc" id="L1083">			String string = jsonData.asString();</span>
+<span class="nc bnc" id="L1084" title="All 4 branches missed.">			if (type == null || type == String.class) return (T)string;</span>
+			try {
+<span class="nc bnc" id="L1086" title="All 4 branches missed.">				if (type == int.class || type == Integer.class) return (T)Integer.valueOf(string);</span>
+<span class="nc bnc" id="L1087" title="All 4 branches missed.">				if (type == float.class || type == Float.class) return (T)Float.valueOf(string);</span>
+<span class="nc bnc" id="L1088" title="All 4 branches missed.">				if (type == long.class || type == Long.class) return (T)Long.valueOf(string);</span>
+<span class="nc bnc" id="L1089" title="All 4 branches missed.">				if (type == double.class || type == Double.class) return (T)Double.valueOf(string);</span>
+<span class="nc bnc" id="L1090" title="All 4 branches missed.">				if (type == short.class || type == Short.class) return (T)Short.valueOf(string);</span>
+<span class="nc bnc" id="L1091" title="All 4 branches missed.">				if (type == byte.class || type == Byte.class) return (T)Byte.valueOf(string);</span>
+<span class="nc" id="L1092">			} catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L1093">			}</span>
+<span class="nc bnc" id="L1094" title="All 4 branches missed.">			if (type == boolean.class || type == Boolean.class) return (T)Boolean.valueOf(string);</span>
+<span class="nc bnc" id="L1095" title="All 4 branches missed.">			if (type == char.class || type == Character.class) return (T)(Character)string.charAt(0);</span>
+<span class="nc bnc" id="L1096" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(Enum.class, type)) {</span>
+<span class="nc" id="L1097">				Enum[] constants = (Enum[])type.getEnumConstants();</span>
+<span class="nc bnc" id="L1098" title="All 2 branches missed.">				for (int i = 0, n = constants.length; i &lt; n; i++) {</span>
+<span class="nc" id="L1099">					Enum e = constants[i];</span>
+<span class="nc bnc" id="L1100" title="All 2 branches missed.">					if (string.equals(convertToString(e))) return (T)e;</span>
+				}
+			}
+<span class="nc bnc" id="L1103" title="All 2 branches missed.">			if (type == CharSequence.class) return (T)string;</span>
+<span class="nc" id="L1104">			throw new SerializationException(&quot;Unable to convert value to required type: &quot; + jsonData + &quot; (&quot; + type.getName() + &quot;)&quot;);</span>
+		}
+
+<span class="nc" id="L1107">		return null;</span>
+	}
+
+	/** Each field on the &lt;code&gt;to&lt;/code&gt; object is set to the value for the field with the same name on the &lt;code&gt;from&lt;/code&gt;
+	 * object. The &lt;code&gt;to&lt;/code&gt; object must have at least all the fields of the &lt;code&gt;from&lt;/code&gt; object with the same name and
+	 * type. */
+	public void copyFields (Object from, Object to) {
+<span class="nc" id="L1114">		OrderedMap&lt;String, FieldMetadata&gt; toFields = getFields(to.getClass());</span>
+<span class="nc bnc" id="L1115" title="All 2 branches missed.">		for (ObjectMap.Entry&lt;String, FieldMetadata&gt; entry : getFields(from.getClass())) {</span>
+<span class="nc" id="L1116">			FieldMetadata toField = toFields.get(entry.key);</span>
+<span class="nc" id="L1117">			Field fromField = entry.value.field;</span>
+<span class="nc bnc" id="L1118" title="All 2 branches missed.">			if (toField == null) throw new SerializationException(&quot;To object is missing field: &quot; + entry.key);</span>
+			try {
+<span class="nc" id="L1120">				toField.field.set(to, fromField.get(from));</span>
+<span class="nc" id="L1121">			} catch (ReflectionException ex) {</span>
+<span class="nc" id="L1122">				throw new SerializationException(&quot;Error copying field: &quot; + fromField.getName(), ex);</span>
+<span class="nc" id="L1123">			}</span>
+<span class="nc" id="L1124">		}</span>
+<span class="nc" id="L1125">	}</span>
+
+	private String convertToString (Enum e) {
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">		return enumNames ? e.name() : e.toString();</span>
+	}
+
+	private String convertToString (Object object) {
+<span class="nc bnc" id="L1132" title="All 2 branches missed.">		if (object instanceof Enum) return convertToString((Enum)object);</span>
+<span class="nc bnc" id="L1133" title="All 2 branches missed.">		if (object instanceof Class) return ((Class)object).getName();</span>
+<span class="nc" id="L1134">		return String.valueOf(object);</span>
+	}
+
+	protected Object newInstance (Class type) {
+		try {
+<span class="nc" id="L1139">			return ClassReflection.newInstance(type);</span>
+<span class="nc" id="L1140">		} catch (Exception ex) {</span>
+			try {
+				// Try a private constructor.
+<span class="nc" id="L1143">				Constructor constructor = ClassReflection.getDeclaredConstructor(type);</span>
+<span class="nc" id="L1144">				constructor.setAccessible(true);</span>
+<span class="nc" id="L1145">				return constructor.newInstance();</span>
+<span class="nc" id="L1146">			} catch (SecurityException ignored) {</span>
+<span class="nc" id="L1147">			} catch (ReflectionException ignored) {</span>
+<span class="nc bnc" id="L1148" title="All 2 branches missed.">				if (ClassReflection.isAssignableFrom(Enum.class, type)) {</span>
+<span class="nc bnc" id="L1149" title="All 2 branches missed.">					if (type.getEnumConstants() == null) type = type.getSuperclass();</span>
+<span class="nc" id="L1150">					return type.getEnumConstants()[0];</span>
+				}
+<span class="nc bnc" id="L1152" title="All 2 branches missed.">				if (type.isArray())</span>
+<span class="nc" id="L1153">					throw new SerializationException(&quot;Encountered JSON object when expected array of type: &quot; + type.getName(), ex);</span>
+<span class="nc bnc" id="L1154" title="All 4 branches missed.">				else if (ClassReflection.isMemberClass(type) &amp;&amp; !ClassReflection.isStaticClass(type))</span>
+<span class="nc" id="L1155">					throw new SerializationException(&quot;Class cannot be created (non-static member class): &quot; + type.getName(), ex);</span>
+				else
+<span class="nc" id="L1157">					throw new SerializationException(&quot;Class cannot be created (missing no-arg constructor): &quot; + type.getName(), ex);</span>
+<span class="nc" id="L1158">			} catch (Exception privateConstructorException) {</span>
+<span class="nc" id="L1159">				ex = privateConstructorException;</span>
+<span class="nc" id="L1160">			}</span>
+<span class="nc" id="L1161">			throw new SerializationException(&quot;Error constructing instance of class: &quot; + type.getName(), ex);</span>
+		}
+	}
+
+	public String prettyPrint (Object object) {
+<span class="nc" id="L1166">		return prettyPrint(object, 0);</span>
+	}
+
+	public String prettyPrint (String json) {
+<span class="nc" id="L1170">		return prettyPrint(json, 0);</span>
+	}
+
+	public String prettyPrint (Object object, int singleLineColumns) {
+<span class="nc" id="L1174">		return prettyPrint(toJson(object), singleLineColumns);</span>
+	}
+
+	public String prettyPrint (String json, int singleLineColumns) {
+<span class="nc" id="L1178">		return new JsonReader().parse(json).prettyPrint(outputType, singleLineColumns);</span>
+	}
+
+	public String prettyPrint (Object object, PrettyPrintSettings settings) {
+<span class="nc" id="L1182">		return prettyPrint(toJson(object), settings);</span>
+	}
+
+	public String prettyPrint (String json, PrettyPrintSettings settings) {
+<span class="nc" id="L1186">		return new JsonReader().parse(json).prettyPrint(settings);</span>
+	}
+
+	static private class FieldMetadata {
+		final Field field;
+		Class elementType;
+		boolean deprecated;
+
+<span class="nc" id="L1194">		public FieldMetadata (Field field) {</span>
+<span class="nc" id="L1195">			this.field = field;</span>
+<span class="nc bnc" id="L1196" title="All 2 branches missed.">			int index = (ClassReflection.isAssignableFrom(ObjectMap.class, field.getType())</span>
+<span class="nc bnc" id="L1197" title="All 2 branches missed.">				|| ClassReflection.isAssignableFrom(Map.class, field.getType())) ? 1 : 0;</span>
+<span class="nc" id="L1198">			this.elementType = field.getElementType(index);</span>
+<span class="nc" id="L1199">			deprecated = field.isAnnotationPresent(Deprecated.class);</span>
+<span class="nc" id="L1200">		}</span>
+	}
+
+	static public interface Serializer&lt;T&gt; {
+		public void write (Json json, T object, Class knownType);
+
+		public T read (Json json, JsonValue jsonData, Class type);
+	}
+
+<span class="nc" id="L1209">	static abstract public class ReadOnlySerializer&lt;T&gt; implements Serializer&lt;T&gt; {</span>
+		public void write (Json json, T object, Class knownType) {
+<span class="nc" id="L1211">		}</span>
+
+		abstract public T read (Json json, JsonValue jsonData, Class type);
+	}
+
+	static public interface Serializable {
+		public void write (Json json);
+
+		public void read (Json json, JsonValue jsonData);
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

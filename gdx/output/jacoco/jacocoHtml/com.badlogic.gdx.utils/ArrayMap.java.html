@@ -1,0 +1,679 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArrayMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">ArrayMap.java</span></div><h1>ArrayMap.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.ObjectMap.Entry;
+import com.badlogic.gdx.utils.reflect.ArrayReflection;
+
+/** An ordered or unordered map of objects. This implementation uses arrays to store the keys and values, which means
+ * {@link #getKey(Object, boolean) gets} do a comparison for each key in the map. This is slower than a typical hash map
+ * implementation, but may be acceptable for small maps and has the benefits that keys and values can be accessed by index, which
+ * makes iteration fast. Like {@link Array}, if ordered is false, this class avoids a memory copy when removing elements (the last
+ * element is moved to the removed element's position).
+ * @author Nathan Sweet */
+public class ArrayMap&lt;K, V&gt; implements Iterable&lt;ObjectMap.Entry&lt;K, V&gt;&gt; {
+	public K[] keys;
+	public V[] values;
+	public int size;
+	public boolean ordered;
+
+	private Entries entries1, entries2;
+	private Values values1, values2;
+	private Keys keys1, keys2;
+
+	/** Creates an ordered map with a capacity of 16. */
+	public ArrayMap () {
+<span class="nc" id="L44">		this(true, 16);</span>
+<span class="nc" id="L45">	}</span>
+
+	/** Creates an ordered map with the specified capacity. */
+	public ArrayMap (int capacity) {
+<span class="nc" id="L49">		this(true, capacity);</span>
+<span class="nc" id="L50">	}</span>
+
+	/** @param ordered If false, methods that remove elements may change the order of other elements in the arrays, which avoids a
+	 *           memory copy.
+	 * @param capacity Any elements added beyond this will cause the backing arrays to be grown. */
+<span class="nc" id="L55">	public ArrayMap (boolean ordered, int capacity) {</span>
+<span class="nc" id="L56">		this.ordered = ordered;</span>
+<span class="nc" id="L57">		keys = (K[])new Object[capacity];</span>
+<span class="nc" id="L58">		values = (V[])new Object[capacity];</span>
+<span class="nc" id="L59">	}</span>
+
+	/** Creates a new map with {@link #keys} and {@link #values} of the specified type.
+	 * @param ordered If false, methods that remove elements may change the order of other elements in the arrays, which avoids a
+	 *           memory copy.
+	 * @param capacity Any elements added beyond this will cause the backing arrays to be grown. */
+<span class="nc" id="L65">	public ArrayMap (boolean ordered, int capacity, Class keyArrayType, Class valueArrayType) {</span>
+<span class="nc" id="L66">		this.ordered = ordered;</span>
+<span class="nc" id="L67">		keys = (K[])ArrayReflection.newInstance(keyArrayType, capacity);</span>
+<span class="nc" id="L68">		values = (V[])ArrayReflection.newInstance(valueArrayType, capacity);</span>
+<span class="nc" id="L69">	}</span>
+
+	/** Creates an ordered map with {@link #keys} and {@link #values} of the specified type and a capacity of 16. */
+	public ArrayMap (Class keyArrayType, Class valueArrayType) {
+<span class="nc" id="L73">		this(false, 16, keyArrayType, valueArrayType);</span>
+<span class="nc" id="L74">	}</span>
+
+	/** Creates a new map containing the elements in the specified map. The new map will have the same type of backing arrays and
+	 * will be ordered if the specified map is ordered. The capacity is set to the number of elements, so any subsequent elements
+	 * added will cause the backing arrays to be grown. */
+	public ArrayMap (ArrayMap array) {
+<span class="nc" id="L80">		this(array.ordered, array.size, array.keys.getClass().getComponentType(), array.values.getClass().getComponentType());</span>
+<span class="nc" id="L81">		size = array.size;</span>
+<span class="nc" id="L82">		System.arraycopy(array.keys, 0, keys, 0, size);</span>
+<span class="nc" id="L83">		System.arraycopy(array.values, 0, values, 0, size);</span>
+<span class="nc" id="L84">	}</span>
+
+	public int put (K key, V value) {
+<span class="nc" id="L87">		int index = indexOfKey(key);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">		if (index == -1) {</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">			if (size == keys.length) resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L90">			index = size++;</span>
+		}
+<span class="nc" id="L92">		keys[index] = key;</span>
+<span class="nc" id="L93">		values[index] = value;</span>
+<span class="nc" id="L94">		return index;</span>
+	}
+
+	public int put (K key, V value, int index) {
+<span class="nc" id="L98">		int existingIndex = indexOfKey(key);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">		if (existingIndex != -1)</span>
+<span class="nc" id="L100">			removeIndex(existingIndex);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">		else if (size == keys.length) //</span>
+<span class="nc" id="L102">			resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L103">		System.arraycopy(keys, index, keys, index + 1, size - index);</span>
+<span class="nc" id="L104">		System.arraycopy(values, index, values, index + 1, size - index);</span>
+<span class="nc" id="L105">		keys[index] = key;</span>
+<span class="nc" id="L106">		values[index] = value;</span>
+<span class="nc" id="L107">		size++;</span>
+<span class="nc" id="L108">		return index;</span>
+	}
+
+	public void putAll (ArrayMap&lt;? extends K, ? extends V&gt; map) {
+<span class="nc" id="L112">		putAll(map, 0, map.size);</span>
+<span class="nc" id="L113">	}</span>
+
+	public void putAll (ArrayMap&lt;? extends K, ? extends V&gt; map, int offset, int length) {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		if (offset + length &gt; map.size)</span>
+<span class="nc" id="L117">			throw new IllegalArgumentException(&quot;offset + length must be &lt;= size: &quot; + offset + &quot; + &quot; + length + &quot; &lt;= &quot; + map.size);</span>
+<span class="nc" id="L118">		int sizeNeeded = size + length - offset;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">		if (sizeNeeded &gt;= keys.length) resize(Math.max(8, (int)(sizeNeeded * 1.75f)));</span>
+<span class="nc" id="L120">		System.arraycopy(map.keys, offset, keys, size, length);</span>
+<span class="nc" id="L121">		System.arraycopy(map.values, offset, values, size, length);</span>
+<span class="nc" id="L122">		size += length;</span>
+<span class="nc" id="L123">	}</span>
+
+	/** Returns the value (which may be null) for the specified key, or null if the key is not in the map. Note this does a
+	 * .equals() comparison of each key in reverse order until the specified key is found. */
+	public V get (K key) {
+<span class="nc" id="L128">		return get(key, null);</span>
+	}
+
+	/** Returns the value (which may be null) for the specified key, or the default value if the key is not in the map. Note this
+	 * does a .equals() comparison of each key in reverse order until the specified key is found. */
+	public V get (K key, V defaultValue) {
+<span class="nc" id="L134">		Object[] keys = this.keys;</span>
+<span class="nc" id="L135">		int i = size - 1;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">		if (key == null) {</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">			for (; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">				if (keys[i] == key) return values[i];</span>
+		} else {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">			for (; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">				if (key.equals(keys[i])) return values[i];</span>
+		}
+<span class="nc" id="L143">		return defaultValue;</span>
+	}
+
+	/** Returns the key for the specified value. Note this does a comparison of each value in reverse order until the specified
+	 * value is found.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public K getKey (V value, boolean identity) {
+<span class="nc" id="L150">		Object[] values = this.values;</span>
+<span class="nc" id="L151">		int i = size - 1;</span>
+<span class="nc bnc" id="L152" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">			for (; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">				if (values[i] == value) return keys[i];</span>
+		} else {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">			for (; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">				if (value.equals(values[i])) return keys[i];</span>
+		}
+<span class="nc" id="L159">		return null;</span>
+	}
+
+	public K getKeyAt (int index) {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc" id="L164">		return keys[index];</span>
+	}
+
+	public V getValueAt (int index) {
+<span class="nc bnc" id="L168" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc" id="L169">		return values[index];</span>
+	}
+
+	public K firstKey () {
+<span class="nc bnc" id="L173" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Map is empty.&quot;);</span>
+<span class="nc" id="L174">		return keys[0];</span>
+	}
+
+	public V firstValue () {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Map is empty.&quot;);</span>
+<span class="nc" id="L179">		return values[0];</span>
+	}
+
+	public void setKey (int index, K key) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc" id="L184">		keys[index] = key;</span>
+<span class="nc" id="L185">	}</span>
+
+	public void setValue (int index, V value) {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc" id="L189">		values[index] = value;</span>
+<span class="nc" id="L190">	}</span>
+
+	public void insert (int index, K key, V value) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">		if (index &gt; size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		if (size == keys.length) resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">		if (ordered) {</span>
+<span class="nc" id="L196">			System.arraycopy(keys, index, keys, index + 1, size - index);</span>
+<span class="nc" id="L197">			System.arraycopy(values, index, values, index + 1, size - index);</span>
+		} else {
+<span class="nc" id="L199">			keys[size] = keys[index];</span>
+<span class="nc" id="L200">			values[size] = values[index];</span>
+		}
+<span class="nc" id="L202">		size++;</span>
+<span class="nc" id="L203">		keys[index] = key;</span>
+<span class="nc" id="L204">		values[index] = value;</span>
+<span class="nc" id="L205">	}</span>
+
+	public boolean containsKey (K key) {
+<span class="nc" id="L208">		K[] keys = this.keys;</span>
+<span class="nc" id="L209">		int i = size - 1;</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">		if (key == null) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">				if (keys[i--] == key) return true;</span>
+		} else {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">				if (key.equals(keys[i--])) return true;</span>
+		}
+<span class="nc" id="L217">		return false;</span>
+	}
+
+	/** @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean containsValue (V value, boolean identity) {
+<span class="nc" id="L222">		V[] values = this.values;</span>
+<span class="nc" id="L223">		int i = size - 1;</span>
+<span class="nc bnc" id="L224" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">				if (values[i--] == value) return true;</span>
+		} else {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">				if (value.equals(values[i--])) return true;</span>
+		}
+<span class="nc" id="L231">		return false;</span>
+	}
+
+	public int indexOfKey (K key) {
+<span class="nc" id="L235">		Object[] keys = this.keys;</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		if (key == null) {</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">				if (keys[i] == key) return i;</span>
+		} else {
+<span class="nc bnc" id="L240" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">				if (key.equals(keys[i])) return i;</span>
+		}
+<span class="nc" id="L243">		return -1;</span>
+	}
+
+	public int indexOfValue (V value, boolean identity) {
+<span class="nc" id="L247">		Object[] values = this.values;</span>
+<span class="nc bnc" id="L248" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">				if (values[i] == value) return i;</span>
+		} else {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">				if (value.equals(values[i])) return i;</span>
+		}
+<span class="nc" id="L255">		return -1;</span>
+	}
+
+	public V removeKey (K key) {
+<span class="nc" id="L259">		Object[] keys = this.keys;</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">		if (key == null) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">				if (keys[i] == key) {</span>
+<span class="nc" id="L263">					V value = values[i];</span>
+<span class="nc" id="L264">					removeIndex(i);</span>
+<span class="nc" id="L265">					return value;</span>
+				}
+			}
+		} else {
+<span class="nc bnc" id="L269" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">				if (key.equals(keys[i])) {</span>
+<span class="nc" id="L271">					V value = values[i];</span>
+<span class="nc" id="L272">					removeIndex(i);</span>
+<span class="nc" id="L273">					return value;</span>
+				}
+			}
+		}
+<span class="nc" id="L277">		return null;</span>
+	}
+
+	public boolean removeValue (V value, boolean identity) {
+<span class="nc" id="L281">		Object[] values = this.values;</span>
+<span class="nc bnc" id="L282" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">				if (values[i] == value) {</span>
+<span class="nc" id="L285">					removeIndex(i);</span>
+<span class="nc" id="L286">					return true;</span>
+				}
+			}
+		} else {
+<span class="nc bnc" id="L290" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">				if (value.equals(values[i])) {</span>
+<span class="nc" id="L292">					removeIndex(i);</span>
+<span class="nc" id="L293">					return true;</span>
+				}
+			}
+		}
+<span class="nc" id="L297">		return false;</span>
+	}
+
+	/** Removes and returns the key/values pair at the specified index. */
+	public void removeIndex (int index) {
+<span class="nc bnc" id="L302" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+<span class="nc" id="L303">		Object[] keys = this.keys;</span>
+<span class="nc" id="L304">		size--;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">		if (ordered) {</span>
+<span class="nc" id="L306">			System.arraycopy(keys, index + 1, keys, index, size - index);</span>
+<span class="nc" id="L307">			System.arraycopy(values, index + 1, values, index, size - index);</span>
+		} else {
+<span class="nc" id="L309">			keys[index] = keys[size];</span>
+<span class="nc" id="L310">			values[index] = values[size];</span>
+		}
+<span class="nc" id="L312">		keys[size] = null;</span>
+<span class="nc" id="L313">		values[size] = null;</span>
+<span class="nc" id="L314">	}</span>
+
+	/** Returns true if the map has one or more items. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L318" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if the map is empty. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	/** Returns the last key. */
+	public K peekKey () {
+<span class="nc" id="L328">		return keys[size - 1];</span>
+	}
+
+	/** Returns the last value. */
+	public V peekValue () {
+<span class="nc" id="L333">		return values[size - 1];</span>
+	}
+
+	/** Clears the map and reduces the size of the backing arrays to be the specified capacity if they are larger. */
+	public void clear (int maximumCapacity) {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (keys.length &lt;= maximumCapacity) {</span>
+<span class="nc" id="L339">			clear();</span>
+<span class="nc" id="L340">			return;</span>
+		}
+<span class="nc" id="L342">		size = 0;</span>
+<span class="nc" id="L343">		resize(maximumCapacity);</span>
+<span class="nc" id="L344">	}</span>
+
+	public void clear () {
+<span class="nc" id="L347">		K[] keys = this.keys;</span>
+<span class="nc" id="L348">		V[] values = this.values;</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc" id="L350">			keys[i] = null;</span>
+<span class="nc" id="L351">			values[i] = null;</span>
+		}
+<span class="nc" id="L353">		size = 0;</span>
+<span class="nc" id="L354">	}</span>
+
+	/** Reduces the size of the backing arrays to the size of the actual number of entries. This is useful to release memory when
+	 * many items have been removed, or if it is known that more entries will not be added. */
+	public void shrink () {
+<span class="nc bnc" id="L359" title="All 2 branches missed.">		if (keys.length == size) return;</span>
+<span class="nc" id="L360">		resize(size);</span>
+<span class="nc" id="L361">	}</span>
+
+	/** Increases the size of the backing arrays to accommodate the specified number of additional entries. Useful before adding
+	 * many entries to avoid multiple backing array resizes. */
+	public void ensureCapacity (int additionalCapacity) {
+<span class="nc bnc" id="L366" title="All 2 branches missed.">		if (additionalCapacity &lt; 0) throw new IllegalArgumentException(&quot;additionalCapacity must be &gt;= 0: &quot; + additionalCapacity);</span>
+<span class="nc" id="L367">		int sizeNeeded = size + additionalCapacity;</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">		if (sizeNeeded &gt;= keys.length) resize(Math.max(8, sizeNeeded));</span>
+<span class="nc" id="L369">	}</span>
+
+	protected void resize (int newSize) {
+<span class="nc" id="L372">		K[] newKeys = (K[])ArrayReflection.newInstance(keys.getClass().getComponentType(), newSize);</span>
+<span class="nc" id="L373">		System.arraycopy(keys, 0, newKeys, 0, Math.min(size, newKeys.length));</span>
+<span class="nc" id="L374">		this.keys = newKeys;</span>
+
+<span class="nc" id="L376">		V[] newValues = (V[])ArrayReflection.newInstance(values.getClass().getComponentType(), newSize);</span>
+<span class="nc" id="L377">		System.arraycopy(values, 0, newValues, 0, Math.min(size, newValues.length));</span>
+<span class="nc" id="L378">		this.values = newValues;</span>
+<span class="nc" id="L379">	}</span>
+
+	public void reverse () {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">		for (int i = 0, lastIndex = size - 1, n = size / 2; i &lt; n; i++) {</span>
+<span class="nc" id="L383">			int ii = lastIndex - i;</span>
+<span class="nc" id="L384">			K tempKey = keys[i];</span>
+<span class="nc" id="L385">			keys[i] = keys[ii];</span>
+<span class="nc" id="L386">			keys[ii] = tempKey;</span>
+
+<span class="nc" id="L388">			V tempValue = values[i];</span>
+<span class="nc" id="L389">			values[i] = values[ii];</span>
+<span class="nc" id="L390">			values[ii] = tempValue;</span>
+		}
+<span class="nc" id="L392">	}</span>
+
+	public void shuffle () {
+<span class="nc bnc" id="L395" title="All 2 branches missed.">		for (int i = size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L396">			int ii = MathUtils.random(i);</span>
+<span class="nc" id="L397">			K tempKey = keys[i];</span>
+<span class="nc" id="L398">			keys[i] = keys[ii];</span>
+<span class="nc" id="L399">			keys[ii] = tempKey;</span>
+
+<span class="nc" id="L401">			V tempValue = values[i];</span>
+<span class="nc" id="L402">			values[i] = values[ii];</span>
+<span class="nc" id="L403">			values[ii] = tempValue;</span>
+		}
+<span class="nc" id="L405">	}</span>
+
+	/** Reduces the size of the arrays to the specified size. If the arrays are already smaller than the specified size, no action
+	 * is taken. */
+	public void truncate (int newSize) {
+<span class="nc bnc" id="L410" title="All 2 branches missed.">		if (size &lt;= newSize) return;</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">		for (int i = newSize; i &lt; size; i++) {</span>
+<span class="nc" id="L412">			keys[i] = null;</span>
+<span class="nc" id="L413">			values[i] = null;</span>
+		}
+<span class="nc" id="L415">		size = newSize;</span>
+<span class="nc" id="L416">	}</span>
+
+	public int hashCode () {
+<span class="nc" id="L419">		K[] keys = this.keys;</span>
+<span class="nc" id="L420">		V[] values = this.values;</span>
+<span class="nc" id="L421">		int h = 0;</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc" id="L423">			K key = keys[i];</span>
+<span class="nc" id="L424">			V value = values[i];</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">			if (key != null) h += key.hashCode() * 31;</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">			if (value != null) h += value.hashCode();</span>
+		}
+<span class="nc" id="L428">		return h;</span>
+	}
+
+	public boolean equals (Object obj) {
+<span class="nc bnc" id="L432" title="All 2 branches missed.">		if (obj == this) return true;</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">		if (!(obj instanceof ArrayMap)) return false;</span>
+<span class="nc" id="L434">		ArrayMap other = (ArrayMap)obj;</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">		if (other.size != size) return false;</span>
+<span class="nc" id="L436">		K[] keys = this.keys;</span>
+<span class="nc" id="L437">		V[] values = this.values;</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc" id="L439">			K key = keys[i];</span>
+<span class="nc" id="L440">			V value = values[i];</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">			if (value == null) {</span>
+<span class="nc bnc" id="L442" title="All 2 branches missed.">				if (other.get(key, ObjectMap.dummy) != null) return false;</span>
+			} else {
+<span class="nc bnc" id="L444" title="All 2 branches missed.">				if (!value.equals(other.get(key))) return false;</span>
+			}
+		}
+<span class="nc" id="L447">		return true;</span>
+	}
+
+	/** Uses == for comparison of each value. */
+	public boolean equalsIdentity (Object obj) {
+<span class="nc bnc" id="L452" title="All 2 branches missed.">		if (obj == this) return true;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">		if (!(obj instanceof ArrayMap)) return false;</span>
+<span class="nc" id="L454">		ArrayMap other = (ArrayMap)obj;</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">		if (other.size != size) return false;</span>
+<span class="nc" id="L456">		K[] keys = this.keys;</span>
+<span class="nc" id="L457">		V[] values = this.values;</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">			if (values[i] != other.get(keys[i], ObjectMap.dummy)) return false;</span>
+<span class="nc" id="L460">		return true;</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L464" title="All 2 branches missed.">		if (size == 0) return &quot;{}&quot;;</span>
+<span class="nc" id="L465">		K[] keys = this.keys;</span>
+<span class="nc" id="L466">		V[] values = this.values;</span>
+<span class="nc" id="L467">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L468">		buffer.append('{');</span>
+<span class="nc" id="L469">		buffer.append(keys[0]);</span>
+<span class="nc" id="L470">		buffer.append('=');</span>
+<span class="nc" id="L471">		buffer.append(values[0]);</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L473">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L474">			buffer.append(keys[i]);</span>
+<span class="nc" id="L475">			buffer.append('=');</span>
+<span class="nc" id="L476">			buffer.append(values[i]);</span>
+		}
+<span class="nc" id="L478">		buffer.append('}');</span>
+<span class="nc" id="L479">		return buffer.toString();</span>
+	}
+
+	public Iterator&lt;Entry&lt;K, V&gt;&gt; iterator () {
+<span class="nc" id="L483">		return entries();</span>
+	}
+
+	/** Returns an iterator for the entries in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link Entries} constructor for nested or multithreaded iteration.
+	 * @see Collections#allocateIterators */
+	public Entries&lt;K, V&gt; entries () {
+<span class="nc bnc" id="L492" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Entries(this);</span>
+<span class="nc bnc" id="L493" title="All 2 branches missed.">		if (entries1 == null) {</span>
+<span class="nc" id="L494">			entries1 = new Entries(this);</span>
+<span class="nc" id="L495">			entries2 = new Entries(this);</span>
+		}
+<span class="nc bnc" id="L497" title="All 2 branches missed.">		if (!entries1.valid) {</span>
+<span class="nc" id="L498">			entries1.index = 0;</span>
+<span class="nc" id="L499">			entries1.valid = true;</span>
+<span class="nc" id="L500">			entries2.valid = false;</span>
+<span class="nc" id="L501">			return entries1;</span>
+		}
+<span class="nc" id="L503">		entries2.index = 0;</span>
+<span class="nc" id="L504">		entries2.valid = true;</span>
+<span class="nc" id="L505">		entries1.valid = false;</span>
+<span class="nc" id="L506">		return entries2;</span>
+	}
+
+	/** Returns an iterator for the values in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link Entries} constructor for nested or multithreaded iteration.
+	 * @see Collections#allocateIterators  */
+	public Values&lt;V&gt; values () {
+<span class="nc bnc" id="L515" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Values(this);</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">		if (values1 == null) {</span>
+<span class="nc" id="L517">			values1 = new Values(this);</span>
+<span class="nc" id="L518">			values2 = new Values(this);</span>
+		}
+<span class="nc bnc" id="L520" title="All 2 branches missed.">		if (!values1.valid) {</span>
+<span class="nc" id="L521">			values1.index = 0;</span>
+<span class="nc" id="L522">			values1.valid = true;</span>
+<span class="nc" id="L523">			values2.valid = false;</span>
+<span class="nc" id="L524">			return values1;</span>
+		}
+<span class="nc" id="L526">		values2.index = 0;</span>
+<span class="nc" id="L527">		values2.valid = true;</span>
+<span class="nc" id="L528">		values1.valid = false;</span>
+<span class="nc" id="L529">		return values2;</span>
+	}
+
+	/** Returns an iterator for the keys in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link Entries} constructor for nested or multithreaded iteration.
+	 * @see Collections#allocateIterators */
+	public Keys&lt;K&gt; keys () {
+<span class="nc bnc" id="L538" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Keys(this);</span>
+<span class="nc bnc" id="L539" title="All 2 branches missed.">		if (keys1 == null) {</span>
+<span class="nc" id="L540">			keys1 = new Keys(this);</span>
+<span class="nc" id="L541">			keys2 = new Keys(this);</span>
+		}
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		if (!keys1.valid) {</span>
+<span class="nc" id="L544">			keys1.index = 0;</span>
+<span class="nc" id="L545">			keys1.valid = true;</span>
+<span class="nc" id="L546">			keys2.valid = false;</span>
+<span class="nc" id="L547">			return keys1;</span>
+		}
+<span class="nc" id="L549">		keys2.index = 0;</span>
+<span class="nc" id="L550">		keys2.valid = true;</span>
+<span class="nc" id="L551">		keys1.valid = false;</span>
+<span class="nc" id="L552">		return keys2;</span>
+	}
+
+	static public class Entries&lt;K, V&gt; implements Iterable&lt;Entry&lt;K, V&gt;&gt;, Iterator&lt;Entry&lt;K, V&gt;&gt; {
+		private final ArrayMap&lt;K, V&gt; map;
+<span class="nc" id="L557">		Entry&lt;K, V&gt; entry = new Entry();</span>
+		int index;
+<span class="nc" id="L559">		boolean valid = true;</span>
+
+<span class="nc" id="L561">		public Entries (ArrayMap&lt;K, V&gt; map) {</span>
+<span class="nc" id="L562">			this.map = map;</span>
+<span class="nc" id="L563">		}</span>
+
+		public boolean hasNext () {
+<span class="nc bnc" id="L566" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">			return index &lt; map.size;</span>
+		}
+
+		public Iterator&lt;Entry&lt;K, V&gt;&gt; iterator () {
+<span class="nc" id="L571">			return this;</span>
+		}
+
+		/** Note the same entry instance is returned each time this method is called. */
+		public Entry&lt;K, V&gt; next () {
+<span class="nc bnc" id="L576" title="All 2 branches missed.">			if (index &gt;= map.size) throw new NoSuchElementException(String.valueOf(index));</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L578">			entry.key = map.keys[index];</span>
+<span class="nc" id="L579">			entry.value = map.values[index++];</span>
+<span class="nc" id="L580">			return entry;</span>
+		}
+
+		public void remove () {
+<span class="nc" id="L584">			index--;</span>
+<span class="nc" id="L585">			map.removeIndex(index);</span>
+<span class="nc" id="L586">		}</span>
+
+		public void reset () {
+<span class="nc" id="L589">			index = 0;</span>
+<span class="nc" id="L590">		}</span>
+	}
+
+	static public class Values&lt;V&gt; implements Iterable&lt;V&gt;, Iterator&lt;V&gt; {
+		private final ArrayMap&lt;Object, V&gt; map;
+		int index;
+<span class="nc" id="L596">		boolean valid = true;</span>
+
+<span class="nc" id="L598">		public Values (ArrayMap&lt;Object, V&gt; map) {</span>
+<span class="nc" id="L599">			this.map = map;</span>
+<span class="nc" id="L600">		}</span>
+
+		public boolean hasNext () {
+<span class="nc bnc" id="L603" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc bnc" id="L604" title="All 2 branches missed.">			return index &lt; map.size;</span>
+		}
+
+		public Iterator&lt;V&gt; iterator () {
+<span class="nc" id="L608">			return this;</span>
+		}
+
+		public V next () {
+<span class="nc bnc" id="L612" title="All 2 branches missed.">			if (index &gt;= map.size) throw new NoSuchElementException(String.valueOf(index));</span>
+<span class="nc bnc" id="L613" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L614">			return map.values[index++];</span>
+		}
+
+		public void remove () {
+<span class="nc" id="L618">			index--;</span>
+<span class="nc" id="L619">			map.removeIndex(index);</span>
+<span class="nc" id="L620">		}</span>
+
+		public void reset () {
+<span class="nc" id="L623">			index = 0;</span>
+<span class="nc" id="L624">		}</span>
+
+		public Array&lt;V&gt; toArray () {
+<span class="nc" id="L627">			return new Array(true, map.values, index, map.size - index);</span>
+		}
+
+		public Array&lt;V&gt; toArray (Array array) {
+<span class="nc" id="L631">			array.addAll(map.values, index, map.size - index);</span>
+<span class="nc" id="L632">			return array;</span>
+		}
+	}
+
+	static public class Keys&lt;K&gt; implements Iterable&lt;K&gt;, Iterator&lt;K&gt; {
+		private final ArrayMap&lt;K, Object&gt; map;
+		int index;
+<span class="nc" id="L639">		boolean valid = true;</span>
+
+<span class="nc" id="L641">		public Keys (ArrayMap&lt;K, Object&gt; map) {</span>
+<span class="nc" id="L642">			this.map = map;</span>
+<span class="nc" id="L643">		}</span>
+
+		public boolean hasNext () {
+<span class="nc bnc" id="L646" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc bnc" id="L647" title="All 2 branches missed.">			return index &lt; map.size;</span>
+		}
+
+		public Iterator&lt;K&gt; iterator () {
+<span class="nc" id="L651">			return this;</span>
+		}
+
+		public K next () {
+<span class="nc bnc" id="L655" title="All 2 branches missed.">			if (index &gt;= map.size) throw new NoSuchElementException(String.valueOf(index));</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L657">			return map.keys[index++];</span>
+		}
+
+		public void remove () {
+<span class="nc" id="L661">			index--;</span>
+<span class="nc" id="L662">			map.removeIndex(index);</span>
+<span class="nc" id="L663">		}</span>
+
+		public void reset () {
+<span class="nc" id="L666">			index = 0;</span>
+<span class="nc" id="L667">		}</span>
+
+		public Array&lt;K&gt; toArray () {
+<span class="nc" id="L670">			return new Array(true, map.keys, index, map.size - index);</span>
+		}
+
+		public Array&lt;K&gt; toArray (Array array) {
+<span class="nc" id="L674">			array.addAll(map.keys, index, map.size - index);</span>
+<span class="nc" id="L675">			return array;</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FloatTextureData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.glutils</a> &gt; <span class="el_source">FloatTextureData.java</span></div><h1>FloatTextureData.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.glutils;
+
+import java.nio.FloatBuffer;
+
+import com.badlogic.gdx.Application.ApplicationType;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Graphics;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Pixmap.Format;
+import com.badlogic.gdx.graphics.TextureData;
+import com.badlogic.gdx.utils.BufferUtils;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** A {@link TextureData} implementation which should be used to create float textures. */
+public class FloatTextureData implements TextureData {
+
+<span class="nc" id="L35">	int width = 0;</span>
+<span class="nc" id="L36">	int height = 0;</span>
+
+	int internalFormat;
+	int format;
+	int type;
+
+	boolean isGpuOnly;
+
+<span class="nc" id="L44">	boolean isPrepared = false;</span>
+	FloatBuffer buffer;
+
+<span class="nc" id="L47">	public FloatTextureData (int w, int h, int internalFormat, int format, int type, boolean isGpuOnly) {</span>
+<span class="nc" id="L48">		this.width = w;</span>
+<span class="nc" id="L49">		this.height = h;</span>
+<span class="nc" id="L50">		this.internalFormat = internalFormat;</span>
+<span class="nc" id="L51">		this.format = format;</span>
+<span class="nc" id="L52">		this.type = type;</span>
+<span class="nc" id="L53">		this.isGpuOnly = isGpuOnly;</span>
+<span class="nc" id="L54">	}</span>
+
+	@Override
+	public TextureDataType getType () {
+<span class="nc" id="L58">		return TextureDataType.Custom;</span>
+	}
+
+	@Override
+	public boolean isPrepared () {
+<span class="nc" id="L63">		return isPrepared;</span>
+	}
+
+	@Override
+	public void prepare () {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">		if (isPrepared) throw new GdxRuntimeException(&quot;Already prepared&quot;);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">		if (!isGpuOnly) {</span>
+<span class="nc" id="L70">			int amountOfFloats = 4;</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">			if (Gdx.graphics.getGLVersion().getType().equals(GLVersion.Type.OpenGL)) {</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">				if (internalFormat == GL30.GL_RGBA16F || internalFormat ==  GL30.GL_RGBA32F) amountOfFloats = 4;</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">				if (internalFormat == GL30.GL_RGB16F || internalFormat ==  GL30.GL_RGB32F) amountOfFloats = 3;</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">				if (internalFormat == GL30.GL_RG16F || internalFormat ==  GL30.GL_RG32F) amountOfFloats = 2;</span>
+<span class="nc bnc" id="L75" title="All 4 branches missed.">				if (internalFormat == GL30.GL_R16F || internalFormat ==  GL30.GL_R32F) amountOfFloats = 1;</span>
+			}
+<span class="nc" id="L77">			this.buffer = BufferUtils.newFloatBuffer(width * height * amountOfFloats);</span>
+		}
+<span class="nc" id="L79">		isPrepared = true;</span>
+<span class="nc" id="L80">	}</span>
+
+	@Override
+	public void consumeCustomData (int target) {
+<span class="nc bnc" id="L84" title="All 4 branches missed.">		if (Gdx.app.getType() == ApplicationType.Android || Gdx.app.getType() == ApplicationType.iOS</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">			|| Gdx.app.getType() == ApplicationType.WebGL) {</span>
+
+<span class="nc bnc" id="L87" title="All 2 branches missed.">			if (!Gdx.graphics.supportsExtension(&quot;OES_texture_float&quot;))</span>
+<span class="nc" id="L88">				throw new GdxRuntimeException(&quot;Extension OES_texture_float not supported!&quot;);</span>
+
+			// GLES and WebGL defines texture format by 3rd and 8th argument,
+			// so to get a float texture one needs to supply GL_RGBA and GL_FLOAT there.
+<span class="nc" id="L92">			Gdx.gl.glTexImage2D(target, 0, GL20.GL_RGBA, width, height, 0, GL20.GL_RGBA, GL20.GL_FLOAT, buffer);</span>
+
+		} else {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">			if (!Gdx.graphics.isGL30Available()) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">				if (!Gdx.graphics.supportsExtension(&quot;GL_ARB_texture_float&quot;))</span>
+<span class="nc" id="L97">					throw new GdxRuntimeException(&quot;Extension GL_ARB_texture_float not supported!&quot;);</span>
+			}
+			// in desktop OpenGL the texture format is defined only by the third argument,
+			// hence we need to use GL_RGBA32F there (this constant is unavailable in GLES/WebGL)
+<span class="nc" id="L101">			Gdx.gl.glTexImage2D(target, 0, internalFormat, width, height, 0, format, GL20.GL_FLOAT, buffer);</span>
+		}
+<span class="nc" id="L103">	}</span>
+
+	@Override
+	public Pixmap consumePixmap () {
+<span class="nc" id="L107">		throw new GdxRuntimeException(&quot;This TextureData implementation does not return a Pixmap&quot;);</span>
+	}
+
+	@Override
+	public boolean disposePixmap () {
+<span class="nc" id="L112">		throw new GdxRuntimeException(&quot;This TextureData implementation does not return a Pixmap&quot;);</span>
+	}
+
+	@Override
+	public int getWidth () {
+<span class="nc" id="L117">		return width;</span>
+	}
+
+	@Override
+	public int getHeight () {
+<span class="nc" id="L122">		return height;</span>
+	}
+
+	@Override
+	public Format getFormat () {
+<span class="nc" id="L127">		return Format.RGBA8888; // it's not true, but FloatTextureData.getFormat() isn't used anywhere</span>
+	}
+
+	@Override
+	public boolean useMipMaps () {
+<span class="nc" id="L132">		return false;</span>
+	}
+
+	@Override
+	public boolean isManaged () {
+<span class="nc" id="L137">		return true;</span>
+	}
+
+	public FloatBuffer getBuffer () {
+<span class="nc" id="L141">		return buffer;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

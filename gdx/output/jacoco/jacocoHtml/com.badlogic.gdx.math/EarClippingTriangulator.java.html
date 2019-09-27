@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EarClippingTriangulator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.math</a> &gt; <span class="el_source">EarClippingTriangulator.java</span></div><h1>EarClippingTriangulator.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.math;
+
+import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.ShortArray;
+
+/** A simple implementation of the ear cutting algorithm to triangulate simple polygons without holes. For more information:
+ * &lt;ul&gt;
+ * &lt;li&gt;&lt;a href=&quot;http://cgm.cs.mcgill.ca/~godfried/teaching/cg-projects/97/Ian/algorithm2.html&quot;&gt;http://cgm.cs.mcgill.ca/~godfried/
+ * teaching/cg-projects/97/Ian/algorithm2.html&lt;/a&gt;&lt;/li&gt;
+ * &lt;li&gt;&lt;a href=
+ * &quot;http://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf&quot;&gt;http://www.geometrictools.com/Documentation
+ * /TriangulationByEarClipping.pdf&lt;/a&gt;&lt;/li&gt;
+ * &lt;/ul&gt;
+ * If the input polygon is not simple (self-intersects), there will be output but it is of unspecified quality (garbage in,
+ * garbage out).
+ * &lt;p&gt;
+ * If the polygon vertices are very large or very close together then {@link GeometryUtils#isClockwise(float[], int, int)} may not
+ * be able to properly assess the winding (because it uses floats). In that case the vertices should be adjusted, eg by finding
+ * the smallest X and Y values and subtracting that from each vertex.
+ * @author badlogicgames@gmail.com
+ * @author Nicolas Gramlich (optimizations, collinear edge support)
+ * @author Eric Spitz
+ * @author Thomas ten Cate (bugfixes, optimizations)
+ * @author Nathan Sweet (rewrite, return indices, no allocation, optimizations) */
+<span class="nc" id="L42">public class EarClippingTriangulator {</span>
+	static private final int CONCAVE = -1;
+	static private final int CONVEX = 1;
+
+<span class="nc" id="L46">	private final ShortArray indicesArray = new ShortArray();</span>
+	private short[] indices;
+	private float[] vertices;
+	private int vertexCount;
+<span class="nc" id="L50">	private final IntArray vertexTypes = new IntArray();</span>
+<span class="nc" id="L51">	private final ShortArray triangles = new ShortArray();</span>
+
+	/** @see #computeTriangles(float[], int, int) */
+	public ShortArray computeTriangles (FloatArray vertices) {
+<span class="nc" id="L55">		return computeTriangles(vertices.items, 0, vertices.size);</span>
+	}
+
+	/** @see #computeTriangles(float[], int, int) */
+	public ShortArray computeTriangles (float[] vertices) {
+<span class="nc" id="L60">		return computeTriangles(vertices, 0, vertices.length);</span>
+	}
+
+	/** Triangulates the given (convex or concave) simple polygon to a list of triangle vertices.
+	 * @param vertices pairs describing vertices of the polygon, in either clockwise or counterclockwise order.
+	 * @return triples of triangle indices in clockwise order. Note the returned array is reused for later calls to the same
+	 *         method. */
+	public ShortArray computeTriangles (float[] vertices, int offset, int count) {
+<span class="nc" id="L68">		this.vertices = vertices;</span>
+<span class="nc" id="L69">		int vertexCount = this.vertexCount = count / 2;</span>
+<span class="nc" id="L70">		int vertexOffset = offset / 2;</span>
+
+<span class="nc" id="L72">		ShortArray indicesArray = this.indicesArray;</span>
+<span class="nc" id="L73">		indicesArray.clear();</span>
+<span class="nc" id="L74">		indicesArray.ensureCapacity(vertexCount);</span>
+<span class="nc" id="L75">		indicesArray.size = vertexCount;</span>
+<span class="nc" id="L76">		short[] indices = this.indices = indicesArray.items;</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">		if (GeometryUtils.isClockwise(vertices, offset, count)) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">			for (short i = 0; i &lt; vertexCount; i++)</span>
+<span class="nc" id="L79">				indices[i] = (short)(vertexOffset + i);</span>
+		} else {
+<span class="nc bnc" id="L81" title="All 2 branches missed.">			for (int i = 0, n = vertexCount - 1; i &lt; vertexCount; i++)</span>
+<span class="nc" id="L82">				indices[i] = (short)(vertexOffset + n - i); // Reversed.</span>
+		}
+
+<span class="nc" id="L85">		IntArray vertexTypes = this.vertexTypes;</span>
+<span class="nc" id="L86">		vertexTypes.clear();</span>
+<span class="nc" id="L87">		vertexTypes.ensureCapacity(vertexCount);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">		for (int i = 0, n = vertexCount; i &lt; n; ++i)</span>
+<span class="nc" id="L89">			vertexTypes.add(classifyVertex(i));</span>
+
+		// A polygon with n vertices has a triangulation of n-2 triangles.
+<span class="nc" id="L92">		ShortArray triangles = this.triangles;</span>
+<span class="nc" id="L93">		triangles.clear();</span>
+<span class="nc" id="L94">		triangles.ensureCapacity(Math.max(0, vertexCount - 2) * 3);</span>
+<span class="nc" id="L95">		triangulate();</span>
+<span class="nc" id="L96">		return triangles;</span>
+	}
+
+	private void triangulate () {
+<span class="nc" id="L100">		int[] vertexTypes = this.vertexTypes.items;</span>
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		while (vertexCount &gt; 3) {</span>
+<span class="nc" id="L103">			int earTipIndex = findEarTip();</span>
+<span class="nc" id="L104">			cutEarTip(earTipIndex);</span>
+
+			// The type of the two vertices adjacent to the clipped vertex may have changed.
+<span class="nc" id="L107">			int previousIndex = previousIndex(earTipIndex);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">			int nextIndex = earTipIndex == vertexCount ? 0 : earTipIndex;</span>
+<span class="nc" id="L109">			vertexTypes[previousIndex] = classifyVertex(previousIndex);</span>
+<span class="nc" id="L110">			vertexTypes[nextIndex] = classifyVertex(nextIndex);</span>
+<span class="nc" id="L111">		}</span>
+
+<span class="nc bnc" id="L113" title="All 2 branches missed.">		if (vertexCount == 3) {</span>
+<span class="nc" id="L114">			ShortArray triangles = this.triangles;</span>
+<span class="nc" id="L115">			short[] indices = this.indices;</span>
+<span class="nc" id="L116">			triangles.add(indices[0]);</span>
+<span class="nc" id="L117">			triangles.add(indices[1]);</span>
+<span class="nc" id="L118">			triangles.add(indices[2]);</span>
+		}
+<span class="nc" id="L120">	}</span>
+
+	/** @return {@link #CONCAVE} or {@link #CONVEX} */
+	private int classifyVertex (int index) {
+<span class="nc" id="L124">		short[] indices = this.indices;</span>
+<span class="nc" id="L125">		int previous = indices[previousIndex(index)] * 2;</span>
+<span class="nc" id="L126">		int current = indices[index] * 2;</span>
+<span class="nc" id="L127">		int next = indices[nextIndex(index)] * 2;</span>
+<span class="nc" id="L128">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L129">		return computeSpannedAreaSign(vertices[previous], vertices[previous + 1], vertices[current], vertices[current + 1],</span>
+			vertices[next], vertices[next + 1]);
+	}
+
+	private int findEarTip () {
+<span class="nc" id="L134">		int vertexCount = this.vertexCount;</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		for (int i = 0; i &lt; vertexCount; i++)</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">			if (isEarTip(i)) return i;</span>
+
+		// Desperate mode: if no vertex is an ear tip, we are dealing with a degenerate polygon (e.g. nearly collinear).
+		// Note that the input was not necessarily degenerate, but we could have made it so by clipping some valid ears.
+
+		// Idea taken from Martin Held, &quot;FIST: Fast industrial-strength triangulation of polygons&quot;, Algorithmica (1998),
+		// http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.115.291
+
+		// Return a convex or tangential vertex if one exists.
+<span class="nc" id="L145">		int[] vertexTypes = this.vertexTypes.items;</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">		for (int i = 0; i &lt; vertexCount; i++)</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">			if (vertexTypes[i] != CONCAVE) return i;</span>
+<span class="nc" id="L148">		return 0; // If all vertices are concave, just return the first one.</span>
+	}
+
+	private boolean isEarTip (int earTipIndex) {
+<span class="nc" id="L152">		int[] vertexTypes = this.vertexTypes.items;</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">		if (vertexTypes[earTipIndex] == CONCAVE) return false;</span>
+
+<span class="nc" id="L155">		int previousIndex = previousIndex(earTipIndex);</span>
+<span class="nc" id="L156">		int nextIndex = nextIndex(earTipIndex);</span>
+<span class="nc" id="L157">		short[] indices = this.indices;</span>
+<span class="nc" id="L158">		int p1 = indices[previousIndex] * 2;</span>
+<span class="nc" id="L159">		int p2 = indices[earTipIndex] * 2;</span>
+<span class="nc" id="L160">		int p3 = indices[nextIndex] * 2;</span>
+<span class="nc" id="L161">		float[] vertices = this.vertices;</span>
+<span class="nc" id="L162">		float p1x = vertices[p1], p1y = vertices[p1 + 1];</span>
+<span class="nc" id="L163">		float p2x = vertices[p2], p2y = vertices[p2 + 1];</span>
+<span class="nc" id="L164">		float p3x = vertices[p3], p3y = vertices[p3 + 1];</span>
+
+		// Check if any point is inside the triangle formed by previous, current and next vertices.
+		// Only consider vertices that are not part of this triangle, or else we'll always find one inside.
+<span class="nc bnc" id="L168" title="All 2 branches missed.">		for (int i = nextIndex(nextIndex); i != previousIndex; i = nextIndex(i)) {</span>
+			// Concave vertices can obviously be inside the candidate ear, but so can tangential vertices
+			// if they coincide with one of the triangle's vertices.
+<span class="nc bnc" id="L171" title="All 2 branches missed.">			if (vertexTypes[i] != CONVEX) {</span>
+<span class="nc" id="L172">				int v = indices[i] * 2;</span>
+<span class="nc" id="L173">				float vx = vertices[v];</span>
+<span class="nc" id="L174">				float vy = vertices[v + 1];</span>
+				// Because the polygon has clockwise winding order, the area sign will be positive if the point is strictly inside.
+				// It will be 0 on the edge, which we want to include as well.
+				// note: check the edge defined by p1-&gt;p3 first since this fails _far_ more then the other 2 checks.
+<span class="nc bnc" id="L178" title="All 2 branches missed.">				if (computeSpannedAreaSign(p3x, p3y, p1x, p1y, vx, vy) &gt;= 0) {</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">					if (computeSpannedAreaSign(p1x, p1y, p2x, p2y, vx, vy) &gt;= 0) {</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">						if (computeSpannedAreaSign(p2x, p2y, p3x, p3y, vx, vy) &gt;= 0) return false;</span>
+					}
+				}
+			}
+		}
+<span class="nc" id="L185">		return true;</span>
+	}
+
+	private void cutEarTip (int earTipIndex) {
+<span class="nc" id="L189">		short[] indices = this.indices;</span>
+<span class="nc" id="L190">		ShortArray triangles = this.triangles;</span>
+
+<span class="nc" id="L192">		triangles.add(indices[previousIndex(earTipIndex)]);</span>
+<span class="nc" id="L193">		triangles.add(indices[earTipIndex]);</span>
+<span class="nc" id="L194">		triangles.add(indices[nextIndex(earTipIndex)]);</span>
+
+<span class="nc" id="L196">		indicesArray.removeIndex(earTipIndex);</span>
+<span class="nc" id="L197">		vertexTypes.removeIndex(earTipIndex);</span>
+<span class="nc" id="L198">		vertexCount--;</span>
+<span class="nc" id="L199">	}</span>
+
+	private int previousIndex (int index) {
+<span class="nc bnc" id="L202" title="All 2 branches missed.">		return (index == 0 ? vertexCount : index) - 1;</span>
+	}
+
+	private int nextIndex (int index) {
+<span class="nc" id="L206">		return (index + 1) % vertexCount;</span>
+	}
+
+	static private int computeSpannedAreaSign (float p1x, float p1y, float p2x, float p2y, float p3x, float p3y) {
+<span class="nc" id="L210">		float area = p1x * (p3y - p2y);</span>
+<span class="nc" id="L211">		area += p2x * (p1y - p3y);</span>
+<span class="nc" id="L212">		area += p3x * (p2y - p1y);</span>
+<span class="nc" id="L213">		return (int)Math.signum(area);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

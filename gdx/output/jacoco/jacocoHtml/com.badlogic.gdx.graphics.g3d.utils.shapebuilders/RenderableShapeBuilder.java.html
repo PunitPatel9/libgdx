@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RenderableShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">RenderableShapeBuilder.java</span></div><h1>RenderableShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Mesh;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.graphics.g3d.RenderableProvider;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.FlushablePool;
+
+/** RenderableShapeBuilder builds various properties of a renderable.
+ * @author realitix */
+<span class="nc" id="L30">public class RenderableShapeBuilder extends BaseShapeBuilder {</span>
+
+	private static class RenderablePool extends FlushablePool&lt;Renderable&gt; {
+		public RenderablePool () {
+<span class="nc" id="L34">			super();</span>
+<span class="nc" id="L35">		}</span>
+
+		@Override
+		protected Renderable newObject () {
+<span class="nc" id="L39">			return new Renderable();</span>
+		}
+
+		@Override
+		public Renderable obtain () {
+<span class="nc" id="L44">			Renderable renderable = super.obtain();</span>
+<span class="nc" id="L45">			renderable.environment = null;</span>
+<span class="nc" id="L46">			renderable.material = null;</span>
+<span class="nc" id="L47">			renderable.meshPart.set(&quot;&quot;, null, 0, 0, 0);</span>
+<span class="nc" id="L48">			renderable.shader = null;</span>
+<span class="nc" id="L49">			renderable.userData = null;</span>
+<span class="nc" id="L50">			return renderable;</span>
+		}
+	}
+
+	private static short[] indices;
+	private static float[] vertices;
+<span class="nc" id="L56">	private final static RenderablePool renderablesPool = new RenderablePool();</span>
+<span class="nc" id="L57">	private final static Array&lt;Renderable&gt; renderables = new Array&lt;Renderable&gt;();</span>
+	private static final int FLOAT_BYTES = 4;
+
+	/** Builds normal, tangent and binormal of a RenderableProvider with default colors (normal blue, tangent red, binormal green).
+	 * @param builder
+	 * @param renderableProvider
+	 * @param vectorSize Size of the normal vector */
+	public static void buildNormals (MeshPartBuilder builder, RenderableProvider renderableProvider, float vectorSize) {
+<span class="nc" id="L65">		buildNormals(builder, renderableProvider, vectorSize, tmpColor0.set(0, 0, 1, 1), tmpColor1.set(1, 0, 0, 1),</span>
+<span class="nc" id="L66">			tmpColor2.set(0, 1, 0, 1));</span>
+<span class="nc" id="L67">	}</span>
+
+	/** Builds normal, tangent and binormal of a RenderableProvider.
+	 * @param builder
+	 * @param renderableProvider
+	 * @param vectorSize Size of the normal vector
+	 * @param normalColor Normal vector's color
+	 * @param tangentColor Tangent vector's color
+	 * @param binormalColor Binormal vector's color */
+	public static void buildNormals (MeshPartBuilder builder, RenderableProvider renderableProvider, float vectorSize,
+		Color normalColor, Color tangentColor, Color binormalColor) {
+
+<span class="nc" id="L79">		renderableProvider.getRenderables(renderables, renderablesPool);</span>
+
+<span class="nc bnc" id="L81" title="All 2 branches missed.">		for (Renderable renderable : renderables) {</span>
+<span class="nc" id="L82">			buildNormals(builder, renderable, vectorSize, normalColor, tangentColor, binormalColor);</span>
+<span class="nc" id="L83">		}</span>
+
+<span class="nc" id="L85">		renderablesPool.flush();</span>
+<span class="nc" id="L86">		renderables.clear();</span>
+<span class="nc" id="L87">	}</span>
+
+	/** Builds normal, tangent and binormal of a Renderable.
+	 * @param builder
+	 * @param renderable
+	 * @param vectorSize Size of the normal vector
+	 * @param normalColor Normal vector's color
+	 * @param tangentColor Tangent vector's color
+	 * @param binormalColor Binormal vector's color */
+	public static void buildNormals (MeshPartBuilder builder, Renderable renderable, float vectorSize, Color normalColor,
+		Color tangentColor, Color binormalColor) {
+<span class="nc" id="L98">		Mesh mesh = renderable.meshPart.mesh;</span>
+
+		// Position
+<span class="nc" id="L101">		int positionOffset = -1;</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (mesh.getVertexAttribute(Usage.Position) != null)</span>
+<span class="nc" id="L103">			positionOffset = mesh.getVertexAttribute(Usage.Position).offset / FLOAT_BYTES;</span>
+
+		// Normal
+<span class="nc" id="L106">		int normalOffset = -1;</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">		if (mesh.getVertexAttribute(Usage.Normal) != null)</span>
+<span class="nc" id="L108">			normalOffset = mesh.getVertexAttribute(Usage.Normal).offset / FLOAT_BYTES;</span>
+
+		// Tangent
+<span class="nc" id="L111">		int tangentOffset = -1;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">		if (mesh.getVertexAttribute(Usage.Tangent) != null)</span>
+<span class="nc" id="L113">			tangentOffset = mesh.getVertexAttribute(Usage.Tangent).offset / FLOAT_BYTES;</span>
+
+		// Binormal
+<span class="nc" id="L116">		int binormalOffset = -1;</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">		if (mesh.getVertexAttribute(Usage.BiNormal) != null)</span>
+<span class="nc" id="L118">			binormalOffset = mesh.getVertexAttribute(Usage.BiNormal).offset / FLOAT_BYTES;</span>
+
+<span class="nc" id="L120">		int attributesSize = mesh.getVertexSize() / FLOAT_BYTES;</span>
+<span class="nc" id="L121">		int verticesOffset = 0;</span>
+<span class="nc" id="L122">		int verticesQuantity = 0;</span>
+
+<span class="nc bnc" id="L124" title="All 2 branches missed.">		if (mesh.getNumIndices() &gt; 0) {</span>
+			// Get min vertice to max vertice in indices array
+<span class="nc" id="L126">			ensureIndicesCapacity(mesh.getNumIndices());</span>
+<span class="nc" id="L127">			mesh.getIndices(renderable.meshPart.offset, renderable.meshPart.size, indices, 0);</span>
+
+<span class="nc" id="L129">			short minVertice = minVerticeInIndices();</span>
+<span class="nc" id="L130">			short maxVertice = maxVerticeInIndices();</span>
+
+<span class="nc" id="L132">			verticesOffset = minVertice;</span>
+<span class="nc" id="L133">			verticesQuantity = maxVertice - minVertice;</span>
+<span class="nc" id="L134">		} else {</span>
+<span class="nc" id="L135">			verticesOffset = renderable.meshPart.offset;</span>
+<span class="nc" id="L136">			verticesQuantity = renderable.meshPart.size;</span>
+		}
+
+<span class="nc" id="L139">		ensureVerticesCapacity(verticesQuantity * attributesSize);</span>
+<span class="nc" id="L140">		mesh.getVertices(verticesOffset * attributesSize, verticesQuantity * attributesSize, vertices, 0);</span>
+
+<span class="nc bnc" id="L142" title="All 2 branches missed.">		for (int i = verticesOffset; i &lt; verticesQuantity; i++) {</span>
+<span class="nc" id="L143">			int id = i * attributesSize;</span>
+
+			// Vertex position
+<span class="nc" id="L146">			tmpV0.set(vertices[id + positionOffset], vertices[id + positionOffset + 1], vertices[id + positionOffset + 2]);</span>
+
+			// Vertex normal, tangent, binormal
+<span class="nc bnc" id="L149" title="All 2 branches missed.">			if (normalOffset != -1) {</span>
+<span class="nc" id="L150">				tmpV1.set(vertices[id + normalOffset], vertices[id + normalOffset + 1], vertices[id + normalOffset + 2]);</span>
+<span class="nc" id="L151">				tmpV2.set(tmpV0).add(tmpV1.scl(vectorSize));</span>
+			}
+
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (tangentOffset != -1) {</span>
+<span class="nc" id="L155">				tmpV3.set(vertices[id + tangentOffset], vertices[id + tangentOffset + 1], vertices[id + tangentOffset + 2]);</span>
+<span class="nc" id="L156">				tmpV4.set(tmpV0).add(tmpV3.scl(vectorSize));</span>
+			}
+
+<span class="nc bnc" id="L159" title="All 2 branches missed.">			if (binormalOffset != -1) {</span>
+<span class="nc" id="L160">				tmpV5.set(vertices[id + binormalOffset], vertices[id + binormalOffset + 1], vertices[id + binormalOffset + 2]);</span>
+<span class="nc" id="L161">				tmpV6.set(tmpV0).add(tmpV5.scl(vectorSize));</span>
+			}
+
+			// World transform
+<span class="nc" id="L165">			tmpV0.mul(renderable.worldTransform);</span>
+<span class="nc" id="L166">			tmpV2.mul(renderable.worldTransform);</span>
+<span class="nc" id="L167">			tmpV4.mul(renderable.worldTransform);</span>
+<span class="nc" id="L168">			tmpV6.mul(renderable.worldTransform);</span>
+
+			// Draws normal, tangent, binormal
+<span class="nc bnc" id="L171" title="All 2 branches missed.">			if (normalOffset != -1) {</span>
+<span class="nc" id="L172">				builder.setColor(normalColor);</span>
+<span class="nc" id="L173">				builder.line(tmpV0, tmpV2);</span>
+			}
+
+<span class="nc bnc" id="L176" title="All 2 branches missed.">			if (tangentOffset != -1) {</span>
+<span class="nc" id="L177">				builder.setColor(tangentColor);</span>
+<span class="nc" id="L178">				builder.line(tmpV0, tmpV4);</span>
+			}
+
+<span class="nc bnc" id="L181" title="All 2 branches missed.">			if (binormalOffset != -1) {</span>
+<span class="nc" id="L182">				builder.setColor(binormalColor);</span>
+<span class="nc" id="L183">				builder.line(tmpV0, tmpV6);</span>
+			}
+		}
+<span class="nc" id="L186">	}</span>
+
+	private static void ensureVerticesCapacity (int capacity) {
+<span class="nc bnc" id="L189" title="All 4 branches missed.">		if (vertices == null || vertices.length &lt; capacity) vertices = new float[capacity];</span>
+<span class="nc" id="L190">	}</span>
+
+	private static void ensureIndicesCapacity (int capacity) {
+<span class="nc bnc" id="L193" title="All 4 branches missed.">		if (indices == null || indices.length &lt; capacity) indices = new short[capacity];</span>
+<span class="nc" id="L194">	}</span>
+
+	private static short minVerticeInIndices () {
+<span class="nc" id="L197">		short min = (short)32767;</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">		for (int i = 0; i &lt; indices.length; i++)</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">			if (indices[i] &lt; min) min = indices[i];</span>
+<span class="nc" id="L200">		return min;</span>
+	}
+
+	private static short maxVerticeInIndices () {
+<span class="nc" id="L204">		short max = (short)-32768;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">		for (int i = 0; i &lt; indices.length; i++)</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">			if (indices[i] &gt; max) max = indices[i];</span>
+<span class="nc" id="L207">		return max;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

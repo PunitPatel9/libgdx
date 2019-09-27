@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BoxShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">BoxShapeBuilder.java</span></div><h1>BoxShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
+
+/** Helper class with static methods to build box shapes using {@link MeshPartBuilder}.
+ * @author realitix, xoppa */
+<span class="nc" id="L30">public class BoxShapeBuilder extends BaseShapeBuilder {</span>
+
+	/** Build a box with the shape of the specified {@link BoundingBox}.
+	 * @param box */
+	public static void build (MeshPartBuilder builder, BoundingBox box) {
+<span class="nc" id="L35">		builder.box(box.getCorner000(obtainV3()), box.getCorner010(obtainV3()), box.getCorner100(obtainV3()), box.getCorner110(obtainV3()),</span>
+<span class="nc" id="L36">			box.getCorner001(obtainV3()), box.getCorner011(obtainV3()), box.getCorner101(obtainV3()), box.getCorner111(obtainV3()));</span>
+<span class="nc" id="L37">		freeAll();</span>
+<span class="nc" id="L38">	}</span>
+
+	/** Add a box. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, VertexInfo corner000, VertexInfo corner010, VertexInfo corner100,
+		VertexInfo corner110, VertexInfo corner001, VertexInfo corner011, VertexInfo corner101, VertexInfo corner111) {
+<span class="nc" id="L43">		builder.ensureVertices(8);</span>
+<span class="nc" id="L44">		final short i000 = builder.vertex(corner000);</span>
+<span class="nc" id="L45">		final short i100 = builder.vertex(corner100);</span>
+<span class="nc" id="L46">		final short i110 = builder.vertex(corner110);</span>
+<span class="nc" id="L47">		final short i010 = builder.vertex(corner010);</span>
+<span class="nc" id="L48">		final short i001 = builder.vertex(corner001);</span>
+<span class="nc" id="L49">		final short i101 = builder.vertex(corner101);</span>
+<span class="nc" id="L50">		final short i111 = builder.vertex(corner111);</span>
+<span class="nc" id="L51">		final short i011 = builder.vertex(corner011);</span>
+
+<span class="nc" id="L53">		final int primitiveType = builder.getPrimitiveType();</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">		if (primitiveType == GL20.GL_LINES) {</span>
+<span class="nc" id="L55">			builder.ensureIndices(24);</span>
+<span class="nc" id="L56">			builder.rect(i000, i100, i110, i010);</span>
+<span class="nc" id="L57">			builder.rect(i101, i001, i011, i111);</span>
+<span class="nc" id="L58">			builder.index(i000, i001, i010, i011, i110, i111, i100, i101);</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">		} else if (primitiveType == GL20.GL_POINTS) {</span>
+<span class="nc" id="L60">			builder.ensureRectangleIndices(2);</span>
+<span class="nc" id="L61">			builder.rect(i000, i100, i110, i010);</span>
+<span class="nc" id="L62">			builder.rect(i101, i001, i011, i111);</span>
+		} else { // GL20.GL_TRIANGLES
+<span class="nc" id="L64">			builder.ensureRectangleIndices(6);</span>
+<span class="nc" id="L65">			builder.rect(i000, i100, i110, i010);</span>
+<span class="nc" id="L66">			builder.rect(i101, i001, i011, i111);</span>
+<span class="nc" id="L67">			builder.rect(i000, i010, i011, i001);</span>
+<span class="nc" id="L68">			builder.rect(i101, i111, i110, i100);</span>
+<span class="nc" id="L69">			builder.rect(i101, i100, i000, i001);</span>
+<span class="nc" id="L70">			builder.rect(i110, i111, i011, i010);</span>
+		}
+<span class="nc" id="L72">	}</span>
+
+	/** Add a box. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, Vector3 corner000, Vector3 corner010, Vector3 corner100, Vector3 corner110,
+		Vector3 corner001, Vector3 corner011, Vector3 corner101, Vector3 corner111) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">		if ((builder.getAttributes().getMask() &amp; (Usage.Normal | Usage.BiNormal | Usage.Tangent | Usage.TextureCoordinates)) == 0) {</span>
+<span class="nc" id="L78">			build(builder, vertTmp1.set(corner000, null, null, null), vertTmp2.set(corner010, null, null, null),</span>
+<span class="nc" id="L79">				vertTmp3.set(corner100, null, null, null), vertTmp4.set(corner110, null, null, null),</span>
+<span class="nc" id="L80">				vertTmp5.set(corner001, null, null, null), vertTmp6.set(corner011, null, null, null),</span>
+<span class="nc" id="L81">				vertTmp7.set(corner101, null, null, null), vertTmp8.set(corner111, null, null, null));</span>
+		} else {
+<span class="nc" id="L83">			builder.ensureVertices(24);</span>
+<span class="nc" id="L84">			builder.ensureRectangleIndices(6);</span>
+<span class="nc" id="L85">			Vector3 nor = tmpV1.set(corner000).lerp(corner110, 0.5f).sub(tmpV2.set(corner001).lerp(corner111, 0.5f)).nor();</span>
+<span class="nc" id="L86">			builder.rect(corner000, corner010, corner110, corner100, nor);</span>
+<span class="nc" id="L87">			builder.rect(corner011, corner001, corner101, corner111, nor.scl(-1));</span>
+<span class="nc" id="L88">			nor = tmpV1.set(corner000).lerp(corner101, 0.5f).sub(tmpV2.set(corner010).lerp(corner111, 0.5f)).nor();</span>
+<span class="nc" id="L89">			builder.rect(corner001, corner000, corner100, corner101, nor);</span>
+<span class="nc" id="L90">			builder.rect(corner010, corner011, corner111, corner110, nor.scl(-1));</span>
+<span class="nc" id="L91">			nor = tmpV1.set(corner000).lerp(corner011, 0.5f).sub(tmpV2.set(corner100).lerp(corner111, 0.5f)).nor();</span>
+<span class="nc" id="L92">			builder.rect(corner001, corner011, corner010, corner000, nor);</span>
+<span class="nc" id="L93">			builder.rect(corner100, corner110, corner111, corner101, nor.scl(-1));</span>
+		}
+<span class="nc" id="L95">	}</span>
+
+	/** Add a box given the matrix. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, Matrix4 transform) {
+<span class="nc" id="L99">		build(builder, obtainV3().set(-0.5f, -0.5f, -0.5f).mul(transform), obtainV3().set(-0.5f, 0.5f, -0.5f).mul(transform),</span>
+<span class="nc" id="L100">			obtainV3().set(0.5f, -0.5f, -0.5f).mul(transform), obtainV3().set(0.5f, 0.5f, -0.5f).mul(transform),</span>
+<span class="nc" id="L101">			obtainV3().set(-0.5f, -0.5f, 0.5f).mul(transform), obtainV3().set(-0.5f, 0.5f, 0.5f).mul(transform),</span>
+<span class="nc" id="L102">			obtainV3().set(0.5f, -0.5f, 0.5f).mul(transform), obtainV3().set(0.5f, 0.5f, 0.5f).mul(transform));</span>
+<span class="nc" id="L103">		freeAll();</span>
+<span class="nc" id="L104">	}</span>
+
+	/** Add a box with the specified dimensions. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, float width, float height, float depth) {
+<span class="nc" id="L108">		build(builder, 0, 0, 0, width, height, depth);</span>
+<span class="nc" id="L109">	}</span>
+
+	/** Add a box at the specified location, with the specified dimensions */
+	public static void build (MeshPartBuilder builder, float x, float y, float z, float width, float height, float depth) {
+<span class="nc" id="L113">		final float hw = width * 0.5f;</span>
+<span class="nc" id="L114">		final float hh = height * 0.5f;</span>
+<span class="nc" id="L115">		final float hd = depth * 0.5f;</span>
+<span class="nc" id="L116">		final float x0 = x - hw, y0 = y - hh, z0 = z - hd, x1 = x + hw, y1 = y + hh, z1 = z + hd;</span>
+<span class="nc" id="L117">		build(builder, //</span>
+<span class="nc" id="L118">			obtainV3().set(x0, y0, z0), obtainV3().set(x0, y1, z0), obtainV3().set(x1, y0, z0), obtainV3().set(x1, y1, z0), //</span>
+<span class="nc" id="L119">			obtainV3().set(x0, y0, z1), obtainV3().set(x0, y1, z1), obtainV3().set(x1, y0, z1), obtainV3().set(x1, y1, z1));</span>
+<span class="nc" id="L120">		freeAll();</span>
+<span class="nc" id="L121">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

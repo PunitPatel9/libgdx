@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BinaryHeap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">BinaryHeap.java</span></div><h1>BinaryHeap.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+/** A binary heap that stores nodes which each have a float value and are sorted either lowest first or highest first. The
+ * {@link Node} class can be extended to store additional information.
+ * @author Nathan Sweet */
+public class BinaryHeap&lt;T extends BinaryHeap.Node&gt; {
+	public int size;
+
+	private Node[] nodes;
+	private final boolean isMaxHeap;
+
+	public BinaryHeap () {
+<span class="nc" id="L29">		this(16, false);</span>
+<span class="nc" id="L30">	}</span>
+
+<span class="nc" id="L32">	public BinaryHeap (int capacity, boolean isMaxHeap) {</span>
+<span class="nc" id="L33">		this.isMaxHeap = isMaxHeap;</span>
+<span class="nc" id="L34">		nodes = new Node[capacity];</span>
+<span class="nc" id="L35">	}</span>
+
+	/** Adds the node to the heap using its current value. The node should not already be in the heap. */
+	public T add (T node) {
+		// Expand if necessary.
+<span class="nc bnc" id="L40" title="All 2 branches missed.">		if (size == nodes.length) {</span>
+<span class="nc" id="L41">			Node[] newNodes = new Node[size &lt;&lt; 1];</span>
+<span class="nc" id="L42">			System.arraycopy(nodes, 0, newNodes, 0, size);</span>
+<span class="nc" id="L43">			nodes = newNodes;</span>
+		}
+		// Insert at end and bubble up.
+<span class="nc" id="L46">		node.index = size;</span>
+<span class="nc" id="L47">		nodes[size] = node;</span>
+<span class="nc" id="L48">		up(size++);</span>
+<span class="nc" id="L49">		return node;</span>
+	}
+
+	/** Sets the node's value and adds it to the heap. The node should not already be in the heap. */
+	public T add (T node, float value) {
+<span class="nc" id="L54">		node.value = value;</span>
+<span class="nc" id="L55">		return add(node);</span>
+	}
+
+	/** Returns true if the heap contains the specified node.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean contains (T node, boolean identity) {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">		if (node == null) throw new IllegalArgumentException(&quot;node cannot be null.&quot;);</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">		if (identity) {</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">			for (Node n : nodes)</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">				if (n == node) return true;</span>
+		} else {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">			for (Node other : nodes)</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">				if (other.equals(node)) return true;</span>
+		}
+<span class="nc" id="L69">		return false;</span>
+	}
+
+	/** Returns the first item in the heap. This is the item with the lowest value (or highest value if this heap is configured as
+	 * a max heap). */
+	public T peek () {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;The heap is empty.&quot;);</span>
+<span class="nc" id="L76">		return (T)nodes[0];</span>
+	}
+
+	/** Removes the first item in the heap and returns it. This is the item with the lowest value (or highest value if this heap is
+	 * configured as a max heap). */
+	public T pop () {
+<span class="nc" id="L82">		return remove(0);</span>
+	}
+
+	public T remove (T node) {
+<span class="nc" id="L86">		return remove(node.index);</span>
+	}
+
+	private T remove (int index) {
+<span class="nc" id="L90">		Node[] nodes = this.nodes;</span>
+<span class="nc" id="L91">		Node removed = nodes[index];</span>
+<span class="nc" id="L92">		nodes[index] = nodes[--size];</span>
+<span class="nc" id="L93">		nodes[size] = null;</span>
+<span class="nc bnc" id="L94" title="All 4 branches missed.">		if (size &gt; 0 &amp;&amp; index &lt; size) down(index);</span>
+<span class="nc" id="L95">		return (T)removed;</span>
+	}
+
+	/** Returns true if the heap has one or more items. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if the heap is empty. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	public void clear () {
+<span class="nc" id="L109">		Node[] nodes = this.nodes;</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc" id="L111">			nodes[i] = null;</span>
+<span class="nc" id="L112">		size = 0;</span>
+<span class="nc" id="L113">	}</span>
+
+	/** Changes the value of the node, which should already be in the heap. */
+	public void setValue (T node, float value) {
+<span class="nc" id="L117">		float oldValue = node.value;</span>
+<span class="nc" id="L118">		node.value = value;</span>
+<span class="nc bnc" id="L119" title="All 4 branches missed.">		if (value &lt; oldValue ^ isMaxHeap)</span>
+<span class="nc" id="L120">			up(node.index);</span>
+		else
+<span class="nc" id="L122">			down(node.index);</span>
+<span class="nc" id="L123">	}</span>
+
+	private void up (int index) {
+<span class="nc" id="L126">		Node[] nodes = this.nodes;</span>
+<span class="nc" id="L127">		Node node = nodes[index];</span>
+<span class="nc" id="L128">		float value = node.value;</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		while (index &gt; 0) {</span>
+<span class="nc" id="L130">			int parentIndex = (index - 1) &gt;&gt; 1;</span>
+<span class="nc" id="L131">			Node parent = nodes[parentIndex];</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">			if (value &lt; parent.value ^ isMaxHeap) {</span>
+<span class="nc" id="L133">				nodes[index] = parent;</span>
+<span class="nc" id="L134">				parent.index = index;</span>
+<span class="nc" id="L135">				index = parentIndex;</span>
+			} else
+				break;
+<span class="nc" id="L138">		}</span>
+<span class="nc" id="L139">		nodes[index] = node;</span>
+<span class="nc" id="L140">		node.index = index;</span>
+<span class="nc" id="L141">	}</span>
+
+	private void down (int index) {
+<span class="nc" id="L144">		Node[] nodes = this.nodes;</span>
+<span class="nc" id="L145">		int size = this.size;</span>
+
+<span class="nc" id="L147">		Node node = nodes[index];</span>
+<span class="nc" id="L148">		float value = node.value;</span>
+
+		while (true) {
+<span class="nc" id="L151">			int leftIndex = 1 + (index &lt;&lt; 1);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			if (leftIndex &gt;= size) break;</span>
+<span class="nc" id="L153">			int rightIndex = leftIndex + 1;</span>
+
+			// Always has a left child.
+<span class="nc" id="L156">			Node leftNode = nodes[leftIndex];</span>
+<span class="nc" id="L157">			float leftValue = leftNode.value;</span>
+
+			// May have a right child.
+			Node rightNode;
+			float rightValue;
+<span class="nc bnc" id="L162" title="All 2 branches missed.">			if (rightIndex &gt;= size) {</span>
+<span class="nc" id="L163">				rightNode = null;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">				rightValue = isMaxHeap ? -Float.MAX_VALUE : Float.MAX_VALUE;</span>
+			} else {
+<span class="nc" id="L166">				rightNode = nodes[rightIndex];</span>
+<span class="nc" id="L167">				rightValue = rightNode.value;</span>
+			}
+
+			// The smallest of the three values is the parent.
+<span class="nc bnc" id="L171" title="All 4 branches missed.">			if (leftValue &lt; rightValue ^ isMaxHeap) {</span>
+<span class="nc bnc" id="L172" title="All 6 branches missed.">				if (leftValue == value || (leftValue &gt; value ^ isMaxHeap)) break;</span>
+<span class="nc" id="L173">				nodes[index] = leftNode;</span>
+<span class="nc" id="L174">				leftNode.index = index;</span>
+<span class="nc" id="L175">				index = leftIndex;</span>
+			} else {
+<span class="nc bnc" id="L177" title="All 6 branches missed.">				if (rightValue == value || (rightValue &gt; value ^ isMaxHeap)) break;</span>
+<span class="nc" id="L178">				nodes[index] = rightNode;</span>
+<span class="nc" id="L179">				rightNode.index = index;</span>
+<span class="nc" id="L180">				index = rightIndex;</span>
+			}
+<span class="nc" id="L182">		}</span>
+
+<span class="nc" id="L184">		nodes[index] = node;</span>
+<span class="nc" id="L185">		node.index = index;</span>
+<span class="nc" id="L186">	}</span>
+
+	public boolean equals (Object obj) {
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		if (!(obj instanceof BinaryHeap)) return false;</span>
+<span class="nc" id="L190">		BinaryHeap other = (BinaryHeap)obj;</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">		if (other.size != size) return false;</span>
+<span class="nc" id="L192">		Node[] nodes1 = this.nodes, nodes2 = other.nodes;</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">			if (nodes1[i].value != nodes2[i].value) return false;</span>
+<span class="nc" id="L195">		return true;</span>
+	}
+
+	public int hashCode () {
+<span class="nc" id="L199">		int h = 1;</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc" id="L201">			h = h * 31 + Float.floatToIntBits(nodes[i].value);</span>
+<span class="nc" id="L202">		return h;</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		if (size == 0) return &quot;[]&quot;;</span>
+<span class="nc" id="L207">		Node[] nodes = this.nodes;</span>
+<span class="nc" id="L208">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L209">		buffer.append('[');</span>
+<span class="nc" id="L210">		buffer.append(nodes[0].value);</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L212">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L213">			buffer.append(nodes[i].value);</span>
+		}
+<span class="nc" id="L215">		buffer.append(']');</span>
+<span class="nc" id="L216">		return buffer.toString();</span>
+	}
+
+	/** A binary heap node.
+	 * @author Nathan Sweet */
+	static public class Node {
+		float value;
+		int index;
+
+		/** @param value The initial value for the node. To change the value, use {@link BinaryHeap#add(Node, float)} if the node is
+		 *           not in the heap, or {@link BinaryHeap#setValue(Node, float)} if the node is in the heap. */
+<span class="nc" id="L227">		public Node (float value) {</span>
+<span class="nc" id="L228">			this.value = value;</span>
+<span class="nc" id="L229">		}</span>
+
+		public float getValue () {
+<span class="nc" id="L232">			return value;</span>
+		}
+
+		public String toString () {
+<span class="nc" id="L236">			return Float.toString(value);</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

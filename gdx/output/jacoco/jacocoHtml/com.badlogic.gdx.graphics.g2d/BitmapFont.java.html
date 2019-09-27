@@ -1,0 +1,958 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BitmapFont.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">BitmapFont.java</span></div><h1>BitmapFont.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2008-2010, Matthias Mann
+ * 
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following
+ * conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+ * disclaimer in the documentation and/or other materials provided with the distribution. * Neither the name of Matthias Mann nor
+ * the names of its contributors may be used to endorse or promote products derived from this software without specific prior
+ * written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
+ * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+ * SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package com.badlogic.gdx.graphics.g2d;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout.GlyphRun;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas.AtlasRegion;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.StreamUtils;
+
+/** Renders bitmap fonts. The font consists of 2 files: an image file or {@link TextureRegion} containing the glyphs and a file in
+ * the AngleCode BMFont text format that describes where each glyph is on the image.
+ * &lt;p&gt;
+ * Text is drawn using a {@link Batch}. Text can be cached in a {@link BitmapFontCache} for faster rendering of static text, which
+ * saves needing to compute the location of each glyph each frame.
+ * &lt;p&gt;
+ * * The texture for a BitmapFont loaded from a file is managed. {@link #dispose()} must be called to free the texture when no
+ * longer needed. A BitmapFont loaded using a {@link TextureRegion} is managed if the region's texture is managed. Disposing the
+ * BitmapFont disposes the region's texture, which may not be desirable if the texture is still being used elsewhere.
+ * &lt;p&gt;
+ * The code was originally based on Matthias Mann's TWL BitmapFont class. Thanks for sharing, Matthias! :)
+ * @author Nathan Sweet
+ * @author Matthias Mann */
+public class BitmapFont implements Disposable {
+	static private final int LOG2_PAGE_SIZE = 9;
+	static private final int PAGE_SIZE = 1 &lt;&lt; LOG2_PAGE_SIZE;
+	static private final int PAGES = 0x10000 / PAGE_SIZE;
+
+	final BitmapFontData data;
+	Array&lt;TextureRegion&gt; regions;
+	private final BitmapFontCache cache;
+	private boolean flipped;
+	boolean integer;
+	private boolean ownsTexture;
+
+	/** Creates a BitmapFont using the default 15pt Arial font included in the libgdx JAR file. This is convenient to easily
+	 * display text without bothering without generating a bitmap font yourself. */
+	public BitmapFont () {
+<span class="nc" id="L72">		this(Gdx.files.classpath(&quot;com/badlogic/gdx/utils/arial-15.fnt&quot;), Gdx.files.classpath(&quot;com/badlogic/gdx/utils/arial-15.png&quot;),</span>
+			false, true);
+<span class="nc" id="L74">	}</span>
+
+	/** Creates a BitmapFont using the default 15pt Arial font included in the libgdx JAR file. This is convenient to easily
+	 * display text without bothering without generating a bitmap font yourself.
+	 * @param flip If true, the glyphs will be flipped for use with a perspective where 0,0 is the upper left corner. */
+	public BitmapFont (boolean flip) {
+<span class="nc" id="L80">		this(Gdx.files.classpath(&quot;com/badlogic/gdx/utils/arial-15.fnt&quot;), Gdx.files.classpath(&quot;com/badlogic/gdx/utils/arial-15.png&quot;),</span>
+			flip, true);
+<span class="nc" id="L82">	}</span>
+
+	/** Creates a BitmapFont with the glyphs relative to the specified region. If the region is null, the glyph textures are loaded
+	 * from the image file given in the font file. The {@link #dispose()} method will not dispose the region's texture in this
+	 * case!
+	 * &lt;p&gt;
+	 * The font data is not flipped.
+	 * @param fontFile the font definition file
+	 * @param region The texture region containing the glyphs. The glyphs must be relative to the lower left corner (ie, the region
+	 *           should not be flipped). If the region is null the glyph images are loaded from the image path in the font file. */
+	public BitmapFont (FileHandle fontFile, TextureRegion region) {
+<span class="nc" id="L93">		this(fontFile, region, false);</span>
+<span class="nc" id="L94">	}</span>
+
+	/** Creates a BitmapFont with the glyphs relative to the specified region. If the region is null, the glyph textures are loaded
+	 * from the image file given in the font file. The {@link #dispose()} method will not dispose the region's texture in this
+	 * case!
+	 * @param region The texture region containing the glyphs. The glyphs must be relative to the lower left corner (ie, the region
+	 *           should not be flipped). If the region is null the glyph images are loaded from the image path in the font file.
+	 * @param flip If true, the glyphs will be flipped for use with a perspective where 0,0 is the upper left corner. */
+	public BitmapFont (FileHandle fontFile, TextureRegion region, boolean flip) {
+<span class="nc" id="L103">		this(new BitmapFontData(fontFile, flip), region, true);</span>
+<span class="nc" id="L104">	}</span>
+
+	/** Creates a BitmapFont from a BMFont file. The image file name is read from the BMFont file and the image is loaded from the
+	 * same directory. The font data is not flipped. */
+	public BitmapFont (FileHandle fontFile) {
+<span class="nc" id="L109">		this(fontFile, false);</span>
+<span class="nc" id="L110">	}</span>
+
+	/** Creates a BitmapFont from a BMFont file. The image file name is read from the BMFont file and the image is loaded from the
+	 * same directory.
+	 * @param flip If true, the glyphs will be flipped for use with a perspective where 0,0 is the upper left corner. */
+	public BitmapFont (FileHandle fontFile, boolean flip) {
+<span class="nc" id="L116">		this(new BitmapFontData(fontFile, flip), (TextureRegion)null, true);</span>
+<span class="nc" id="L117">	}</span>
+
+	/** Creates a BitmapFont from a BMFont file, using the specified image for glyphs. Any image specified in the BMFont file is
+	 * ignored.
+	 * @param flip If true, the glyphs will be flipped for use with a perspective where 0,0 is the upper left corner. */
+	public BitmapFont (FileHandle fontFile, FileHandle imageFile, boolean flip) {
+<span class="nc" id="L123">		this(fontFile, imageFile, flip, true);</span>
+<span class="nc" id="L124">	}</span>
+
+	/** Creates a BitmapFont from a BMFont file, using the specified image for glyphs. Any image specified in the BMFont file is
+	 * ignored.
+	 * @param flip If true, the glyphs will be flipped for use with a perspective where 0,0 is the upper left corner.
+	 * @param integer If true, rendering positions will be at integer values to avoid filtering artifacts. */
+	public BitmapFont (FileHandle fontFile, FileHandle imageFile, boolean flip, boolean integer) {
+<span class="nc" id="L131">		this(new BitmapFontData(fontFile, flip), new TextureRegion(new Texture(imageFile, false)), integer);</span>
+<span class="nc" id="L132">		ownsTexture = true;</span>
+<span class="nc" id="L133">	}</span>
+
+	/** Constructs a new BitmapFont from the given {@link BitmapFontData} and {@link TextureRegion}. If the TextureRegion is null,
+	 * the image path(s) will be read from the BitmapFontData. The dispose() method will not dispose the texture of the region(s)
+	 * if the region is != null.
+	 * &lt;p&gt;
+	 * Passing a single TextureRegion assumes that your font only needs a single texture page. If you need to support multiple
+	 * pages, either let the Font read the images themselves (by specifying null as the TextureRegion), or by specifying each page
+	 * manually with the TextureRegion[] constructor.
+	 * @param integer If true, rendering positions will be at integer values to avoid filtering artifacts. */
+	public BitmapFont (BitmapFontData data, TextureRegion region, boolean integer) {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		this(data, region != null ? Array.with(region) : null, integer);</span>
+<span class="nc" id="L145">	}</span>
+
+	/** Constructs a new BitmapFont from the given {@link BitmapFontData} and array of {@link TextureRegion}. If the TextureRegion
+	 * is null or empty, the image path(s) will be read from the BitmapFontData. The dispose() method will not dispose the texture
+	 * of the region(s) if the regions array is != null and not empty.
+	 * @param integer If true, rendering positions will be at integer values to avoid filtering artifacts. */
+<span class="nc" id="L151">	public BitmapFont (BitmapFontData data, Array&lt;TextureRegion&gt; pageRegions, boolean integer) {</span>
+<span class="nc" id="L152">		this.flipped = data.flipped;</span>
+<span class="nc" id="L153">		this.data = data;</span>
+<span class="nc" id="L154">		this.integer = integer;</span>
+
+<span class="nc bnc" id="L156" title="All 4 branches missed.">		if (pageRegions == null || pageRegions.size == 0) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">			if (data.imagePaths == null)</span>
+<span class="nc" id="L158">				throw new IllegalArgumentException(&quot;If no regions are specified, the font data must have an images path.&quot;);</span>
+
+			// Load each path.
+<span class="nc" id="L161">			int n = data.imagePaths.length;</span>
+<span class="nc" id="L162">			regions = new Array(n);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">			for (int i = 0; i &lt; n; i++) {</span>
+				FileHandle file;
+<span class="nc bnc" id="L165" title="All 2 branches missed.">				if (data.fontFile == null)</span>
+<span class="nc" id="L166">					file = Gdx.files.internal(data.imagePaths[i]);</span>
+				else
+<span class="nc" id="L168">					file = Gdx.files.getFileHandle(data.imagePaths[i], data.fontFile.type());</span>
+<span class="nc" id="L169">				regions.add(new TextureRegion(new Texture(file, false)));</span>
+			}
+<span class="nc" id="L171">			ownsTexture = true;</span>
+<span class="nc" id="L172">		} else {</span>
+<span class="nc" id="L173">			regions = pageRegions;</span>
+<span class="nc" id="L174">			ownsTexture = false;</span>
+		}
+
+<span class="nc" id="L177">		cache = newFontCache();</span>
+
+<span class="nc" id="L179">		load(data);</span>
+<span class="nc" id="L180">	}</span>
+
+	protected void load (BitmapFontData data) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">		for (Glyph[] page : data.glyphs) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">			if (page == null) continue;</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">			for (Glyph glyph : page)</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">				if (glyph != null) data.setGlyphRegion(glyph, regions.get(glyph.page));</span>
+		}
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		if (data.missingGlyph != null) data.setGlyphRegion(data.missingGlyph, regions.get(data.missingGlyph.page));</span>
+<span class="nc" id="L189">	}</span>
+
+	/** Draws text at the specified position.
+	 * @see BitmapFontCache#addText(CharSequence, float, float) */
+	public GlyphLayout draw (Batch batch, CharSequence str, float x, float y) {
+<span class="nc" id="L194">		cache.clear();</span>
+<span class="nc" id="L195">		GlyphLayout layout = cache.addText(str, x, y);</span>
+<span class="nc" id="L196">		cache.draw(batch);</span>
+<span class="nc" id="L197">		return layout;</span>
+	}
+
+	/** Draws text at the specified position.
+	 * @see BitmapFontCache#addText(CharSequence, float, float, int, int, float, int, boolean, String) */
+	public GlyphLayout draw (Batch batch, CharSequence str, float x, float y, float targetWidth, int halign, boolean wrap) {
+<span class="nc" id="L203">		cache.clear();</span>
+<span class="nc" id="L204">		GlyphLayout layout = cache.addText(str, x, y, targetWidth, halign, wrap);</span>
+<span class="nc" id="L205">		cache.draw(batch);</span>
+<span class="nc" id="L206">		return layout;</span>
+	}
+
+	/** Draws text at the specified position.
+	 * @see BitmapFontCache#addText(CharSequence, float, float, int, int, float, int, boolean, String) */
+	public GlyphLayout draw (Batch batch, CharSequence str, float x, float y, int start, int end, float targetWidth, int halign,
+		boolean wrap) {
+<span class="nc" id="L213">		cache.clear();</span>
+<span class="nc" id="L214">		GlyphLayout layout = cache.addText(str, x, y, start, end, targetWidth, halign, wrap);</span>
+<span class="nc" id="L215">		cache.draw(batch);</span>
+<span class="nc" id="L216">		return layout;</span>
+	}
+
+	/** Draws text at the specified position.
+	 * @see BitmapFontCache#addText(CharSequence, float, float, int, int, float, int, boolean, String) */
+	public GlyphLayout draw (Batch batch, CharSequence str, float x, float y, int start, int end, float targetWidth, int halign,
+		boolean wrap, String truncate) {
+<span class="nc" id="L223">		cache.clear();</span>
+<span class="nc" id="L224">		GlyphLayout layout = cache.addText(str, x, y, start, end, targetWidth, halign, wrap, truncate);</span>
+<span class="nc" id="L225">		cache.draw(batch);</span>
+<span class="nc" id="L226">		return layout;</span>
+	}
+
+	/** Draws text at the specified position.
+	 * @see BitmapFontCache#addText(CharSequence, float, float, int, int, float, int, boolean, String) */
+	public void draw (Batch batch, GlyphLayout layout, float x, float y) {
+<span class="nc" id="L232">		cache.clear();</span>
+<span class="nc" id="L233">		cache.addText(layout, x, y);</span>
+<span class="nc" id="L234">		cache.draw(batch);</span>
+<span class="nc" id="L235">	}</span>
+
+	/** Returns the color of text drawn with this font. */
+	public Color getColor () {
+<span class="nc" id="L239">		return cache.getColor();</span>
+	}
+
+	/** A convenience method for setting the font color. The color can also be set by modifying {@link #getColor()}. */
+	public void setColor (Color color) {
+<span class="nc" id="L244">		cache.getColor().set(color);</span>
+<span class="nc" id="L245">	}</span>
+
+	/** A convenience method for setting the font color. The color can also be set by modifying {@link #getColor()}. */
+	public void setColor (float r, float g, float b, float a) {
+<span class="nc" id="L249">		cache.getColor().set(r, g, b, a);</span>
+<span class="nc" id="L250">	}</span>
+
+	public float getScaleX () {
+<span class="nc" id="L253">		return data.scaleX;</span>
+	}
+
+	public float getScaleY () {
+<span class="nc" id="L257">		return data.scaleY;</span>
+	}
+
+	/** Returns the first texture region. This is included for backwards compatibility, and for convenience since most fonts only
+	 * use one texture page. For multi-page fonts, use {@link #getRegions()}.
+	 * @return the first texture region */
+	public TextureRegion getRegion () {
+<span class="nc" id="L264">		return regions.first();</span>
+	}
+
+	/** Returns the array of TextureRegions that represents each texture page of glyphs.
+	 * @return the array of texture regions; modifying it may produce undesirable results */
+	public Array&lt;TextureRegion&gt; getRegions () {
+<span class="nc" id="L270">		return regions;</span>
+	}
+
+	/** Returns the texture page at the given index.
+	 * @return the texture page at the given index */
+	public TextureRegion getRegion (int index) {
+<span class="nc" id="L276">		return regions.get(index);</span>
+	}
+
+	/** Returns the line height, which is the distance from one line of text to the next. */
+	public float getLineHeight () {
+<span class="nc" id="L281">		return data.lineHeight;</span>
+	}
+
+	/** Returns the x-advance of the space character. */
+	public float getSpaceXadvance () {
+<span class="nc" id="L286">		return data.spaceXadvance;</span>
+	}
+
+	/** Returns the x-height, which is the distance from the top of most lowercase characters to the baseline. */
+	public float getXHeight () {
+<span class="nc" id="L291">		return data.xHeight;</span>
+	}
+
+	/** Returns the cap height, which is the distance from the top of most uppercase characters to the baseline. Since the drawing
+	 * position is the cap height of the first line, the cap height can be used to get the location of the baseline. */
+	public float getCapHeight () {
+<span class="nc" id="L297">		return data.capHeight;</span>
+	}
+
+	/** Returns the ascent, which is the distance from the cap height to the top of the tallest glyph. */
+	public float getAscent () {
+<span class="nc" id="L302">		return data.ascent;</span>
+	}
+
+	/** Returns the descent, which is the distance from the bottom of the glyph that extends the lowest to the baseline. This
+	 * number is negative. */
+	public float getDescent () {
+<span class="nc" id="L308">		return data.descent;</span>
+	}
+
+	/** Returns true if this BitmapFont has been flipped for use with a y-down coordinate system. */
+	public boolean isFlipped () {
+<span class="nc" id="L313">		return flipped;</span>
+	}
+
+	/** Disposes the texture used by this BitmapFont's region IF this BitmapFont created the texture. */
+	public void dispose () {
+<span class="nc bnc" id="L318" title="All 2 branches missed.">		if (ownsTexture) {</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">			for (int i = 0; i &lt; regions.size; i++)</span>
+<span class="nc" id="L320">				regions.get(i).getTexture().dispose();</span>
+		}
+<span class="nc" id="L322">	}</span>
+
+	/** Makes the specified glyphs fixed width. This can be useful to make the numbers in a font fixed width. Eg, when horizontally
+	 * centering a score or loading percentage text, it will not jump around as different numbers are shown. */
+	public void setFixedWidthGlyphs (CharSequence glyphs) {
+<span class="nc" id="L327">		BitmapFontData data = this.data;</span>
+<span class="nc" id="L328">		int maxAdvance = 0;</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">		for (int index = 0, end = glyphs.length(); index &lt; end; index++) {</span>
+<span class="nc" id="L330">			Glyph g = data.getGlyph(glyphs.charAt(index));</span>
+<span class="nc bnc" id="L331" title="All 4 branches missed.">			if (g != null &amp;&amp; g.xadvance &gt; maxAdvance) maxAdvance = g.xadvance;</span>
+		}
+<span class="nc bnc" id="L333" title="All 2 branches missed.">		for (int index = 0, end = glyphs.length(); index &lt; end; index++) {</span>
+<span class="nc" id="L334">			Glyph g = data.getGlyph(glyphs.charAt(index));</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">			if (g == null) continue;</span>
+<span class="nc" id="L336">			g.xoffset += Math.round((maxAdvance - g.xadvance) / 2);</span>
+<span class="nc" id="L337">			g.xadvance = maxAdvance;</span>
+<span class="nc" id="L338">			g.kerning = null;</span>
+<span class="nc" id="L339">			g.fixedWidth = true;</span>
+		}
+<span class="nc" id="L341">	}</span>
+
+	/** Specifies whether to use integer positions. Default is to use them so filtering doesn't kick in as badly. */
+	public void setUseIntegerPositions (boolean integer) {
+<span class="nc" id="L345">		this.integer = integer;</span>
+<span class="nc" id="L346">		cache.setUseIntegerPositions(integer);</span>
+<span class="nc" id="L347">	}</span>
+
+	/** Checks whether this font uses integer positions for drawing. */
+	public boolean usesIntegerPositions () {
+<span class="nc" id="L351">		return integer;</span>
+	}
+
+	/** For expert usage -- returns the BitmapFontCache used by this font, for rendering to a sprite batch. This can be used, for
+	 * example, to manipulate glyph colors within a specific index.
+	 * @return the bitmap font cache used by this font */
+	public BitmapFontCache getCache () {
+<span class="nc" id="L358">		return cache;</span>
+	}
+
+	/** Gets the underlying {@link BitmapFontData} for this BitmapFont. */
+	public BitmapFontData getData () {
+<span class="nc" id="L363">		return data;</span>
+	}
+
+	/** @return whether the texture is owned by the font, font disposes the texture itself if true */
+	public boolean ownsTexture () {
+<span class="nc" id="L368">		return ownsTexture;</span>
+	}
+
+	/** Sets whether the font owns the texture. In case it does, the font will also dispose of the texture when {@link #dispose()}
+	 * is called. Use with care!
+	 * @param ownsTexture whether the font owns the texture */
+	public void setOwnsTexture (boolean ownsTexture) {
+<span class="nc" id="L375">		this.ownsTexture = ownsTexture;</span>
+<span class="nc" id="L376">	}</span>
+
+	/** Creates a new BitmapFontCache for this font. Using this method allows the font to provide the BitmapFontCache
+	 * implementation to customize rendering.
+	 * &lt;p&gt;
+	 * Note this method is called by the BitmapFont constructors. If a subclass overrides this method, it will be called before the
+	 * subclass constructors. */
+	public BitmapFontCache newFontCache () {
+<span class="nc" id="L384">		return new BitmapFontCache(this, integer);</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L388" title="All 2 branches missed.">		return data.name != null ? data.name : super.toString();</span>
+	}
+
+	/** Represents a single character in a font page. */
+<span class="nc" id="L392">	public static class Glyph {</span>
+		public int id;
+		public int srcX;
+		public int srcY;
+		public int width, height;
+		public float u, v, u2, v2;
+		public int xoffset, yoffset;
+		public int xadvance;
+		public byte[][] kerning;
+		public boolean fixedWidth;
+
+		/** The index to the texture page that holds this glyph. */
+<span class="nc" id="L404">		public int page = 0;</span>
+
+		public int getKerning (char ch) {
+<span class="nc bnc" id="L407" title="All 2 branches missed.">			if (kerning != null) {</span>
+<span class="nc" id="L408">				byte[] page = kerning[ch &gt;&gt;&gt; LOG2_PAGE_SIZE];</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">				if (page != null) return page[ch &amp; PAGE_SIZE - 1];</span>
+			}
+<span class="nc" id="L411">			return 0;</span>
+		}
+
+		public void setKerning (int ch, int value) {
+<span class="nc bnc" id="L415" title="All 2 branches missed.">			if (kerning == null) kerning = new byte[PAGES][];</span>
+<span class="nc" id="L416">			byte[] page = kerning[ch &gt;&gt;&gt; LOG2_PAGE_SIZE];</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">			if (page == null) kerning[ch &gt;&gt;&gt; LOG2_PAGE_SIZE] = page = new byte[PAGE_SIZE];</span>
+<span class="nc" id="L418">			page[ch &amp; PAGE_SIZE - 1] = (byte)value;</span>
+<span class="nc" id="L419">		}</span>
+
+		public String toString () {
+<span class="nc" id="L422">			return Character.toString((char)id);</span>
+		}
+	}
+
+	static int indexOf (CharSequence text, char ch, int start) {
+<span class="nc" id="L427">		final int n = text.length();</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">		for (; start &lt; n; start++)</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">			if (text.charAt(start) == ch) return start;</span>
+<span class="nc" id="L430">		return n;</span>
+	}
+
+	/** Backing data for a {@link BitmapFont}. */
+	static public class BitmapFontData {
+		/** The name of the font, or null. */
+		public String name;
+		/** An array of the image paths, for multiple texture pages. */
+		public String[] imagePaths;
+		public FileHandle fontFile;
+		public boolean flipped;
+		public float padTop, padRight, padBottom, padLeft;
+		/** The distance from one line of text to the next. To set this value, use {@link #setLineHeight(float)}. */
+		public float lineHeight;
+		/** The distance from the top of most uppercase characters to the baseline. Since the drawing position is the cap height of
+		 * the first line, the cap height can be used to get the location of the baseline. */
+<span class="nc" id="L446">		public float capHeight = 1;</span>
+		/** The distance from the cap height to the top of the tallest glyph. */
+		public float ascent;
+		/** The distance from the bottom of the glyph that extends the lowest to the baseline. This number is negative. */
+		public float descent;
+		/** The distance to move down when \n is encountered. */
+		public float down;
+		/** Multiplier for the line height of blank lines. down * blankLineHeight is used as the distance to move down for a blank
+		 * line. */
+<span class="nc" id="L455">		public float blankLineScale = 1;</span>
+<span class="nc" id="L456">		public float scaleX = 1, scaleY = 1;</span>
+		public boolean markupEnabled;
+		/** The amount to add to the glyph X position when drawing a cursor between glyphs. This field is not set by the BMFont
+		 * file, it needs to be set manually depending on how the glyphs are rendered on the backing textures. */
+		public float cursorX;
+
+<span class="nc" id="L462">		public final Glyph[][] glyphs = new Glyph[PAGES][];</span>
+		/** The glyph to display for characters not in the font. May be null. */
+		public Glyph missingGlyph;
+
+		/** The width of the space character. */
+		public float spaceXadvance;
+		/** The x-height, which is the distance from the top of most lowercase characters to the baseline. */
+<span class="nc" id="L469">		public float xHeight = 1;</span>
+
+		/** Additional characters besides whitespace where text is wrapped. Eg, a hypen (-). */
+		public char[] breakChars;
+<span class="nc" id="L473">		public char[] xChars = {'x', 'e', 'a', 'o', 'n', 's', 'r', 'c', 'u', 'm', 'v', 'w', 'z'};</span>
+<span class="nc" id="L474">		public char[] capChars = {'M', 'N', 'B', 'D', 'C', 'E', 'F', 'K', 'A', 'G', 'H', 'I', 'J', 'L', 'O', 'P', 'Q', 'R', 'S',</span>
+			'T', 'U', 'V', 'W', 'X', 'Y', 'Z'};
+
+		/** Creates an empty BitmapFontData for configuration before calling {@link #load(FileHandle, boolean)}, to subclass, or to
+		 * populate yourself, e.g. using stb-truetype or FreeType. */
+<span class="nc" id="L479">		public BitmapFontData () {</span>
+<span class="nc" id="L480">		}</span>
+
+<span class="nc" id="L482">		public BitmapFontData (FileHandle fontFile, boolean flip) {</span>
+<span class="nc" id="L483">			this.fontFile = fontFile;</span>
+<span class="nc" id="L484">			this.flipped = flip;</span>
+<span class="nc" id="L485">			load(fontFile, flip);</span>
+<span class="nc" id="L486">		}</span>
+
+		public void load (FileHandle fontFile, boolean flip) {
+<span class="nc bnc" id="L489" title="All 2 branches missed.">			if (imagePaths != null) throw new IllegalStateException(&quot;Already loaded.&quot;);</span>
+
+<span class="nc" id="L491">			name = fontFile.nameWithoutExtension();</span>
+
+<span class="nc" id="L493">			BufferedReader reader = new BufferedReader(new InputStreamReader(fontFile.read()), 512);</span>
+			try {
+<span class="nc" id="L495">				String line = reader.readLine(); // info</span>
+<span class="nc bnc" id="L496" title="All 2 branches missed.">				if (line == null) throw new GdxRuntimeException(&quot;File is empty.&quot;);</span>
+
+<span class="nc" id="L498">				line = line.substring(line.indexOf(&quot;padding=&quot;) + 8);</span>
+<span class="nc" id="L499">				String[] padding = line.substring(0, line.indexOf(' ')).split(&quot;,&quot;, 4);</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">				if (padding.length != 4) throw new GdxRuntimeException(&quot;Invalid padding.&quot;);</span>
+<span class="nc" id="L501">				padTop = Integer.parseInt(padding[0]);</span>
+<span class="nc" id="L502">				padRight = Integer.parseInt(padding[1]);</span>
+<span class="nc" id="L503">				padBottom = Integer.parseInt(padding[2]);</span>
+<span class="nc" id="L504">				padLeft = Integer.parseInt(padding[3]);</span>
+<span class="nc" id="L505">				float padY = padTop + padBottom;</span>
+
+<span class="nc" id="L507">				line = reader.readLine();</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">				if (line == null) throw new GdxRuntimeException(&quot;Missing common header.&quot;);</span>
+<span class="nc" id="L509">				String[] common = line.split(&quot; &quot;, 9); // At most we want the 6th element; i.e. &quot;page=N&quot;</span>
+
+				// At least lineHeight and base are required.
+<span class="nc bnc" id="L512" title="All 2 branches missed.">				if (common.length &lt; 3) throw new GdxRuntimeException(&quot;Invalid common header.&quot;);</span>
+
+<span class="nc bnc" id="L514" title="All 2 branches missed.">				if (!common[1].startsWith(&quot;lineHeight=&quot;)) throw new GdxRuntimeException(&quot;Missing: lineHeight&quot;);</span>
+<span class="nc" id="L515">				lineHeight = Integer.parseInt(common[1].substring(11));</span>
+
+<span class="nc bnc" id="L517" title="All 2 branches missed.">				if (!common[2].startsWith(&quot;base=&quot;)) throw new GdxRuntimeException(&quot;Missing: base&quot;);</span>
+<span class="nc" id="L518">				float baseLine = Integer.parseInt(common[2].substring(5));</span>
+
+<span class="nc" id="L520">				int pageCount = 1;</span>
+<span class="nc bnc" id="L521" title="All 6 branches missed.">				if (common.length &gt;= 6 &amp;&amp; common[5] != null &amp;&amp; common[5].startsWith(&quot;pages=&quot;)) {</span>
+					try {
+<span class="nc" id="L523">						pageCount = Math.max(1, Integer.parseInt(common[5].substring(6)));</span>
+<span class="nc" id="L524">					} catch (NumberFormatException ignored) { // Use one page.</span>
+<span class="nc" id="L525">					}</span>
+				}
+
+<span class="nc" id="L528">				imagePaths = new String[pageCount];</span>
+
+				// Read each page definition.
+<span class="nc bnc" id="L531" title="All 2 branches missed.">				for (int p = 0; p &lt; pageCount; p++) {</span>
+					// Read each &quot;page&quot; info line.
+<span class="nc" id="L533">					line = reader.readLine();</span>
+<span class="nc bnc" id="L534" title="All 2 branches missed.">					if (line == null) throw new GdxRuntimeException(&quot;Missing additional page definitions.&quot;);</span>
+
+					// Expect ID to mean &quot;index&quot;.
+<span class="nc" id="L537">					Matcher matcher = Pattern.compile(&quot;.*id=(\\d+)&quot;).matcher(line);</span>
+<span class="nc bnc" id="L538" title="All 2 branches missed.">					if (matcher.find()) {</span>
+<span class="nc" id="L539">						String id = matcher.group(1);</span>
+						try {
+<span class="nc" id="L541">							int pageID = Integer.parseInt(id);</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">							if (pageID != p) throw new GdxRuntimeException(&quot;Page IDs must be indices starting at 0: &quot; + id);</span>
+<span class="nc" id="L543">						} catch (NumberFormatException ex) {</span>
+<span class="nc" id="L544">							throw new GdxRuntimeException(&quot;Invalid page id: &quot; + id, ex);</span>
+<span class="nc" id="L545">						}</span>
+					}
+
+<span class="nc" id="L548">					matcher = Pattern.compile(&quot;.*file=\&quot;?([^\&quot;]+)\&quot;?&quot;).matcher(line);</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">					if (!matcher.find()) throw new GdxRuntimeException(&quot;Missing: file&quot;);</span>
+<span class="nc" id="L550">					String fileName = matcher.group(1);</span>
+
+<span class="nc" id="L552">					imagePaths[p] = fontFile.parent().child(fileName).path().replaceAll(&quot;\\\\&quot;, &quot;/&quot;);</span>
+				}
+<span class="nc" id="L554">				descent = 0;</span>
+
+				while (true) {
+<span class="nc" id="L557">					line = reader.readLine();</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">					if (line == null) break; // EOF</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">					if (line.startsWith(&quot;kernings &quot;)) break; // Starting kernings block.</span>
+<span class="nc bnc" id="L560" title="All 2 branches missed.">					if (line.startsWith(&quot;metrics &quot;)) break; // Starting metrics block.</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">					if (!line.startsWith(&quot;char &quot;)) continue;</span>
+
+<span class="nc" id="L563">					Glyph glyph = new Glyph();</span>
+
+<span class="nc" id="L565">					StringTokenizer tokens = new StringTokenizer(line, &quot; =&quot;);</span>
+<span class="nc" id="L566">					tokens.nextToken();</span>
+<span class="nc" id="L567">					tokens.nextToken();</span>
+<span class="nc" id="L568">					int ch = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">					if (ch &lt;= 0)</span>
+<span class="nc" id="L570">						missingGlyph = glyph;</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">					else if (ch &lt;= Character.MAX_VALUE)</span>
+<span class="nc" id="L572">						setGlyph(ch, glyph);</span>
+					else
+						continue;
+<span class="nc" id="L575">					glyph.id = ch;</span>
+<span class="nc" id="L576">					tokens.nextToken();</span>
+<span class="nc" id="L577">					glyph.srcX = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L578">					tokens.nextToken();</span>
+<span class="nc" id="L579">					glyph.srcY = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L580">					tokens.nextToken();</span>
+<span class="nc" id="L581">					glyph.width = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L582">					tokens.nextToken();</span>
+<span class="nc" id="L583">					glyph.height = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L584">					tokens.nextToken();</span>
+<span class="nc" id="L585">					glyph.xoffset = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L586">					tokens.nextToken();</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">					if (flip)</span>
+<span class="nc" id="L588">						glyph.yoffset = Integer.parseInt(tokens.nextToken());</span>
+					else
+<span class="nc" id="L590">						glyph.yoffset = -(glyph.height + Integer.parseInt(tokens.nextToken()));</span>
+<span class="nc" id="L591">					tokens.nextToken();</span>
+<span class="nc" id="L592">					glyph.xadvance = Integer.parseInt(tokens.nextToken());</span>
+
+					// Check for page safely, it could be omitted or invalid.
+<span class="nc bnc" id="L595" title="All 2 branches missed.">					if (tokens.hasMoreTokens()) tokens.nextToken();</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">					if (tokens.hasMoreTokens()) {</span>
+						try {
+<span class="nc" id="L598">							glyph.page = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L599">						} catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L600">						}</span>
+					}
+
+<span class="nc bnc" id="L603" title="All 4 branches missed.">					if (glyph.width &gt; 0 &amp;&amp; glyph.height &gt; 0) descent = Math.min(baseLine + glyph.yoffset, descent);</span>
+<span class="nc" id="L604">				}</span>
+<span class="nc" id="L605">				descent += padBottom;</span>
+
+				while (true) {
+<span class="nc" id="L608">					line = reader.readLine();</span>
+<span class="nc bnc" id="L609" title="All 2 branches missed.">					if (line == null) break;</span>
+<span class="nc bnc" id="L610" title="All 2 branches missed.">					if (!line.startsWith(&quot;kerning &quot;)) break;</span>
+
+<span class="nc" id="L612">					StringTokenizer tokens = new StringTokenizer(line, &quot; =&quot;);</span>
+<span class="nc" id="L613">					tokens.nextToken();</span>
+<span class="nc" id="L614">					tokens.nextToken();</span>
+<span class="nc" id="L615">					int first = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc" id="L616">					tokens.nextToken();</span>
+<span class="nc" id="L617">					int second = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc bnc" id="L618" title="All 8 branches missed.">					if (first &lt; 0 || first &gt; Character.MAX_VALUE || second &lt; 0 || second &gt; Character.MAX_VALUE) continue;</span>
+<span class="nc" id="L619">					Glyph glyph = getGlyph((char)first);</span>
+<span class="nc" id="L620">					tokens.nextToken();</span>
+<span class="nc" id="L621">					int amount = Integer.parseInt(tokens.nextToken());</span>
+<span class="nc bnc" id="L622" title="All 2 branches missed.">					if (glyph != null) { // Kernings may exist for glyph pairs not contained in the font.</span>
+<span class="nc" id="L623">						glyph.setKerning(second, amount);</span>
+					}
+<span class="nc" id="L625">				}</span>
+
+<span class="nc" id="L627">				boolean hasMetricsOverride = false;</span>
+<span class="nc" id="L628">				float overrideAscent = 0;</span>
+<span class="nc" id="L629">				float overrideDescent = 0;</span>
+<span class="nc" id="L630">				float overrideDown = 0;</span>
+<span class="nc" id="L631">				float overrideCapHeight = 0;</span>
+<span class="nc" id="L632">				float overrideLineHeight = 0;</span>
+<span class="nc" id="L633">				float overrideSpaceXAdvance = 0;</span>
+<span class="nc" id="L634">				float overrideXHeight = 0;</span>
+
+				// Metrics override
+<span class="nc bnc" id="L637" title="All 4 branches missed.">				if (line != null &amp;&amp; line.startsWith(&quot;metrics &quot;)) {</span>
+
+<span class="nc" id="L639">					hasMetricsOverride = true;</span>
+
+<span class="nc" id="L641">					StringTokenizer tokens = new StringTokenizer(line, &quot; =&quot;);</span>
+<span class="nc" id="L642">					tokens.nextToken();</span>
+<span class="nc" id="L643">					tokens.nextToken();</span>
+<span class="nc" id="L644">					overrideAscent = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L645">					tokens.nextToken();</span>
+<span class="nc" id="L646">					overrideDescent = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L647">					tokens.nextToken();</span>
+<span class="nc" id="L648">					overrideDown = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L649">					tokens.nextToken();</span>
+<span class="nc" id="L650">					overrideCapHeight = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L651">					tokens.nextToken();</span>
+<span class="nc" id="L652">					overrideLineHeight = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L653">					tokens.nextToken();</span>
+<span class="nc" id="L654">					overrideSpaceXAdvance = Float.parseFloat(tokens.nextToken());</span>
+<span class="nc" id="L655">					tokens.nextToken();</span>
+<span class="nc" id="L656">					overrideXHeight = Float.parseFloat(tokens.nextToken());</span>
+				}
+
+<span class="nc" id="L659">				Glyph spaceGlyph = getGlyph(' ');</span>
+<span class="nc bnc" id="L660" title="All 2 branches missed.">				if (spaceGlyph == null) {</span>
+<span class="nc" id="L661">					spaceGlyph = new Glyph();</span>
+<span class="nc" id="L662">					spaceGlyph.id = (int)' ';</span>
+<span class="nc" id="L663">					Glyph xadvanceGlyph = getGlyph('l');</span>
+<span class="nc bnc" id="L664" title="All 2 branches missed.">					if (xadvanceGlyph == null) xadvanceGlyph = getFirstGlyph();</span>
+<span class="nc" id="L665">					spaceGlyph.xadvance = xadvanceGlyph.xadvance;</span>
+<span class="nc" id="L666">					setGlyph(' ', spaceGlyph);</span>
+				}
+<span class="nc bnc" id="L668" title="All 2 branches missed.">				if (spaceGlyph.width == 0) {</span>
+<span class="nc" id="L669">					spaceGlyph.width = (int)(padLeft + spaceGlyph.xadvance + padRight);</span>
+<span class="nc" id="L670">					spaceGlyph.xoffset = (int)-padLeft;</span>
+				}
+<span class="nc" id="L672">				spaceXadvance = spaceGlyph.xadvance;</span>
+
+<span class="nc" id="L674">				Glyph xGlyph = null;</span>
+<span class="nc bnc" id="L675" title="All 2 branches missed.">				for (char xChar : xChars) {</span>
+<span class="nc" id="L676">					xGlyph = getGlyph(xChar);</span>
+<span class="nc bnc" id="L677" title="All 2 branches missed.">					if (xGlyph != null) break;</span>
+				}
+<span class="nc bnc" id="L679" title="All 2 branches missed.">				if (xGlyph == null) xGlyph = getFirstGlyph();</span>
+<span class="nc" id="L680">				xHeight = xGlyph.height - padY;</span>
+
+<span class="nc" id="L682">				Glyph capGlyph = null;</span>
+<span class="nc bnc" id="L683" title="All 2 branches missed.">				for (char capChar : capChars) {</span>
+<span class="nc" id="L684">					capGlyph = getGlyph(capChar);</span>
+<span class="nc bnc" id="L685" title="All 2 branches missed.">					if (capGlyph != null) break;</span>
+				}
+<span class="nc bnc" id="L687" title="All 2 branches missed.">				if (capGlyph == null) {</span>
+<span class="nc bnc" id="L688" title="All 2 branches missed.">					for (Glyph[] page : this.glyphs) {</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">						if (page == null) continue;</span>
+<span class="nc bnc" id="L690" title="All 2 branches missed.">						for (Glyph glyph : page) {</span>
+<span class="nc bnc" id="L691" title="All 6 branches missed.">							if (glyph == null || glyph.height == 0 || glyph.width == 0) continue;</span>
+<span class="nc" id="L692">							capHeight = Math.max(capHeight, glyph.height);</span>
+						}
+					}
+				} else
+<span class="nc" id="L696">					capHeight = capGlyph.height;</span>
+<span class="nc" id="L697">				capHeight -= padY;</span>
+
+<span class="nc" id="L699">				ascent = baseLine - capHeight;</span>
+<span class="nc" id="L700">				down = -lineHeight;</span>
+<span class="nc bnc" id="L701" title="All 2 branches missed.">				if (flip) {</span>
+<span class="nc" id="L702">					ascent = -ascent;</span>
+<span class="nc" id="L703">					down = -down;</span>
+				}
+
+<span class="nc bnc" id="L706" title="All 2 branches missed.">				if (hasMetricsOverride) {</span>
+<span class="nc" id="L707">					this.ascent = overrideAscent;</span>
+<span class="nc" id="L708">					this.descent = overrideDescent;</span>
+<span class="nc" id="L709">					this.down = overrideDown;</span>
+<span class="nc" id="L710">					this.capHeight = overrideCapHeight;</span>
+<span class="nc" id="L711">					this.lineHeight = overrideLineHeight;</span>
+<span class="nc" id="L712">					this.spaceXadvance = overrideSpaceXAdvance;</span>
+<span class="nc" id="L713">					this.xHeight = overrideXHeight;</span>
+				}
+
+<span class="nc" id="L716">			} catch (Exception ex) {</span>
+<span class="nc" id="L717">				throw new GdxRuntimeException(&quot;Error loading font file: &quot; + fontFile, ex);</span>
+			} finally {
+<span class="nc" id="L719">				StreamUtils.closeQuietly(reader);</span>
+			}
+<span class="nc" id="L721">		}</span>
+
+		public void setGlyphRegion (Glyph glyph, TextureRegion region) {
+<span class="nc" id="L724">			Texture texture = region.getTexture();</span>
+<span class="nc" id="L725">			float invTexWidth = 1.0f / texture.getWidth();</span>
+<span class="nc" id="L726">			float invTexHeight = 1.0f / texture.getHeight();</span>
+
+<span class="nc" id="L728">			float offsetX = 0, offsetY = 0;</span>
+<span class="nc" id="L729">			float u = region.u;</span>
+<span class="nc" id="L730">			float v = region.v;</span>
+<span class="nc" id="L731">			float regionWidth = region.getRegionWidth();</span>
+<span class="nc" id="L732">			float regionHeight = region.getRegionHeight();</span>
+<span class="nc bnc" id="L733" title="All 2 branches missed.">			if (region instanceof AtlasRegion) {</span>
+				// Compensate for whitespace stripped from left and top edges.
+<span class="nc" id="L735">				AtlasRegion atlasRegion = (AtlasRegion)region;</span>
+<span class="nc" id="L736">				offsetX = atlasRegion.offsetX;</span>
+<span class="nc" id="L737">				offsetY = atlasRegion.originalHeight - atlasRegion.packedHeight - atlasRegion.offsetY;</span>
+			}
+
+<span class="nc" id="L740">			float x = glyph.srcX;</span>
+<span class="nc" id="L741">			float x2 = glyph.srcX + glyph.width;</span>
+<span class="nc" id="L742">			float y = glyph.srcY;</span>
+<span class="nc" id="L743">			float y2 = glyph.srcY + glyph.height;</span>
+
+			// Shift glyph for left and top edge stripped whitespace. Clip glyph for right and bottom edge stripped whitespace.
+			// Note if the font region has padding, whitespace stripping must not be used.
+<span class="nc bnc" id="L747" title="All 2 branches missed.">			if (offsetX &gt; 0) {</span>
+<span class="nc" id="L748">				x -= offsetX;</span>
+<span class="nc bnc" id="L749" title="All 2 branches missed.">				if (x &lt; 0) {</span>
+<span class="nc" id="L750">					glyph.width += x;</span>
+<span class="nc" id="L751">					glyph.xoffset -= x;</span>
+<span class="nc" id="L752">					x = 0;</span>
+				}
+<span class="nc" id="L754">				x2 -= offsetX;</span>
+<span class="nc bnc" id="L755" title="All 2 branches missed.">				if (x2 &gt; regionWidth) {</span>
+<span class="nc" id="L756">					glyph.width -= x2 - regionWidth;</span>
+<span class="nc" id="L757">					x2 = regionWidth;</span>
+				}
+			}
+<span class="nc bnc" id="L760" title="All 2 branches missed.">			if (offsetY &gt; 0) {</span>
+<span class="nc" id="L761">				y -= offsetY;</span>
+<span class="nc bnc" id="L762" title="All 2 branches missed.">				if (y &lt; 0) {</span>
+<span class="nc" id="L763">					glyph.height += y;</span>
+<span class="nc bnc" id="L764" title="All 2 branches missed.">					if (glyph.height &lt; 0) glyph.height = 0;</span>
+<span class="nc" id="L765">					y = 0;</span>
+				}
+<span class="nc" id="L767">				y2 -= offsetY;</span>
+<span class="nc bnc" id="L768" title="All 2 branches missed.">				if (y2 &gt; regionHeight) {</span>
+<span class="nc" id="L769">					float amount = y2 - regionHeight;</span>
+<span class="nc" id="L770">					glyph.height -= amount;</span>
+<span class="nc" id="L771">					glyph.yoffset += amount;</span>
+<span class="nc" id="L772">					y2 = regionHeight;</span>
+				}
+			}
+
+<span class="nc" id="L776">			glyph.u = u + x * invTexWidth;</span>
+<span class="nc" id="L777">			glyph.u2 = u + x2 * invTexWidth;</span>
+<span class="nc bnc" id="L778" title="All 2 branches missed.">			if (flipped) {</span>
+<span class="nc" id="L779">				glyph.v = v + y * invTexHeight;</span>
+<span class="nc" id="L780">				glyph.v2 = v + y2 * invTexHeight;</span>
+			} else {
+<span class="nc" id="L782">				glyph.v2 = v + y * invTexHeight;</span>
+<span class="nc" id="L783">				glyph.v = v + y2 * invTexHeight;</span>
+			}
+<span class="nc" id="L785">		}</span>
+
+		/** Sets the line height, which is the distance from one line of text to the next. */
+		public void setLineHeight (float height) {
+<span class="nc" id="L789">			lineHeight = height * scaleY;</span>
+<span class="nc bnc" id="L790" title="All 2 branches missed.">			down = flipped ? lineHeight : -lineHeight;</span>
+<span class="nc" id="L791">		}</span>
+
+		public void setGlyph (int ch, Glyph glyph) {
+<span class="nc" id="L794">			Glyph[] page = glyphs[ch / PAGE_SIZE];</span>
+<span class="nc bnc" id="L795" title="All 2 branches missed.">			if (page == null) glyphs[ch / PAGE_SIZE] = page = new Glyph[PAGE_SIZE];</span>
+<span class="nc" id="L796">			page[ch &amp; PAGE_SIZE - 1] = glyph;</span>
+<span class="nc" id="L797">		}</span>
+
+		public Glyph getFirstGlyph () {
+<span class="nc bnc" id="L800" title="All 2 branches missed.">			for (Glyph[] page : this.glyphs) {</span>
+<span class="nc bnc" id="L801" title="All 2 branches missed.">				if (page == null) continue;</span>
+<span class="nc bnc" id="L802" title="All 2 branches missed.">				for (Glyph glyph : page) {</span>
+<span class="nc bnc" id="L803" title="All 6 branches missed.">					if (glyph == null || glyph.height == 0 || glyph.width == 0) continue;</span>
+<span class="nc" id="L804">					return glyph;</span>
+				}
+			}
+<span class="nc" id="L807">			throw new GdxRuntimeException(&quot;No glyphs found.&quot;);</span>
+		}
+
+		/** Returns true if the font has the glyph, or if the font has a {@link #missingGlyph}. */
+		public boolean hasGlyph (char ch) {
+<span class="nc bnc" id="L812" title="All 2 branches missed.">			if (missingGlyph != null) return true;</span>
+<span class="nc bnc" id="L813" title="All 2 branches missed.">			return getGlyph(ch) != null;</span>
+		}
+
+		/** Returns the glyph for the specified character, or null if no such glyph exists. Note that
+		 * {@link #getGlyphs(GlyphRun, CharSequence, int, int, Glyph)} should be be used to shape a string of characters into a list
+		 * of glyphs. */
+		public Glyph getGlyph (char ch) {
+<span class="nc" id="L820">			Glyph[] page = glyphs[ch / PAGE_SIZE];</span>
+<span class="nc bnc" id="L821" title="All 2 branches missed.">			if (page != null) return page[ch &amp; PAGE_SIZE - 1];</span>
+<span class="nc" id="L822">			return null;</span>
+		}
+
+		/** Using the specified string, populates the glyphs and positions of the specified glyph run.
+		 * @param str Characters to convert to glyphs. Will not contain newline or color tags. May contain &quot;[[&quot; for an escaped left
+		 *           square bracket.
+		 * @param lastGlyph The glyph immediately before this run, or null if this is run is the first on a line of text. */
+		public void getGlyphs (GlyphRun run, CharSequence str, int start, int end, Glyph lastGlyph) {
+<span class="nc" id="L830">			boolean markupEnabled = this.markupEnabled;</span>
+<span class="nc" id="L831">			float scaleX = this.scaleX;</span>
+<span class="nc" id="L832">			Glyph missingGlyph = this.missingGlyph;</span>
+<span class="nc" id="L833">			Array&lt;Glyph&gt; glyphs = run.glyphs;</span>
+<span class="nc" id="L834">			FloatArray xAdvances = run.xAdvances;</span>
+
+			// Guess at number of glyphs needed.
+<span class="nc" id="L837">			glyphs.ensureCapacity(end - start);</span>
+<span class="nc" id="L838">			xAdvances.ensureCapacity(end - start + 1);</span>
+
+<span class="nc bnc" id="L840" title="All 2 branches missed.">			while (start &lt; end) {</span>
+<span class="nc" id="L841">				char ch = str.charAt(start++);</span>
+<span class="nc bnc" id="L842" title="All 2 branches missed.">				if (ch == '\r') continue; // Ignore.</span>
+<span class="nc" id="L843">				Glyph glyph = getGlyph(ch);</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">				if (glyph == null) {</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">					if (missingGlyph == null) continue;</span>
+<span class="nc" id="L846">					glyph = missingGlyph;</span>
+				}
+
+<span class="nc" id="L849">				glyphs.add(glyph);</span>
+
+<span class="nc bnc" id="L851" title="All 2 branches missed.">				if (lastGlyph == null) // First glyph on line, adjust the position so it isn't drawn left of 0.</span>
+<span class="nc bnc" id="L852" title="All 2 branches missed.">					xAdvances.add(glyph.fixedWidth ? 0 : -glyph.xoffset * scaleX - padLeft);</span>
+				else
+<span class="nc" id="L854">					xAdvances.add((lastGlyph.xadvance + lastGlyph.getKerning(ch)) * scaleX);</span>
+<span class="nc" id="L855">				lastGlyph = glyph;</span>
+
+				// &quot;[[&quot; is an escaped left square bracket, skip second character.
+<span class="nc bnc" id="L858" title="All 8 branches missed.">				if (markupEnabled &amp;&amp; ch == '[' &amp;&amp; start &lt; end &amp;&amp; str.charAt(start) == '[') start++;</span>
+<span class="nc" id="L859">			}</span>
+<span class="nc bnc" id="L860" title="All 2 branches missed.">			if (lastGlyph != null) {</span>
+<span class="nc bnc" id="L861" title="All 2 branches missed.">				float lastGlyphWidth = lastGlyph.fixedWidth ? lastGlyph.xadvance * scaleX</span>
+<span class="nc" id="L862">					: (lastGlyph.width + lastGlyph.xoffset) * scaleX - padRight;</span>
+<span class="nc" id="L863">				xAdvances.add(lastGlyphWidth);</span>
+			}
+<span class="nc" id="L865">		}</span>
+
+		/** Returns the first valid glyph index to use to wrap to the next line, starting at the specified start index and
+		 * (typically) moving toward the beginning of the glyphs array. */
+		public int getWrapIndex (Array&lt;Glyph&gt; glyphs, int start) {
+<span class="nc" id="L870">			int i = start - 1;</span>
+<span class="nc" id="L871">			char ch = (char)glyphs.get(i).id;</span>
+<span class="nc bnc" id="L872" title="All 2 branches missed.">			if (isWhitespace(ch)) return i;</span>
+<span class="nc bnc" id="L873" title="All 2 branches missed.">			if (isBreakChar(ch)) i--;</span>
+<span class="nc bnc" id="L874" title="All 2 branches missed.">			for (; i &gt; 0; i--) {</span>
+<span class="nc" id="L875">				ch = (char)glyphs.get(i).id;</span>
+<span class="nc bnc" id="L876" title="All 2 branches missed.">				if (isBreakChar(ch)) return i + 1;</span>
+<span class="nc bnc" id="L877" title="All 2 branches missed.">				if (isWhitespace(ch)) return i + 1;</span>
+			}
+<span class="nc" id="L879">			return 0;</span>
+		}
+
+		public boolean isBreakChar (char c) {
+<span class="nc bnc" id="L883" title="All 2 branches missed.">			if (breakChars == null) return false;</span>
+<span class="nc bnc" id="L884" title="All 2 branches missed.">			for (char br : breakChars)</span>
+<span class="nc bnc" id="L885" title="All 2 branches missed.">				if (c == br) return true;</span>
+<span class="nc" id="L886">			return false;</span>
+		}
+
+		public boolean isWhitespace (char c) {
+<span class="nc bnc" id="L890" title="All 2 branches missed.">			switch (c) {</span>
+			case '\n':
+			case '\r':
+			case '\t':
+			case ' ':
+<span class="nc" id="L895">				return true;</span>
+			default:
+<span class="nc" id="L897">				return false;</span>
+			}
+		}
+
+		/** Returns the image path for the texture page at the given index (the &quot;id&quot; in the BMFont file). */
+		public String getImagePath (int index) {
+<span class="nc" id="L903">			return imagePaths[index];</span>
+		}
+
+		public String[] getImagePaths () {
+<span class="nc" id="L907">			return imagePaths;</span>
+		}
+
+		public FileHandle getFontFile () {
+<span class="nc" id="L911">			return fontFile;</span>
+		}
+
+		/** Scales the font by the specified amounts on both axes
+		 * &lt;p&gt;
+		 * Note that smoother scaling can be achieved if the texture backing the BitmapFont is using {@link TextureFilter#Linear}.
+		 * The default is Nearest, so use a BitmapFont constructor that takes a {@link TextureRegion}.
+		 * @throws IllegalArgumentException if scaleX or scaleY is zero. */
+		public void setScale (float scaleX, float scaleY) {
+<span class="nc bnc" id="L920" title="All 2 branches missed.">			if (scaleX == 0) throw new IllegalArgumentException(&quot;scaleX cannot be 0.&quot;);</span>
+<span class="nc bnc" id="L921" title="All 2 branches missed.">			if (scaleY == 0) throw new IllegalArgumentException(&quot;scaleY cannot be 0.&quot;);</span>
+<span class="nc" id="L922">			float x = scaleX / this.scaleX;</span>
+<span class="nc" id="L923">			float y = scaleY / this.scaleY;</span>
+<span class="nc" id="L924">			lineHeight *= y;</span>
+<span class="nc" id="L925">			spaceXadvance *= x;</span>
+<span class="nc" id="L926">			xHeight *= y;</span>
+<span class="nc" id="L927">			capHeight *= y;</span>
+<span class="nc" id="L928">			ascent *= y;</span>
+<span class="nc" id="L929">			descent *= y;</span>
+<span class="nc" id="L930">			down *= y;</span>
+<span class="nc" id="L931">			padLeft *= x;</span>
+<span class="nc" id="L932">			padRight *= x;</span>
+<span class="nc" id="L933">			padTop *= y;</span>
+<span class="nc" id="L934">			padBottom *= y;</span>
+<span class="nc" id="L935">			this.scaleX = scaleX;</span>
+<span class="nc" id="L936">			this.scaleY = scaleY;</span>
+<span class="nc" id="L937">		}</span>
+
+		/** Scales the font by the specified amount in both directions.
+		 * @see #setScale(float, float)
+		 * @throws IllegalArgumentException if scaleX or scaleY is zero. */
+		public void setScale (float scaleXY) {
+<span class="nc" id="L943">			setScale(scaleXY, scaleXY);</span>
+<span class="nc" id="L944">		}</span>
+
+		/** Sets the font's scale relative to the current scale.
+		 * @see #setScale(float, float)
+		 * @throws IllegalArgumentException if the resulting scale is zero. */
+		public void scale (float amount) {
+<span class="nc" id="L950">			setScale(scaleX + amount, scaleY + amount);</span>
+<span class="nc" id="L951">		}</span>
+
+		public String toString () {
+<span class="nc bnc" id="L954" title="All 2 branches missed.">			return name != null ? name : super.toString();</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

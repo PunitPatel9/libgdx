@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleEffect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">ParticleEffect.java</span></div><h1>ParticleEffect.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Writer;
+
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.StreamUtils;
+
+/** See &lt;a href=&quot;http://www.badlogicgames.com/wordpress/?p=1255&quot;&gt;http://www.badlogicgames.com/wordpress/?p=1255&lt;/a&gt;
+ * @author mzechner */
+public class ParticleEffect implements Disposable {
+	private final Array&lt;ParticleEmitter&gt; emitters;
+	private BoundingBox bounds;
+	private boolean ownsTexture;
+<span class="nc" id="L41">	protected float xSizeScale = 1f;</span>
+<span class="nc" id="L42">	protected float ySizeScale = 1f;</span>
+<span class="nc" id="L43">	protected float motionScale = 1f;</span>
+
+<span class="nc" id="L45">	public ParticleEffect () {</span>
+<span class="nc" id="L46">		emitters = new Array(8);</span>
+<span class="nc" id="L47">	}</span>
+
+<span class="nc" id="L49">	public ParticleEffect (ParticleEffect effect) {</span>
+<span class="nc" id="L50">		emitters = new Array(true, effect.emitters.size);</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">		for (int i = 0, n = effect.emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L52">			emitters.add(newEmitter(effect.emitters.get(i)));</span>
+<span class="nc" id="L53">	}</span>
+
+	public void start () {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L57">			emitters.get(i).start();</span>
+<span class="nc" id="L58">	}</span>
+
+	/** Resets the effect so it can be started again like a new effect. Any changes to 
+	 * scale are reverted. See {@link #reset(boolean)}.*/
+	public void reset () {
+<span class="nc" id="L63">		reset(true);</span>
+<span class="nc" id="L64">	}</span>
+	
+	/** Resets the effect so it can be started again like a new effect.
+	 * @param resetScaling Whether to restore the original size and motion parameters if they were scaled. Repeated scaling
+	 * and resetting may introduce error. */
+	public void reset (boolean resetScaling){
+<span class="nc bnc" id="L70" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L71">			emitters.get(i).reset();</span>
+<span class="nc bnc" id="L72" title="All 8 branches missed.">		if (resetScaling &amp;&amp; (xSizeScale != 1f || ySizeScale != 1f || motionScale != 1f)){</span>
+<span class="nc" id="L73">			scaleEffect(1f / xSizeScale, 1f / ySizeScale, 1f / motionScale);</span>
+<span class="nc" id="L74">			xSizeScale = ySizeScale = motionScale = 1f;</span>
+		}
+<span class="nc" id="L76">	}</span>
+
+	public void update (float delta) {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L80">			emitters.get(i).update(delta);</span>
+<span class="nc" id="L81">	}</span>
+
+	public void draw (Batch spriteBatch) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L85">			emitters.get(i).draw(spriteBatch);</span>
+<span class="nc" id="L86">	}</span>
+
+	public void draw (Batch spriteBatch, float delta) {
+<span class="nc bnc" id="L89" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L90">			emitters.get(i).draw(spriteBatch, delta);</span>
+<span class="nc" id="L91">	}</span>
+
+	public void allowCompletion () {
+<span class="nc bnc" id="L94" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L95">			emitters.get(i).allowCompletion();</span>
+<span class="nc" id="L96">	}</span>
+
+	public boolean isComplete () {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L100">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">			if (!emitter.isComplete()) return false;</span>
+		}
+<span class="nc" id="L103">		return true;</span>
+	}
+
+	public void setDuration (int duration) {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L108">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc" id="L109">			emitter.setContinuous(false);</span>
+<span class="nc" id="L110">			emitter.duration = duration;</span>
+<span class="nc" id="L111">			emitter.durationTimer = 0;</span>
+		}
+<span class="nc" id="L113">	}</span>
+
+	public void setPosition (float x, float y) {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L117">			emitters.get(i).setPosition(x, y);</span>
+<span class="nc" id="L118">	}</span>
+
+	public void setFlip (boolean flipX, boolean flipY) {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L122">			emitters.get(i).setFlip(flipX, flipY);</span>
+<span class="nc" id="L123">	}</span>
+
+	public void flipY () {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++)</span>
+<span class="nc" id="L127">			emitters.get(i).flipY();</span>
+<span class="nc" id="L128">	}</span>
+
+	public Array&lt;ParticleEmitter&gt; getEmitters () {
+<span class="nc" id="L131">		return emitters;</span>
+	}
+
+	/** Returns the emitter with the specified name, or null. */
+	public ParticleEmitter findEmitter (String name) {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L137">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">			if (emitter.getName().equals(name)) return emitter;</span>
+		}
+<span class="nc" id="L140">		return null;</span>
+	}
+
+	public void save (Writer output) throws IOException {
+<span class="nc" id="L144">		int index = 0;</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L146">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">			if (index++ &gt; 0) output.write(&quot;\n&quot;);</span>
+<span class="nc" id="L148">			emitter.save(output);</span>
+		}
+<span class="nc" id="L150">	}</span>
+
+	public void load (FileHandle effectFile, FileHandle imagesDir) {
+<span class="nc" id="L153">		loadEmitters(effectFile);</span>
+<span class="nc" id="L154">		loadEmitterImages(imagesDir);</span>
+<span class="nc" id="L155">	}</span>
+
+	public void load (FileHandle effectFile, TextureAtlas atlas) {
+<span class="nc" id="L158">		load(effectFile, atlas, null);</span>
+<span class="nc" id="L159">	}</span>
+
+	public void load (FileHandle effectFile, TextureAtlas atlas, String atlasPrefix) {
+<span class="nc" id="L162">		loadEmitters(effectFile);</span>
+<span class="nc" id="L163">		loadEmitterImages(atlas, atlasPrefix);</span>
+<span class="nc" id="L164">	}</span>
+
+	public void loadEmitters (FileHandle effectFile) {
+<span class="nc" id="L167">		InputStream input = effectFile.read();</span>
+<span class="nc" id="L168">		emitters.clear();</span>
+<span class="nc" id="L169">		BufferedReader reader = null;</span>
+		try {
+<span class="nc" id="L171">			reader = new BufferedReader(new InputStreamReader(input), 512);</span>
+			while (true) {
+<span class="nc" id="L173">				ParticleEmitter emitter = newEmitter(reader);</span>
+<span class="nc" id="L174">				emitters.add(emitter);</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">				if (reader.readLine() == null) break;</span>
+<span class="nc" id="L176">			}</span>
+<span class="nc" id="L177">		} catch (IOException ex) {</span>
+<span class="nc" id="L178">			throw new GdxRuntimeException(&quot;Error loading effect: &quot; + effectFile, ex);</span>
+		} finally {
+<span class="nc" id="L180">			StreamUtils.closeQuietly(reader);</span>
+		}
+<span class="nc" id="L182">	}</span>
+
+	public void loadEmitterImages (TextureAtlas atlas) {
+<span class="nc" id="L185">		loadEmitterImages(atlas, null);</span>
+<span class="nc" id="L186">	}</span>
+
+	public void loadEmitterImages (TextureAtlas atlas, String atlasPrefix) {
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L190">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			if (emitter.getImagePaths().size == 0) continue;</span>
+<span class="nc" id="L192">			Array&lt;Sprite&gt; sprites = new Array&lt;Sprite&gt;();</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">			for (String imagePath : emitter.getImagePaths()) {</span>
+<span class="nc" id="L194">				String imageName = new File(imagePath.replace('\\', '/')).getName();</span>
+<span class="nc" id="L195">				int lastDotIndex = imageName.lastIndexOf('.');</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">				if (lastDotIndex != -1) imageName = imageName.substring(0, lastDotIndex);</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">				if (atlasPrefix != null) imageName = atlasPrefix + imageName;</span>
+<span class="nc" id="L198">				Sprite sprite = atlas.createSprite(imageName);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">				if (sprite == null) throw new IllegalArgumentException(&quot;SpriteSheet missing image: &quot; + imageName);</span>
+<span class="nc" id="L200">				sprites.add(sprite);</span>
+<span class="nc" id="L201">			}</span>
+<span class="nc" id="L202">			emitter.setSprites(sprites);</span>
+		}
+<span class="nc" id="L204">	}</span>
+
+	public void loadEmitterImages (FileHandle imagesDir) {
+<span class="nc" id="L207">		ownsTexture = true;</span>
+<span class="nc" id="L208">		ObjectMap&lt;String, Sprite&gt; loadedSprites = new ObjectMap&lt;String, Sprite&gt;(emitters.size);</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L210">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">			if (emitter.getImagePaths().size == 0) continue;</span>
+<span class="nc" id="L212">			Array&lt;Sprite&gt; sprites = new Array&lt;Sprite&gt;();</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">			for (String imagePath : emitter.getImagePaths()) {</span>
+<span class="nc" id="L214">				String imageName = new File(imagePath.replace('\\', '/')).getName();</span>
+<span class="nc" id="L215">				Sprite sprite = loadedSprites.get(imageName);</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">				if (sprite == null) {</span>
+<span class="nc" id="L217">					sprite = new Sprite(loadTexture(imagesDir.child(imageName)));</span>
+<span class="nc" id="L218">					loadedSprites.put(imageName, sprite);</span>
+				}
+<span class="nc" id="L220">				sprites.add(sprite);</span>
+<span class="nc" id="L221">			}</span>
+<span class="nc" id="L222">			emitter.setSprites(sprites);</span>
+		}
+<span class="nc" id="L224">	}</span>
+
+	protected ParticleEmitter newEmitter (BufferedReader reader) throws IOException {
+<span class="nc" id="L227">		return new ParticleEmitter(reader);</span>
+	}
+
+	protected ParticleEmitter newEmitter (ParticleEmitter emitter) {
+<span class="nc" id="L231">		return new ParticleEmitter(emitter);</span>
+	}
+
+	protected Texture loadTexture (FileHandle file) {
+<span class="nc" id="L235">		return new Texture(file, false);</span>
+	}
+
+	/** Disposes the texture for each sprite for each ParticleEmitter. */
+	public void dispose () {
+<span class="nc bnc" id="L240" title="All 2 branches missed.">		if (!ownsTexture) return;</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L242">			ParticleEmitter emitter = emitters.get(i);</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">			for (Sprite sprite : emitter.getSprites()) {</span>
+<span class="nc" id="L244">				sprite.getTexture().dispose();</span>
+<span class="nc" id="L245">			}</span>
+		}
+<span class="nc" id="L247">	}</span>
+
+	/** Returns the bounding box for all active particles. z axis will always be zero. */
+	public BoundingBox getBoundingBox () {
+<span class="nc bnc" id="L251" title="All 2 branches missed.">		if (bounds == null) bounds = new BoundingBox();</span>
+
+<span class="nc" id="L253">		BoundingBox bounds = this.bounds;</span>
+<span class="nc" id="L254">		bounds.inf();</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">		for (ParticleEmitter emitter : this.emitters)</span>
+<span class="nc" id="L256">			bounds.ext(emitter.getBoundingBox());</span>
+<span class="nc" id="L257">		return bounds;</span>
+	}
+
+	/** Permanently scales all the size and motion parameters of all the emitters in this effect. If this effect originated from a
+	 * {@link ParticleEffectPool}, the scale will be reset when it is returned to the pool. */
+	public void scaleEffect (float scaleFactor) {
+<span class="nc" id="L263">		scaleEffect(scaleFactor, scaleFactor, scaleFactor);</span>
+<span class="nc" id="L264">	}</span>
+	
+	/** Permanently scales all the size and motion parameters of all the emitters in this effect. If this effect originated from a
+	 * {@link ParticleEffectPool}, the scale will be reset when it is returned to the pool. */
+	public void scaleEffect (float scaleFactor, float motionScaleFactor) {
+<span class="nc" id="L269">		scaleEffect(scaleFactor, scaleFactor, motionScaleFactor);</span>
+<span class="nc" id="L270">	}</span>
+
+	/** Permanently scales all the size and motion parameters of all the emitters in this effect. If this effect originated from a
+	 * {@link ParticleEffectPool}, the scale will be reset when it is returned to the pool. */
+	public void scaleEffect (float xSizeScaleFactor, float ySizeScaleFactor, float motionScaleFactor) {
+<span class="nc" id="L275">		xSizeScale *= xSizeScaleFactor;</span>
+<span class="nc" id="L276">		ySizeScale *= ySizeScaleFactor;</span>
+<span class="nc" id="L277">		motionScale *= motionScaleFactor;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">		for (ParticleEmitter particleEmitter : emitters) {</span>
+<span class="nc" id="L279">			particleEmitter.scaleSize(xSizeScaleFactor, ySizeScaleFactor);</span>
+<span class="nc" id="L280">			particleEmitter.scaleMotion(motionScaleFactor);</span>
+<span class="nc" id="L281">		}</span>
+<span class="nc" id="L282">	}</span>
+
+	/** Sets the {@link com.badlogic.gdx.graphics.g2d.ParticleEmitter#setCleansUpBlendFunction(boolean) cleansUpBlendFunction}
+	 * parameter on all {@link com.badlogic.gdx.graphics.g2d.ParticleEmitter ParticleEmitters} currently in this ParticleEffect.
+	 * &lt;p&gt;
+	 * IMPORTANT: If set to false and if the next object to use this Batch expects alpha blending, you are responsible for setting
+	 * the Batch's blend function to (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) before that next object is drawn.
+	 * @param cleanUpBlendFunction */
+	public void setEmittersCleanUpBlendFunction (boolean cleanUpBlendFunction) {
+<span class="nc bnc" id="L291" title="All 2 branches missed.">		for (int i = 0, n = emitters.size; i &lt; n; i++) {</span>
+<span class="nc" id="L292">			emitters.get(i).setCleansUpBlendFunction(cleanUpBlendFunction);</span>
+		}
+<span class="nc" id="L294">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

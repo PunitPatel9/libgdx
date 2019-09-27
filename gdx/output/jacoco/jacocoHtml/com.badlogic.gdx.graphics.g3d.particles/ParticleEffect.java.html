@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleEffect.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles</a> &gt; <span class="el_source">ParticleEffect.java</span></div><h1>ParticleEffect.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles;
+
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.g3d.particles.batches.ParticleBatch;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
+
+/** It's a set of particles controllers. It can be updated, rendered, transformed which means the changes will be applied on all
+ * the particles controllers.
+ * @author inferno */
+public class ParticleEffect implements Disposable, ResourceData.Configurable {
+	private Array&lt;ParticleController&gt; controllers;
+	private BoundingBox bounds;
+
+<span class="nc" id="L35">	public ParticleEffect () {</span>
+<span class="nc" id="L36">		controllers = new Array&lt;ParticleController&gt;(true, 3, ParticleController.class);</span>
+<span class="nc" id="L37">	}</span>
+
+<span class="nc" id="L39">	public ParticleEffect (ParticleEffect effect) {</span>
+<span class="nc" id="L40">		controllers = new Array&lt;ParticleController&gt;(true, effect.controllers.size);</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">		for (int i = 0, n = effect.controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L42">			controllers.add(effect.controllers.get(i).copy());</span>
+<span class="nc" id="L43">	}</span>
+
+<span class="nc" id="L45">	public ParticleEffect (ParticleController... emitters) {</span>
+<span class="nc" id="L46">		this.controllers = new Array&lt;ParticleController&gt;(emitters);</span>
+<span class="nc" id="L47">	}</span>
+
+	public void init () {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L51">			controllers.get(i).init();</span>
+<span class="nc" id="L52">	}</span>
+
+	public void start () {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L56">			controllers.get(i).start();</span>
+<span class="nc" id="L57">	}</span>
+
+	public void end () {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L61">			controllers.get(i).end();</span>
+<span class="nc" id="L62">	}</span>
+
+	public void reset () {
+<span class="nc bnc" id="L65" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L66">			controllers.get(i).reset();</span>
+<span class="nc" id="L67">	}</span>
+
+	public void update () {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L71">			controllers.get(i).update();</span>
+<span class="nc" id="L72">	}</span>
+
+	public void update (float deltaTime) {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L76">			controllers.get(i).update(deltaTime);</span>
+<span class="nc" id="L77">	}</span>
+
+	public void draw () {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L81">			controllers.get(i).draw();</span>
+<span class="nc" id="L82">	}</span>
+
+	public boolean isComplete () {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">			if (!controllers.get(i).isComplete()) {</span>
+<span class="nc" id="L87">				return false;</span>
+			}
+		}
+
+<span class="nc" id="L91">		return true;</span>
+	}
+
+	/** Sets the given transform matrix on each controller. */
+	public void setTransform (Matrix4 transform) {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L97">			controllers.get(i).setTransform(transform);</span>
+<span class="nc" id="L98">	}</span>
+
+	/** Applies the rotation to the current transformation matrix of each controller. */
+	public void rotate (Quaternion rotation) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L103">			controllers.get(i).rotate(rotation);</span>
+<span class="nc" id="L104">	}</span>
+
+	/** Applies the rotation by the given angle around the given axis to the current transformation matrix of each controller.
+	 * @param axis the rotation axis
+	 * @param angle the rotation angle in degrees */
+	public void rotate (Vector3 axis, float angle) {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L111">			controllers.get(i).rotate(axis, angle);</span>
+<span class="nc" id="L112">	}</span>
+
+	/** Applies the translation to the current transformation matrix of each controller. */
+	public void translate (Vector3 translation) {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L117">			controllers.get(i).translate(translation);</span>
+<span class="nc" id="L118">	}</span>
+
+	/** Applies the scale to the current transformation matrix of each controller. */
+	public void scale (float scaleX, float scaleY, float scaleZ) {
+<span class="nc bnc" id="L122" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L123">			controllers.get(i).scale(scaleX, scaleY, scaleZ);</span>
+<span class="nc" id="L124">	}</span>
+
+	/** Applies the scale to the current transformation matrix of each controller. */
+	public void scale (Vector3 scale) {
+<span class="nc bnc" id="L128" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++)</span>
+<span class="nc" id="L129">			controllers.get(i).scale(scale.x, scale.y, scale.z);</span>
+<span class="nc" id="L130">	}</span>
+
+	/** @return all particle controllers. */
+	public Array&lt;ParticleController&gt; getControllers () {
+<span class="nc" id="L134">		return controllers;</span>
+	}
+
+	/** Returns the controller with the specified name, or null. */
+	public ParticleController findController (String name) {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++) {</span>
+<span class="nc" id="L140">			ParticleController emitter = controllers.get(i);</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">			if (emitter.name.equals(name)) return emitter;</span>
+		}
+<span class="nc" id="L143">		return null;</span>
+	}
+
+	public void dispose () {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">		for (int i = 0, n = controllers.size; i &lt; n; i++) {</span>
+<span class="nc" id="L148">			controllers.get(i).dispose();</span>
+		}
+<span class="nc" id="L150">	}</span>
+
+	/** @return the merged bounding box of all controllers. */
+	public BoundingBox getBoundingBox () {
+<span class="nc bnc" id="L154" title="All 2 branches missed.">		if (bounds == null) bounds = new BoundingBox();</span>
+
+<span class="nc" id="L156">		BoundingBox bounds = this.bounds;</span>
+<span class="nc" id="L157">		bounds.inf();</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">		for (ParticleController emitter : controllers)</span>
+<span class="nc" id="L159">			bounds.ext(emitter.getBoundingBox());</span>
+<span class="nc" id="L160">		return bounds;</span>
+	}
+
+	/** Assign one batch, among those passed in, to each controller. The batch must be compatible with the controller to be
+	 * assigned. */
+	public void setBatch (Array&lt;ParticleBatch&lt;?&gt;&gt; batches) {
+<span class="nc bnc" id="L166" title="All 2 branches missed.">		for (ParticleController controller : controllers) {</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">			for (ParticleBatch&lt;?&gt; batch : batches)</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">				if (controller.renderer.setBatch(batch)) break;</span>
+<span class="nc" id="L169">		}</span>
+<span class="nc" id="L170">	}</span>
+
+	/** @return a copy of this effect, should be used after the particle effect has been loaded. */
+	public ParticleEffect copy () {
+<span class="nc" id="L174">		return new ParticleEffect(this);</span>
+	}
+
+	/** Saves all the assets required by all the controllers inside this effect. */
+	public void save (AssetManager assetManager, ResourceData data) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		for (ParticleController controller : controllers) {</span>
+<span class="nc" id="L180">			controller.save(assetManager, data);</span>
+<span class="nc" id="L181">		}</span>
+<span class="nc" id="L182">	}</span>
+
+	/** Loads all the assets required by all the controllers inside this effect. */
+	public void load (AssetManager assetManager, ResourceData data) {
+<span class="nc" id="L186">		int i = 0;</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		for (ParticleController controller : controllers) {</span>
+<span class="nc" id="L188">			controller.load(assetManager, data);</span>
+<span class="nc" id="L189">		}</span>
+<span class="nc" id="L190">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpawnShapeValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.values</a> &gt; <span class="el_source">SpawnShapeValue.java</span></div><h1>SpawnShapeValue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.values;
+
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** Encapsulate the formulas to spawn a particle on a shape.
+ * @author Inferno */
+public abstract class SpawnShapeValue extends ParticleValue implements ResourceData.Configurable, Json.Serializable {
+
+	public RangedNumericValue xOffsetValue, yOffsetValue, zOffsetValue;
+
+<span class="nc" id="L31">	public SpawnShapeValue () {</span>
+<span class="nc" id="L32">		xOffsetValue = new RangedNumericValue();</span>
+<span class="nc" id="L33">		yOffsetValue = new RangedNumericValue();</span>
+<span class="nc" id="L34">		zOffsetValue = new RangedNumericValue();</span>
+<span class="nc" id="L35">	}</span>
+
+	public SpawnShapeValue (SpawnShapeValue spawnShapeValue) {
+<span class="nc" id="L38">		this();</span>
+<span class="nc" id="L39">	}</span>
+
+	public abstract void spawnAux (Vector3 vector, float percent);
+
+	public final Vector3 spawn (Vector3 vector, float percent) {
+<span class="nc" id="L44">		spawnAux(vector, percent);</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">		if (xOffsetValue.active) vector.x += xOffsetValue.newLowValue();</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">		if (yOffsetValue.active) vector.y += yOffsetValue.newLowValue();</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">		if (zOffsetValue.active) vector.z += zOffsetValue.newLowValue();</span>
+<span class="nc" id="L48">		return vector;</span>
+	}
+
+	public void init () {
+<span class="nc" id="L52">	}</span>
+
+	public void start () {
+<span class="nc" id="L55">	}</span>
+
+	@Override
+	public void load (ParticleValue value) {
+<span class="nc" id="L59">		super.load(value);</span>
+<span class="nc" id="L60">		SpawnShapeValue shape = (SpawnShapeValue)value;</span>
+<span class="nc" id="L61">		xOffsetValue.load(shape.xOffsetValue);</span>
+<span class="nc" id="L62">		yOffsetValue.load(shape.yOffsetValue);</span>
+<span class="nc" id="L63">		zOffsetValue.load(shape.zOffsetValue);</span>
+<span class="nc" id="L64">	}</span>
+
+	public abstract SpawnShapeValue copy ();
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L70">		super.write(json);</span>
+<span class="nc" id="L71">		json.writeValue(&quot;xOffsetValue&quot;, xOffsetValue);</span>
+<span class="nc" id="L72">		json.writeValue(&quot;yOffsetValue&quot;, yOffsetValue);</span>
+<span class="nc" id="L73">		json.writeValue(&quot;zOffsetValue&quot;, zOffsetValue);</span>
+<span class="nc" id="L74">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L78">		super.read(json, jsonData);</span>
+<span class="nc" id="L79">		xOffsetValue = json.readValue(&quot;xOffsetValue&quot;, RangedNumericValue.class, jsonData);</span>
+<span class="nc" id="L80">		yOffsetValue = json.readValue(&quot;yOffsetValue&quot;, RangedNumericValue.class, jsonData);</span>
+<span class="nc" id="L81">		zOffsetValue = json.readValue(&quot;zOffsetValue&quot;, RangedNumericValue.class, jsonData);</span>
+<span class="nc" id="L82">	}</span>
+
+	@Override
+	public void save (AssetManager manager, ResourceData data) {
+<span class="nc" id="L86">	}</span>
+
+	@Override
+	public void load (AssetManager manager, ResourceData data) {
+<span class="nc" id="L90">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

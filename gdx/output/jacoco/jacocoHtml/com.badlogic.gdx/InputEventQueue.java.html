@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InputEventQueue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx</a> &gt; <span class="el_source">InputEventQueue.java</span></div><h1>InputEventQueue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx;
+
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.TimeUtils;
+
+/** Queues events that are later passed to the wrapped {@link InputProcessor}.
+ * @author Nathan Sweet */
+public class InputEventQueue implements InputProcessor {
+	static private final int SKIP = -1;
+	static private final int KEY_DOWN = 0;
+	static private final int KEY_UP = 1;
+	static private final int KEY_TYPED = 2;
+	static private final int TOUCH_DOWN = 3;
+	static private final int TOUCH_UP = 4;
+	static private final int TOUCH_DRAGGED = 5;
+	static private final int MOUSE_MOVED = 6;
+	static private final int SCROLLED = 7;
+
+	private InputProcessor processor;
+<span class="nc" id="L36">	private final IntArray queue = new IntArray();</span>
+<span class="nc" id="L37">	private final IntArray processingQueue = new IntArray();</span>
+	private long currentEventTime;
+
+<span class="nc" id="L40">	public InputEventQueue () {</span>
+<span class="nc" id="L41">	}</span>
+
+<span class="nc" id="L43">	public InputEventQueue (InputProcessor processor) {</span>
+<span class="nc" id="L44">		this.processor = processor;</span>
+<span class="nc" id="L45">	}</span>
+
+	public void setProcessor (InputProcessor processor) {
+<span class="nc" id="L48">		this.processor = processor;</span>
+<span class="nc" id="L49">	}</span>
+
+	public InputProcessor getProcessor () {
+<span class="nc" id="L52">		return processor;</span>
+	}
+
+	public void drain () {
+<span class="nc" id="L56">		synchronized (this) {</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">			if (processor == null) {</span>
+<span class="nc" id="L58">				queue.clear();</span>
+<span class="nc" id="L59">				return;</span>
+			}
+<span class="nc" id="L61">			processingQueue.addAll(queue);</span>
+<span class="nc" id="L62">			queue.clear();</span>
+<span class="nc" id="L63">		}</span>
+<span class="nc" id="L64">		int[] q = processingQueue.items;</span>
+<span class="nc" id="L65">		InputProcessor localProcessor = processor;</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">		for (int i = 0, n = processingQueue.size; i &lt; n;) {</span>
+<span class="nc" id="L67">			int type = q[i++];</span>
+<span class="nc" id="L68">			currentEventTime = (long)q[i++] &lt;&lt; 32 | q[i++] &amp; 0xFFFFFFFFL;</span>
+<span class="nc bnc" id="L69" title="All 10 branches missed.">			switch (type) {</span>
+			case SKIP:
+<span class="nc" id="L71">				i += q[i];</span>
+<span class="nc" id="L72">				break;</span>
+			case KEY_DOWN:
+<span class="nc" id="L74">				localProcessor.keyDown(q[i++]);</span>
+<span class="nc" id="L75">				break;</span>
+			case KEY_UP:
+<span class="nc" id="L77">				localProcessor.keyUp(q[i++]);</span>
+<span class="nc" id="L78">				break;</span>
+			case KEY_TYPED:
+<span class="nc" id="L80">				localProcessor.keyTyped((char)q[i++]);</span>
+<span class="nc" id="L81">				break;</span>
+			case TOUCH_DOWN:
+<span class="nc" id="L83">				localProcessor.touchDown(q[i++], q[i++], q[i++], q[i++]);</span>
+<span class="nc" id="L84">				break;</span>
+			case TOUCH_UP:
+<span class="nc" id="L86">				localProcessor.touchUp(q[i++], q[i++], q[i++], q[i++]);</span>
+<span class="nc" id="L87">				break;</span>
+			case TOUCH_DRAGGED:
+<span class="nc" id="L89">				localProcessor.touchDragged(q[i++], q[i++], q[i++]);</span>
+<span class="nc" id="L90">				break;</span>
+			case MOUSE_MOVED:
+<span class="nc" id="L92">				localProcessor.mouseMoved(q[i++], q[i++]);</span>
+<span class="nc" id="L93">				break;</span>
+			case SCROLLED:
+<span class="nc" id="L95">				localProcessor.scrolled(q[i++]);</span>
+<span class="nc" id="L96">				break;</span>
+			default:
+<span class="nc" id="L98">				throw new RuntimeException();</span>
+			}
+<span class="nc" id="L100">		}</span>
+<span class="nc" id="L101">		processingQueue.clear();</span>
+<span class="nc" id="L102">	}</span>
+
+	private synchronized int next (int nextType, int i) {
+<span class="nc" id="L105">		int[] q = queue.items;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">		for (int n = queue.size; i &lt; n;) {</span>
+<span class="nc" id="L107">			int type = q[i];</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">			if (type == nextType) return i;</span>
+<span class="nc" id="L109">			i += 3;</span>
+<span class="nc bnc" id="L110" title="All 10 branches missed.">			switch (type) {</span>
+			case SKIP:
+<span class="nc" id="L112">				i += q[i];</span>
+<span class="nc" id="L113">				break;</span>
+			case KEY_DOWN:
+<span class="nc" id="L115">				i++;</span>
+<span class="nc" id="L116">				break;</span>
+			case KEY_UP:
+<span class="nc" id="L118">				i++;</span>
+<span class="nc" id="L119">				break;</span>
+			case KEY_TYPED:
+<span class="nc" id="L121">				i++;</span>
+<span class="nc" id="L122">				break;</span>
+			case TOUCH_DOWN:
+<span class="nc" id="L124">				i += 4;</span>
+<span class="nc" id="L125">				break;</span>
+			case TOUCH_UP:
+<span class="nc" id="L127">				i += 4;</span>
+<span class="nc" id="L128">				break;</span>
+			case TOUCH_DRAGGED:
+<span class="nc" id="L130">				i += 3;</span>
+<span class="nc" id="L131">				break;</span>
+			case MOUSE_MOVED:
+<span class="nc" id="L133">				i += 2;</span>
+<span class="nc" id="L134">				break;</span>
+			case SCROLLED:
+<span class="nc" id="L136">				i++;</span>
+<span class="nc" id="L137">				break;</span>
+			default:
+<span class="nc" id="L139">				throw new RuntimeException();</span>
+			}
+<span class="nc" id="L141">		}</span>
+<span class="nc" id="L142">		return -1;</span>
+	}
+
+	private void queueTime () {
+<span class="nc" id="L146">		long time = TimeUtils.nanoTime();</span>
+<span class="nc" id="L147">		queue.add((int)(time &gt;&gt; 32));</span>
+<span class="nc" id="L148">		queue.add((int)time);</span>
+<span class="nc" id="L149">	}</span>
+
+	public synchronized boolean keyDown (int keycode) {
+<span class="nc" id="L152">		queue.add(KEY_DOWN);</span>
+<span class="nc" id="L153">		queueTime();</span>
+<span class="nc" id="L154">		queue.add(keycode);</span>
+<span class="nc" id="L155">		return false;</span>
+	}
+
+	public synchronized boolean keyUp (int keycode) {
+<span class="nc" id="L159">		queue.add(KEY_UP);</span>
+<span class="nc" id="L160">		queueTime();</span>
+<span class="nc" id="L161">		queue.add(keycode);</span>
+<span class="nc" id="L162">		return false;</span>
+	}
+
+	public synchronized boolean keyTyped (char character) {
+<span class="nc" id="L166">		queue.add(KEY_TYPED);</span>
+<span class="nc" id="L167">		queueTime();</span>
+<span class="nc" id="L168">		queue.add(character);</span>
+<span class="nc" id="L169">		return false;</span>
+	}
+
+	public synchronized boolean touchDown (int screenX, int screenY, int pointer, int button) {
+<span class="nc" id="L173">		queue.add(TOUCH_DOWN);</span>
+<span class="nc" id="L174">		queueTime();</span>
+<span class="nc" id="L175">		queue.add(screenX);</span>
+<span class="nc" id="L176">		queue.add(screenY);</span>
+<span class="nc" id="L177">		queue.add(pointer);</span>
+<span class="nc" id="L178">		queue.add(button);</span>
+<span class="nc" id="L179">		return false;</span>
+	}
+
+	public synchronized boolean touchUp (int screenX, int screenY, int pointer, int button) {
+<span class="nc" id="L183">		queue.add(TOUCH_UP);</span>
+<span class="nc" id="L184">		queueTime();</span>
+<span class="nc" id="L185">		queue.add(screenX);</span>
+<span class="nc" id="L186">		queue.add(screenY);</span>
+<span class="nc" id="L187">		queue.add(pointer);</span>
+<span class="nc" id="L188">		queue.add(button);</span>
+<span class="nc" id="L189">		return false;</span>
+	}
+
+	public synchronized boolean touchDragged (int screenX, int screenY, int pointer) {
+		// Skip any queued touch dragged events for the same pointer.
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		for (int i = next(TOUCH_DRAGGED, 0); i &gt;= 0; i = next(TOUCH_DRAGGED, i + 6)) {</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">			if (queue.get(i + 5) == pointer) {</span>
+<span class="nc" id="L196">				queue.set(i, SKIP);</span>
+<span class="nc" id="L197">				queue.set(i + 3, 3);</span>
+			}
+		}
+<span class="nc" id="L200">		queue.add(TOUCH_DRAGGED);</span>
+<span class="nc" id="L201">		queueTime();</span>
+<span class="nc" id="L202">		queue.add(screenX);</span>
+<span class="nc" id="L203">		queue.add(screenY);</span>
+<span class="nc" id="L204">		queue.add(pointer);</span>
+<span class="nc" id="L205">		return false;</span>
+	}
+
+	public synchronized boolean mouseMoved (int screenX, int screenY) {
+		// Skip any queued mouse moved events.
+<span class="nc bnc" id="L210" title="All 2 branches missed.">		for (int i = next(MOUSE_MOVED, 0); i &gt;= 0; i = next(MOUSE_MOVED, i + 5)) {</span>
+<span class="nc" id="L211">			queue.set(i, SKIP);</span>
+<span class="nc" id="L212">			queue.set(i + 3, 2);</span>
+		}
+<span class="nc" id="L214">		queue.add(MOUSE_MOVED);</span>
+<span class="nc" id="L215">		queueTime();</span>
+<span class="nc" id="L216">		queue.add(screenX);</span>
+<span class="nc" id="L217">		queue.add(screenY);</span>
+<span class="nc" id="L218">		return false;</span>
+	}
+
+	public synchronized boolean scrolled (int amount) {
+<span class="nc" id="L222">		queue.add(SCROLLED);</span>
+<span class="nc" id="L223">		queueTime();</span>
+<span class="nc" id="L224">		queue.add(amount);</span>
+<span class="nc" id="L225">		return false;</span>
+	}
+
+	public long getCurrentEventTime () {
+<span class="nc" id="L229">		return currentEventTime;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

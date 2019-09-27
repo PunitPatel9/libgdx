@@ -1,0 +1,1160 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScrollPane.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">ScrollPane.java</span></div><h1>ScrollPane.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Event;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.utils.ActorGestureListener;
+import com.badlogic.gdx.scenes.scene2d.utils.Cullable;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.Layout;
+
+/** A group that scrolls a child widget using scrollbars and/or mouse or touch dragging.
+ * &lt;p&gt;
+ * The widget is sized to its preferred size. If the widget's preferred width or height is less than the size of this scroll pane,
+ * it is set to the size of this scroll pane. Scrollbars appear when the widget is larger than the scroll pane.
+ * &lt;p&gt;
+ * The scroll pane's preferred size is that of the child widget. At this size, the child widget will not need to scroll, so the
+ * scroll pane is typically sized by ignoring the preferred size in one or both directions.
+ * @author mzechner
+ * @author Nathan Sweet */
+public class ScrollPane extends WidgetGroup {
+	private ScrollPaneStyle style;
+	private Actor widget;
+
+<span class="nc" id="L51">	final Rectangle hScrollBounds = new Rectangle();</span>
+<span class="nc" id="L52">	final Rectangle vScrollBounds = new Rectangle();</span>
+<span class="nc" id="L53">	final Rectangle hKnobBounds = new Rectangle();</span>
+<span class="nc" id="L54">	final Rectangle vKnobBounds = new Rectangle();</span>
+<span class="nc" id="L55">	private final Rectangle widgetAreaBounds = new Rectangle();</span>
+<span class="nc" id="L56">	private final Rectangle widgetCullingArea = new Rectangle();</span>
+	private ActorGestureListener flickScrollListener;
+
+	boolean scrollX, scrollY;
+<span class="nc" id="L60">	boolean vScrollOnRight = true;</span>
+<span class="nc" id="L61">	boolean hScrollOnBottom = true;</span>
+	float amountX, amountY;
+	float visualAmountX, visualAmountY;
+	float maxX, maxY;
+	boolean touchScrollH, touchScrollV;
+<span class="nc" id="L66">	final Vector2 lastPoint = new Vector2();</span>
+	float areaWidth, areaHeight;
+<span class="nc" id="L68">	boolean fadeScrollBars = true, smoothScrolling = true, scrollBarTouch = true;</span>
+<span class="nc" id="L69">	float fadeAlpha, fadeAlphaSeconds = 1, fadeDelay, fadeDelaySeconds = 1;</span>
+<span class="nc" id="L70">	boolean cancelTouchFocus = true;</span>
+
+<span class="nc" id="L72">	boolean flickScroll = true;</span>
+	float velocityX, velocityY;
+	float flingTimer;
+<span class="nc" id="L75">	private boolean overscrollX = true, overscrollY = true;</span>
+<span class="nc" id="L76">	float flingTime = 1f;</span>
+<span class="nc" id="L77">	private float overscrollDistance = 50, overscrollSpeedMin = 30, overscrollSpeedMax = 200;</span>
+	private boolean forceScrollX, forceScrollY;
+	boolean disableX, disableY;
+<span class="nc" id="L80">	private boolean clamp = true;</span>
+	private boolean scrollbarsOnTop;
+<span class="nc" id="L82">	private boolean variableSizeKnobs = true;</span>
+<span class="nc" id="L83">	int draggingPointer = -1;</span>
+
+	/** @param widget May be null. */
+	public ScrollPane (Actor widget) {
+<span class="nc" id="L87">		this(widget, new ScrollPaneStyle());</span>
+<span class="nc" id="L88">	}</span>
+
+	/** @param widget May be null. */
+	public ScrollPane (Actor widget, Skin skin) {
+<span class="nc" id="L92">		this(widget, skin.get(ScrollPaneStyle.class));</span>
+<span class="nc" id="L93">	}</span>
+
+	/** @param widget May be null. */
+	public ScrollPane (Actor widget, Skin skin, String styleName) {
+<span class="nc" id="L97">		this(widget, skin.get(styleName, ScrollPaneStyle.class));</span>
+<span class="nc" id="L98">	}</span>
+
+	/** @param widget May be null. */
+<span class="nc" id="L101">	public ScrollPane (Actor widget, ScrollPaneStyle style) {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null.&quot;);</span>
+<span class="nc" id="L103">		this.style = style;</span>
+<span class="nc" id="L104">		setActor(widget);</span>
+<span class="nc" id="L105">		setSize(150, 150);</span>
+
+<span class="nc" id="L107">		addCaptureListener(new InputListener() {</span>
+			private float handlePosition;
+
+			public boolean touchDown (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">				if (draggingPointer != -1) return false;</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">				if (pointer == 0 &amp;&amp; button != 0) return false;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">				if (getStage() != null) getStage().setScrollFocus(ScrollPane.this);</span>
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">				if (!flickScroll) setScrollbarsVisible(true);</span>
+
+<span class="nc bnc" id="L117" title="All 2 branches missed.">				if (fadeAlpha == 0) return false;</span>
+
+<span class="nc bnc" id="L119" title="All 6 branches missed.">				if (scrollBarTouch &amp;&amp; scrollX &amp;&amp; hScrollBounds.contains(x, y)) {</span>
+<span class="nc" id="L120">					event.stop();</span>
+<span class="nc" id="L121">					setScrollbarsVisible(true);</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">					if (hKnobBounds.contains(x, y)) {</span>
+<span class="nc" id="L123">						lastPoint.set(x, y);</span>
+<span class="nc" id="L124">						handlePosition = hKnobBounds.x;</span>
+<span class="nc" id="L125">						touchScrollH = true;</span>
+<span class="nc" id="L126">						draggingPointer = pointer;</span>
+<span class="nc" id="L127">						return true;</span>
+					}
+<span class="nc bnc" id="L129" title="All 2 branches missed.">					setScrollX(amountX + areaWidth * (x &lt; hKnobBounds.x ? -1 : 1));</span>
+<span class="nc" id="L130">					return true;</span>
+				}
+<span class="nc bnc" id="L132" title="All 6 branches missed.">				if (scrollBarTouch &amp;&amp; scrollY &amp;&amp; vScrollBounds.contains(x, y)) {</span>
+<span class="nc" id="L133">					event.stop();</span>
+<span class="nc" id="L134">					setScrollbarsVisible(true);</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">					if (vKnobBounds.contains(x, y)) {</span>
+<span class="nc" id="L136">						lastPoint.set(x, y);</span>
+<span class="nc" id="L137">						handlePosition = vKnobBounds.y;</span>
+<span class="nc" id="L138">						touchScrollV = true;</span>
+<span class="nc" id="L139">						draggingPointer = pointer;</span>
+<span class="nc" id="L140">						return true;</span>
+					}
+<span class="nc bnc" id="L142" title="All 2 branches missed.">					setScrollY(amountY + areaHeight * (y &lt; vKnobBounds.y ? 1 : -1));</span>
+<span class="nc" id="L143">					return true;</span>
+				}
+<span class="nc" id="L145">				return false;</span>
+			}
+
+			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L149" title="All 2 branches missed.">				if (pointer != draggingPointer) return;</span>
+<span class="nc" id="L150">				cancel();</span>
+<span class="nc" id="L151">			}</span>
+
+			public void touchDragged (InputEvent event, float x, float y, int pointer) {
+<span class="nc bnc" id="L154" title="All 2 branches missed.">				if (pointer != draggingPointer) return;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">				if (touchScrollH) {</span>
+<span class="nc" id="L156">					float delta = x - lastPoint.x;</span>
+<span class="nc" id="L157">					float scrollH = handlePosition + delta;</span>
+<span class="nc" id="L158">					handlePosition = scrollH;</span>
+<span class="nc" id="L159">					scrollH = Math.max(hScrollBounds.x, scrollH);</span>
+<span class="nc" id="L160">					scrollH = Math.min(hScrollBounds.x + hScrollBounds.width - hKnobBounds.width, scrollH);</span>
+<span class="nc" id="L161">					float total = hScrollBounds.width - hKnobBounds.width;</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">					if (total != 0) setScrollPercentX((scrollH - hScrollBounds.x) / total);</span>
+<span class="nc" id="L163">					lastPoint.set(x, y);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">				} else if (touchScrollV) {</span>
+<span class="nc" id="L165">					float delta = y - lastPoint.y;</span>
+<span class="nc" id="L166">					float scrollV = handlePosition + delta;</span>
+<span class="nc" id="L167">					handlePosition = scrollV;</span>
+<span class="nc" id="L168">					scrollV = Math.max(vScrollBounds.y, scrollV);</span>
+<span class="nc" id="L169">					scrollV = Math.min(vScrollBounds.y + vScrollBounds.height - vKnobBounds.height, scrollV);</span>
+<span class="nc" id="L170">					float total = vScrollBounds.height - vKnobBounds.height;</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">					if (total != 0) setScrollPercentY(1 - ((scrollV - vScrollBounds.y) / total));</span>
+<span class="nc" id="L172">					lastPoint.set(x, y);</span>
+				}
+<span class="nc" id="L174">			}</span>
+
+			public boolean mouseMoved (InputEvent event, float x, float y) {
+<span class="nc bnc" id="L177" title="All 2 branches missed.">				if (!flickScroll) setScrollbarsVisible(true);</span>
+<span class="nc" id="L178">				return false;</span>
+			}
+		});
+
+<span class="nc" id="L182">		flickScrollListener = new ActorGestureListener() {</span>
+			public void pan (InputEvent event, float x, float y, float deltaX, float deltaY) {
+<span class="nc" id="L184">				setScrollbarsVisible(true);</span>
+<span class="nc" id="L185">				amountX -= deltaX;</span>
+<span class="nc" id="L186">				amountY += deltaY;</span>
+<span class="nc" id="L187">				clamp();</span>
+<span class="nc bnc" id="L188" title="All 10 branches missed.">				if (cancelTouchFocus &amp;&amp; ((scrollX &amp;&amp; deltaX != 0) || (scrollY &amp;&amp; deltaY != 0))) cancelTouchFocus();</span>
+<span class="nc" id="L189">			}</span>
+
+			public void fling (InputEvent event, float x, float y, int button) {
+<span class="nc bnc" id="L192" title="All 4 branches missed.">				if (Math.abs(x) &gt; 150 &amp;&amp; scrollX) {</span>
+<span class="nc" id="L193">					flingTimer = flingTime;</span>
+<span class="nc" id="L194">					velocityX = x;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">					if (cancelTouchFocus) cancelTouchFocus();</span>
+				}
+<span class="nc bnc" id="L197" title="All 4 branches missed.">				if (Math.abs(y) &gt; 150 &amp;&amp; scrollY) {</span>
+<span class="nc" id="L198">					flingTimer = flingTime;</span>
+<span class="nc" id="L199">					velocityY = -y;</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">					if (cancelTouchFocus) cancelTouchFocus();</span>
+				}
+<span class="nc" id="L202">			}</span>
+
+			public boolean handle (Event event) {
+<span class="nc bnc" id="L205" title="All 2 branches missed.">				if (super.handle(event)) {</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">					if (((InputEvent)event).getType() == InputEvent.Type.touchDown) flingTimer = 0;</span>
+<span class="nc" id="L207">					return true;</span>
+<span class="nc bnc" id="L208" title="All 4 branches missed.">				} else if (event instanceof InputEvent &amp;&amp; ((InputEvent)event).isTouchFocusCancel()) //</span>
+<span class="nc" id="L209">					cancel();</span>
+<span class="nc" id="L210">				return false;</span>
+			}
+		};
+<span class="nc" id="L213">		addListener(flickScrollListener);</span>
+
+<span class="nc" id="L215">		addListener(new InputListener() {</span>
+			public boolean scrolled (InputEvent event, float x, float y, int amount) {
+<span class="nc" id="L217">				setScrollbarsVisible(true);</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">				if (scrollY)</span>
+<span class="nc" id="L219">					setScrollY(amountY + getMouseWheelY() * amount);</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">				else if (scrollX) //</span>
+<span class="nc" id="L221">					setScrollX(amountX + getMouseWheelX() * amount);</span>
+				else
+<span class="nc" id="L223">					return false;</span>
+<span class="nc" id="L224">				return true;</span>
+			}
+		});
+<span class="nc" id="L227">	}</span>
+
+	/** Shows or hides the scrollbars for when using {@link #setFadeScrollBars(boolean)}. */
+	public void setScrollbarsVisible (boolean visible) {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">		if (visible) {</span>
+<span class="nc" id="L232">			fadeAlpha = fadeAlphaSeconds;</span>
+<span class="nc" id="L233">			fadeDelay = fadeDelaySeconds;</span>
+		} else {
+<span class="nc" id="L235">			fadeAlpha = 0;</span>
+<span class="nc" id="L236">			fadeDelay = 0;</span>
+		}
+<span class="nc" id="L238">	}</span>
+
+	/** Cancels the stage's touch focus for all listeners except this scroll pane's flick scroll listener. This causes any widgets
+	 * inside the scrollpane that have received touchDown to receive touchUp.
+	 * @see #setCancelTouchFocus(boolean) */
+	public void cancelTouchFocus () {
+<span class="nc" id="L244">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">		if (stage != null) stage.cancelTouchFocusExcept(flickScrollListener, this);</span>
+<span class="nc" id="L246">	}</span>
+
+	/** If currently scrolling by tracking a touch down, stop scrolling. */
+	public void cancel () {
+<span class="nc" id="L250">		draggingPointer = -1;</span>
+<span class="nc" id="L251">		touchScrollH = false;</span>
+<span class="nc" id="L252">		touchScrollV = false;</span>
+<span class="nc" id="L253">		flickScrollListener.getGestureDetector().cancel();</span>
+<span class="nc" id="L254">	}</span>
+
+	void clamp () {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">		if (!clamp) return;</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">		scrollX(overscrollX ? MathUtils.clamp(amountX, -overscrollDistance, maxX + overscrollDistance)</span>
+<span class="nc" id="L259">			: MathUtils.clamp(amountX, 0, maxX));</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">		scrollY(overscrollY ? MathUtils.clamp(amountY, -overscrollDistance, maxY + overscrollDistance)</span>
+<span class="nc" id="L261">			: MathUtils.clamp(amountY, 0, maxY));</span>
+<span class="nc" id="L262">	}</span>
+
+	public void setStyle (ScrollPaneStyle style) {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null.&quot;);</span>
+<span class="nc" id="L266">		this.style = style;</span>
+<span class="nc" id="L267">		invalidateHierarchy();</span>
+<span class="nc" id="L268">	}</span>
+
+	/** Returns the scroll pane's style. Modifying the returned style may not have an effect until
+	 * {@link #setStyle(ScrollPaneStyle)} is called. */
+	public ScrollPaneStyle getStyle () {
+<span class="nc" id="L273">		return style;</span>
+	}
+
+	public void act (float delta) {
+<span class="nc" id="L277">		super.act(delta);</span>
+
+<span class="nc" id="L279">		boolean panning = flickScrollListener.getGestureDetector().isPanning();</span>
+<span class="nc" id="L280">		boolean animating = false;</span>
+
+<span class="nc bnc" id="L282" title="All 10 branches missed.">		if (fadeAlpha &gt; 0 &amp;&amp; fadeScrollBars &amp;&amp; !panning &amp;&amp; !touchScrollH &amp;&amp; !touchScrollV) {</span>
+<span class="nc" id="L283">			fadeDelay -= delta;</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">			if (fadeDelay &lt;= 0) fadeAlpha = Math.max(0, fadeAlpha - delta);</span>
+<span class="nc" id="L285">			animating = true;</span>
+		}
+
+<span class="nc bnc" id="L288" title="All 2 branches missed.">		if (flingTimer &gt; 0) {</span>
+<span class="nc" id="L289">			setScrollbarsVisible(true);</span>
+
+<span class="nc" id="L291">			float alpha = flingTimer / flingTime;</span>
+<span class="nc" id="L292">			amountX -= velocityX * alpha * delta;</span>
+<span class="nc" id="L293">			amountY -= velocityY * alpha * delta;</span>
+<span class="nc" id="L294">			clamp();</span>
+
+			// Stop fling if hit overscroll distance.
+<span class="nc bnc" id="L297" title="All 2 branches missed.">			if (amountX == -overscrollDistance) velocityX = 0;</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">			if (amountX &gt;= maxX + overscrollDistance) velocityX = 0;</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">			if (amountY == -overscrollDistance) velocityY = 0;</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">			if (amountY &gt;= maxY + overscrollDistance) velocityY = 0;</span>
+
+<span class="nc" id="L302">			flingTimer -= delta;</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">			if (flingTimer &lt;= 0) {</span>
+<span class="nc" id="L304">				velocityX = 0;</span>
+<span class="nc" id="L305">				velocityY = 0;</span>
+			}
+
+<span class="nc" id="L308">			animating = true;</span>
+		}
+
+<span class="nc bnc" id="L311" title="All 18 branches missed.">		if (smoothScrolling &amp;&amp; flingTimer &lt;= 0 &amp;&amp; !panning &amp;&amp; //</span>
+		// Scroll smoothly when grabbing the scrollbar if one pixel of scrollbar movement is &gt; 10% of the scroll area.
+			((!touchScrollH || (scrollX &amp;&amp; maxX / (hScrollBounds.width - hKnobBounds.width) &gt; areaWidth * 0.1f)) //
+				&amp;&amp; (!touchScrollV || (scrollY &amp;&amp; maxY / (vScrollBounds.height - vKnobBounds.height) &gt; areaHeight * 0.1f))) //
+		) {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">			if (visualAmountX != amountX) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">				if (visualAmountX &lt; amountX)</span>
+<span class="nc" id="L318">					visualScrollX(Math.min(amountX, visualAmountX + Math.max(200 * delta, (amountX - visualAmountX) * 7 * delta)));</span>
+				else
+<span class="nc" id="L320">					visualScrollX(Math.max(amountX, visualAmountX - Math.max(200 * delta, (visualAmountX - amountX) * 7 * delta)));</span>
+<span class="nc" id="L321">				animating = true;</span>
+			}
+<span class="nc bnc" id="L323" title="All 2 branches missed.">			if (visualAmountY != amountY) {</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">				if (visualAmountY &lt; amountY)</span>
+<span class="nc" id="L325">					visualScrollY(Math.min(amountY, visualAmountY + Math.max(200 * delta, (amountY - visualAmountY) * 7 * delta)));</span>
+				else
+<span class="nc" id="L327">					visualScrollY(Math.max(amountY, visualAmountY - Math.max(200 * delta, (visualAmountY - amountY) * 7 * delta)));</span>
+<span class="nc" id="L328">				animating = true;</span>
+			}
+		} else {
+<span class="nc bnc" id="L331" title="All 2 branches missed.">			if (visualAmountX != amountX) visualScrollX(amountX);</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">			if (visualAmountY != amountY) visualScrollY(amountY);</span>
+		}
+
+<span class="nc bnc" id="L335" title="All 2 branches missed.">		if (!panning) {</span>
+<span class="nc bnc" id="L336" title="All 4 branches missed.">			if (overscrollX &amp;&amp; scrollX) {</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">				if (amountX &lt; 0) {</span>
+<span class="nc" id="L338">					setScrollbarsVisible(true);</span>
+<span class="nc" id="L339">					amountX += (overscrollSpeedMin + (overscrollSpeedMax - overscrollSpeedMin) * -amountX / overscrollDistance)</span>
+						* delta;
+<span class="nc bnc" id="L341" title="All 2 branches missed.">					if (amountX &gt; 0) scrollX(0);</span>
+<span class="nc" id="L342">					animating = true;</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">				} else if (amountX &gt; maxX) {</span>
+<span class="nc" id="L344">					setScrollbarsVisible(true);</span>
+<span class="nc" id="L345">					amountX -= (overscrollSpeedMin</span>
+						+ (overscrollSpeedMax - overscrollSpeedMin) * -(maxX - amountX) / overscrollDistance) * delta;
+<span class="nc bnc" id="L347" title="All 2 branches missed.">					if (amountX &lt; maxX) scrollX(maxX);</span>
+<span class="nc" id="L348">					animating = true;</span>
+				}
+			}
+<span class="nc bnc" id="L351" title="All 4 branches missed.">			if (overscrollY &amp;&amp; scrollY) {</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">				if (amountY &lt; 0) {</span>
+<span class="nc" id="L353">					setScrollbarsVisible(true);</span>
+<span class="nc" id="L354">					amountY += (overscrollSpeedMin + (overscrollSpeedMax - overscrollSpeedMin) * -amountY / overscrollDistance)</span>
+						* delta;
+<span class="nc bnc" id="L356" title="All 2 branches missed.">					if (amountY &gt; 0) scrollY(0);</span>
+<span class="nc" id="L357">					animating = true;</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">				} else if (amountY &gt; maxY) {</span>
+<span class="nc" id="L359">					setScrollbarsVisible(true);</span>
+<span class="nc" id="L360">					amountY -= (overscrollSpeedMin</span>
+						+ (overscrollSpeedMax - overscrollSpeedMin) * -(maxY - amountY) / overscrollDistance) * delta;
+<span class="nc bnc" id="L362" title="All 2 branches missed.">					if (amountY &lt; maxY) scrollY(maxY);</span>
+<span class="nc" id="L363">					animating = true;</span>
+				}
+			}
+		}
+
+<span class="nc bnc" id="L368" title="All 2 branches missed.">		if (animating) {</span>
+<span class="nc" id="L369">			Stage stage = getStage();</span>
+<span class="nc bnc" id="L370" title="All 4 branches missed.">			if (stage != null &amp;&amp; stage.getActionsRequestRendering()) Gdx.graphics.requestRendering();</span>
+		}
+<span class="nc" id="L372">	}</span>
+
+	public void layout () {
+<span class="nc" id="L375">		final Drawable bg = style.background;</span>
+<span class="nc" id="L376">		final Drawable hScrollKnob = style.hScrollKnob;</span>
+<span class="nc" id="L377">		final Drawable vScrollKnob = style.vScrollKnob;</span>
+
+<span class="nc" id="L379">		float bgLeftWidth = 0, bgRightWidth = 0, bgTopHeight = 0, bgBottomHeight = 0;</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">		if (bg != null) {</span>
+<span class="nc" id="L381">			bgLeftWidth = bg.getLeftWidth();</span>
+<span class="nc" id="L382">			bgRightWidth = bg.getRightWidth();</span>
+<span class="nc" id="L383">			bgTopHeight = bg.getTopHeight();</span>
+<span class="nc" id="L384">			bgBottomHeight = bg.getBottomHeight();</span>
+		}
+
+<span class="nc" id="L387">		float width = getWidth();</span>
+<span class="nc" id="L388">		float height = getHeight();</span>
+
+<span class="nc" id="L390">		float scrollbarHeight = 0;</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">		if (hScrollKnob != null) scrollbarHeight = hScrollKnob.getMinHeight();</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">		if (style.hScroll != null) scrollbarHeight = Math.max(scrollbarHeight, style.hScroll.getMinHeight());</span>
+<span class="nc" id="L393">		float scrollbarWidth = 0;</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">		if (vScrollKnob != null) scrollbarWidth = vScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">		if (style.vScroll != null) scrollbarWidth = Math.max(scrollbarWidth, style.vScroll.getMinWidth());</span>
+
+		// Get available space size by subtracting background's padded area.
+<span class="nc" id="L398">		areaWidth = width - bgLeftWidth - bgRightWidth;</span>
+<span class="nc" id="L399">		areaHeight = height - bgTopHeight - bgBottomHeight;</span>
+
+<span class="nc bnc" id="L401" title="All 2 branches missed.">		if (widget == null) return;</span>
+
+		// Get widget's desired width.
+		float widgetWidth, widgetHeight;
+<span class="nc bnc" id="L405" title="All 2 branches missed.">		if (widget instanceof Layout) {</span>
+<span class="nc" id="L406">			Layout layout = (Layout)widget;</span>
+<span class="nc" id="L407">			widgetWidth = layout.getPrefWidth();</span>
+<span class="nc" id="L408">			widgetHeight = layout.getPrefHeight();</span>
+<span class="nc" id="L409">		} else {</span>
+<span class="nc" id="L410">			widgetWidth = widget.getWidth();</span>
+<span class="nc" id="L411">			widgetHeight = widget.getHeight();</span>
+		}
+
+		// Determine if horizontal/vertical scrollbars are needed.
+<span class="nc bnc" id="L415" title="All 6 branches missed.">		scrollX = forceScrollX || (widgetWidth &gt; areaWidth &amp;&amp; !disableX);</span>
+<span class="nc bnc" id="L416" title="All 6 branches missed.">		scrollY = forceScrollY || (widgetHeight &gt; areaHeight &amp;&amp; !disableY);</span>
+
+<span class="nc" id="L418">		boolean fade = fadeScrollBars;</span>
+<span class="nc bnc" id="L419" title="All 2 branches missed.">		if (!fade) {</span>
+			// Check again, now taking into account the area that's taken up by any enabled scrollbars.
+<span class="nc bnc" id="L421" title="All 2 branches missed.">			if (scrollY) {</span>
+<span class="nc" id="L422">				areaWidth -= scrollbarWidth;</span>
+<span class="nc bnc" id="L423" title="All 6 branches missed.">				if (!scrollX &amp;&amp; widgetWidth &gt; areaWidth &amp;&amp; !disableX) scrollX = true;</span>
+			}
+<span class="nc bnc" id="L425" title="All 2 branches missed.">			if (scrollX) {</span>
+<span class="nc" id="L426">				areaHeight -= scrollbarHeight;</span>
+<span class="nc bnc" id="L427" title="All 6 branches missed.">				if (!scrollY &amp;&amp; widgetHeight &gt; areaHeight &amp;&amp; !disableY) {</span>
+<span class="nc" id="L428">					scrollY = true;</span>
+<span class="nc" id="L429">					areaWidth -= scrollbarWidth;</span>
+				}
+			}
+		}
+
+		// The bounds of the scrollable area for the widget.
+<span class="nc" id="L435">		widgetAreaBounds.set(bgLeftWidth, bgBottomHeight, areaWidth, areaHeight);</span>
+
+<span class="nc bnc" id="L437" title="All 2 branches missed.">		if (fade) {</span>
+			// Make sure widget is drawn under fading scrollbars.
+<span class="nc bnc" id="L439" title="All 4 branches missed.">			if (scrollX &amp;&amp; scrollY) {</span>
+<span class="nc" id="L440">				areaHeight -= scrollbarHeight;</span>
+<span class="nc" id="L441">				areaWidth -= scrollbarWidth;</span>
+			}
+		} else {
+<span class="nc bnc" id="L444" title="All 2 branches missed.">			if (scrollbarsOnTop) {</span>
+				// Make sure widget is drawn under non-fading scrollbars.
+<span class="nc bnc" id="L446" title="All 2 branches missed.">				if (scrollX) widgetAreaBounds.height += scrollbarHeight;</span>
+<span class="nc bnc" id="L447" title="All 2 branches missed.">				if (scrollY) widgetAreaBounds.width += scrollbarWidth;</span>
+			} else {
+				// Offset widget area y for horizontal scrollbar at bottom.
+<span class="nc bnc" id="L450" title="All 4 branches missed.">				if (scrollX &amp;&amp; hScrollOnBottom) widgetAreaBounds.y += scrollbarHeight;</span>
+				// Offset widget area x for vertical scrollbar at left.
+<span class="nc bnc" id="L452" title="All 4 branches missed.">				if (scrollY &amp;&amp; !vScrollOnRight) widgetAreaBounds.x += scrollbarWidth;</span>
+			}
+		}
+
+		// If the widget is smaller than the available space, make it take up the available space.
+<span class="nc bnc" id="L457" title="All 2 branches missed.">		widgetWidth = disableX ? areaWidth : Math.max(areaWidth, widgetWidth);</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">		widgetHeight = disableY ? areaHeight : Math.max(areaHeight, widgetHeight);</span>
+
+<span class="nc" id="L460">		maxX = widgetWidth - areaWidth;</span>
+<span class="nc" id="L461">		maxY = widgetHeight - areaHeight;</span>
+<span class="nc bnc" id="L462" title="All 2 branches missed.">		if (fade) {</span>
+			// Make sure widget is drawn under fading scrollbars.
+<span class="nc bnc" id="L464" title="All 4 branches missed.">			if (scrollX &amp;&amp; scrollY) {</span>
+<span class="nc" id="L465">				maxY -= scrollbarHeight;</span>
+<span class="nc" id="L466">				maxX -= scrollbarWidth;</span>
+			}
+		}
+<span class="nc" id="L469">		scrollX(MathUtils.clamp(amountX, 0, maxX));</span>
+<span class="nc" id="L470">		scrollY(MathUtils.clamp(amountY, 0, maxY));</span>
+
+		// Set the bounds and scroll knob sizes if scrollbars are needed.
+<span class="nc bnc" id="L473" title="All 2 branches missed.">		if (scrollX) {</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">			if (hScrollKnob != null) {</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">				float hScrollHeight = style.hScroll != null ? style.hScroll.getMinHeight() : hScrollKnob.getMinHeight();</span>
+				// The corner gap where the two scroll bars intersect might have to flip from right to left.
+<span class="nc bnc" id="L477" title="All 2 branches missed.">				float boundsX = vScrollOnRight ? bgLeftWidth : bgLeftWidth + scrollbarWidth;</span>
+				// Scrollbar on the top or bottom.
+<span class="nc bnc" id="L479" title="All 2 branches missed.">				float boundsY = hScrollOnBottom ? bgBottomHeight : height - bgTopHeight - hScrollHeight;</span>
+<span class="nc" id="L480">				hScrollBounds.set(boundsX, boundsY, areaWidth, hScrollHeight);</span>
+<span class="nc bnc" id="L481" title="All 2 branches missed.">				if (variableSizeKnobs)</span>
+<span class="nc" id="L482">					hKnobBounds.width = Math.max(hScrollKnob.getMinWidth(), (int)(hScrollBounds.width * areaWidth / widgetWidth));</span>
+				else
+<span class="nc" id="L484">					hKnobBounds.width = hScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">				if (hKnobBounds.width &gt; widgetWidth) hKnobBounds.width = 0;</span>
+
+<span class="nc" id="L487">				hKnobBounds.height = hScrollKnob.getMinHeight();</span>
+
+<span class="nc" id="L489">				hKnobBounds.x = hScrollBounds.x + (int)((hScrollBounds.width - hKnobBounds.width) * getScrollPercentX());</span>
+<span class="nc" id="L490">				hKnobBounds.y = hScrollBounds.y;</span>
+<span class="nc" id="L491">			} else {</span>
+<span class="nc" id="L492">				hScrollBounds.set(0, 0, 0, 0);</span>
+<span class="nc" id="L493">				hKnobBounds.set(0, 0, 0, 0);</span>
+			}
+		}
+<span class="nc bnc" id="L496" title="All 2 branches missed.">		if (scrollY) {</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">			if (vScrollKnob != null) {</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">				float vScrollWidth = style.vScroll != null ? style.vScroll.getMinWidth() : vScrollKnob.getMinWidth();</span>
+				// the small gap where the two scroll bars intersect might have to flip from bottom to top
+				float boundsX, boundsY;
+<span class="nc bnc" id="L501" title="All 2 branches missed.">				if (hScrollOnBottom) {</span>
+<span class="nc" id="L502">					boundsY = height - bgTopHeight - areaHeight;</span>
+				} else {
+<span class="nc" id="L504">					boundsY = bgBottomHeight;</span>
+				}
+				// bar on the left or right
+<span class="nc bnc" id="L507" title="All 2 branches missed.">				if (vScrollOnRight) {</span>
+<span class="nc" id="L508">					boundsX = width - bgRightWidth - vScrollWidth;</span>
+				} else {
+<span class="nc" id="L510">					boundsX = bgLeftWidth;</span>
+				}
+<span class="nc" id="L512">				vScrollBounds.set(boundsX, boundsY, vScrollWidth, areaHeight);</span>
+<span class="nc" id="L513">				vKnobBounds.width = vScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L514" title="All 2 branches missed.">				if (variableSizeKnobs)</span>
+<span class="nc" id="L515">					vKnobBounds.height = Math.max(vScrollKnob.getMinHeight(), (int)(vScrollBounds.height * areaHeight / widgetHeight));</span>
+				else
+<span class="nc" id="L517">					vKnobBounds.height = vScrollKnob.getMinHeight();</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">				if (vKnobBounds.height &gt; widgetHeight) vKnobBounds.height = 0;</span>
+
+<span class="nc bnc" id="L520" title="All 2 branches missed.">				if (vScrollOnRight) {</span>
+<span class="nc" id="L521">					vKnobBounds.x = width - bgRightWidth - vScrollKnob.getMinWidth();</span>
+				} else {
+<span class="nc" id="L523">					vKnobBounds.x = bgLeftWidth;</span>
+				}
+<span class="nc" id="L525">				vKnobBounds.y = vScrollBounds.y + (int)((vScrollBounds.height - vKnobBounds.height) * (1 - getScrollPercentY()));</span>
+<span class="nc" id="L526">			} else {</span>
+<span class="nc" id="L527">				vScrollBounds.set(0, 0, 0, 0);</span>
+<span class="nc" id="L528">				vKnobBounds.set(0, 0, 0, 0);</span>
+			}
+		}
+
+<span class="nc" id="L532">		updateWidgetPosition();</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">		if (widget instanceof Layout) {</span>
+<span class="nc" id="L534">			widget.setSize(widgetWidth, widgetHeight);</span>
+<span class="nc" id="L535">			((Layout)widget).validate();</span>
+		}
+<span class="nc" id="L537">	}</span>
+
+	private void updateWidgetPosition () {
+		// Calculate the widget's position depending on the scroll state and available widget area.
+<span class="nc" id="L541">		float y = widgetAreaBounds.y;</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">		if (!scrollY)</span>
+<span class="nc" id="L543">			y -= (int)maxY;</span>
+		else
+<span class="nc" id="L545">			y -= (int)(maxY - visualAmountY);</span>
+
+<span class="nc" id="L547">		float x = widgetAreaBounds.x;</span>
+<span class="nc bnc" id="L548" title="All 2 branches missed.">		if (scrollX) x -= (int)visualAmountX;</span>
+
+<span class="nc bnc" id="L550" title="All 4 branches missed.">		if (!fadeScrollBars &amp;&amp; scrollbarsOnTop) {</span>
+<span class="nc bnc" id="L551" title="All 4 branches missed.">			if (scrollX &amp;&amp; hScrollOnBottom) {</span>
+<span class="nc" id="L552">				float scrollbarHeight = 0;</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">				if (style.hScrollKnob != null) scrollbarHeight = style.hScrollKnob.getMinHeight();</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">				if (style.hScroll != null) scrollbarHeight = Math.max(scrollbarHeight, style.hScroll.getMinHeight());</span>
+<span class="nc" id="L555">				y += scrollbarHeight;</span>
+			}
+<span class="nc bnc" id="L557" title="All 4 branches missed.">			if (scrollY &amp;&amp; !vScrollOnRight) {</span>
+<span class="nc" id="L558">				float scrollbarWidth = 0;</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">				if (style.hScrollKnob != null) scrollbarWidth = style.hScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L560" title="All 2 branches missed.">				if (style.hScroll != null) scrollbarWidth = Math.max(scrollbarWidth, style.hScroll.getMinWidth());</span>
+<span class="nc" id="L561">				x += scrollbarWidth;</span>
+			}
+		}
+
+<span class="nc" id="L565">		widget.setPosition(x, y);</span>
+
+<span class="nc bnc" id="L567" title="All 2 branches missed.">		if (widget instanceof Cullable) {</span>
+<span class="nc" id="L568">			widgetCullingArea.x = widgetAreaBounds.x - x;</span>
+<span class="nc" id="L569">			widgetCullingArea.y = widgetAreaBounds.y - y;</span>
+<span class="nc" id="L570">			widgetCullingArea.width = widgetAreaBounds.width;</span>
+<span class="nc" id="L571">			widgetCullingArea.height = widgetAreaBounds.height;</span>
+<span class="nc" id="L572">			((Cullable)widget).setCullingArea(widgetCullingArea);</span>
+		}
+<span class="nc" id="L574">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc bnc" id="L577" title="All 2 branches missed.">		if (widget == null) return;</span>
+
+<span class="nc" id="L579">		validate();</span>
+
+		// Setup transform for this group.
+<span class="nc" id="L582">		applyTransform(batch, computeTransform());</span>
+
+<span class="nc bnc" id="L584" title="All 2 branches missed.">		if (scrollX) hKnobBounds.x = hScrollBounds.x + (int)((hScrollBounds.width - hKnobBounds.width) * getVisualScrollPercentX());</span>
+<span class="nc bnc" id="L585" title="All 2 branches missed.">		if (scrollY)</span>
+<span class="nc" id="L586">			vKnobBounds.y = vScrollBounds.y + (int)((vScrollBounds.height - vKnobBounds.height) * (1 - getVisualScrollPercentY()));</span>
+
+<span class="nc" id="L588">		updateWidgetPosition();</span>
+
+		// Draw the background ninepatch.
+<span class="nc" id="L591">		Color color = getColor();</span>
+<span class="nc" id="L592">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc bnc" id="L593" title="All 2 branches missed.">		if (style.background != null) style.background.draw(batch, 0, 0, getWidth(), getHeight());</span>
+
+<span class="nc" id="L595">		batch.flush();</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">		if (clipBegin(widgetAreaBounds.x, widgetAreaBounds.y, widgetAreaBounds.width, widgetAreaBounds.height)) {</span>
+<span class="nc" id="L597">			drawChildren(batch, parentAlpha);</span>
+<span class="nc" id="L598">			batch.flush();</span>
+<span class="nc" id="L599">			clipEnd();</span>
+		}
+
+		// Render scrollbars and knobs on top if they will be visible
+<span class="nc" id="L603">		float alpha = color.a * parentAlpha;</span>
+<span class="nc bnc" id="L604" title="All 2 branches missed.">		if (fadeScrollBars) alpha *= Interpolation.fade.apply(fadeAlpha / fadeAlphaSeconds);</span>
+<span class="nc" id="L605">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L606">		drawScrollBars(batch, color.r, color.g, color.b, alpha);</span>
+
+<span class="nc" id="L608">		resetTransform(batch);</span>
+<span class="nc" id="L609">	}</span>
+
+	/** Renders the scrollbars after the children have been drawn. If the scrollbars faded out, a is zero and rendering can be
+	 * skipped. */
+	protected void drawScrollBars (Batch batch, float r, float g, float b, float a) {
+<span class="nc bnc" id="L614" title="All 2 branches missed.">		if (a &lt;= 0) return;</span>
+<span class="nc" id="L615">		batch.setColor(r, g, b, a);</span>
+
+<span class="nc bnc" id="L617" title="All 4 branches missed.">		boolean x = scrollX &amp;&amp; hKnobBounds.width &gt; 0;</span>
+<span class="nc bnc" id="L618" title="All 4 branches missed.">		boolean y = scrollY &amp;&amp; vKnobBounds.height &gt; 0;</span>
+<span class="nc bnc" id="L619" title="All 4 branches missed.">		if (x &amp;&amp; y) {</span>
+<span class="nc bnc" id="L620" title="All 2 branches missed.">			if (style.corner != null) {</span>
+<span class="nc" id="L621">				style.corner.draw(batch, hScrollBounds.x + hScrollBounds.width, hScrollBounds.y, vScrollBounds.width,</span>
+					vScrollBounds.y);
+			}
+		}
+<span class="nc bnc" id="L625" title="All 2 branches missed.">		if (x) {</span>
+<span class="nc bnc" id="L626" title="All 2 branches missed.">			if (style.hScroll != null)</span>
+<span class="nc" id="L627">				style.hScroll.draw(batch, hScrollBounds.x, hScrollBounds.y, hScrollBounds.width, hScrollBounds.height);</span>
+<span class="nc bnc" id="L628" title="All 2 branches missed.">			if (style.hScrollKnob != null)</span>
+<span class="nc" id="L629">				style.hScrollKnob.draw(batch, hKnobBounds.x, hKnobBounds.y, hKnobBounds.width, hKnobBounds.height);</span>
+		}
+<span class="nc bnc" id="L631" title="All 2 branches missed.">		if (y) {</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">			if (style.vScroll != null)</span>
+<span class="nc" id="L633">				style.vScroll.draw(batch, vScrollBounds.x, vScrollBounds.y, vScrollBounds.width, vScrollBounds.height);</span>
+<span class="nc bnc" id="L634" title="All 2 branches missed.">			if (style.vScrollKnob != null)</span>
+<span class="nc" id="L635">				style.vScrollKnob.draw(batch, vKnobBounds.x, vKnobBounds.y, vKnobBounds.width, vKnobBounds.height);</span>
+		}
+<span class="nc" id="L637">	}</span>
+
+	/** Generate fling gesture.
+	 * @param flingTime Time in seconds for which you want to fling last.
+	 * @param velocityX Velocity for horizontal direction.
+	 * @param velocityY Velocity for vertical direction. */
+	public void fling (float flingTime, float velocityX, float velocityY) {
+<span class="nc" id="L644">		this.flingTimer = flingTime;</span>
+<span class="nc" id="L645">		this.velocityX = velocityX;</span>
+<span class="nc" id="L646">		this.velocityY = velocityY;</span>
+<span class="nc" id="L647">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc" id="L650">		float width = 0;</span>
+<span class="nc bnc" id="L651" title="All 2 branches missed.">		if (widget instanceof Layout)</span>
+<span class="nc" id="L652">			width = ((Layout)widget).getPrefWidth();</span>
+<span class="nc bnc" id="L653" title="All 2 branches missed.">		else if (widget != null) //</span>
+<span class="nc" id="L654">			width = widget.getWidth();</span>
+
+<span class="nc" id="L656">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">		if (background != null)</span>
+<span class="nc" id="L658">			width = Math.max(width + background.getLeftWidth() + background.getRightWidth(), background.getMinWidth());</span>
+
+<span class="nc bnc" id="L660" title="All 2 branches missed.">		if (scrollY) {</span>
+<span class="nc" id="L661">			float scrollbarWidth = 0;</span>
+<span class="nc bnc" id="L662" title="All 2 branches missed.">			if (style.vScrollKnob != null) scrollbarWidth = style.vScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L663" title="All 2 branches missed.">			if (style.vScroll != null) scrollbarWidth = Math.max(scrollbarWidth, style.vScroll.getMinWidth());</span>
+<span class="nc" id="L664">			width += scrollbarWidth;</span>
+		}
+<span class="nc" id="L666">		return width;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc" id="L670">		float height = 0;</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">		if (widget instanceof Layout)</span>
+<span class="nc" id="L672">			height = ((Layout)widget).getPrefHeight();</span>
+<span class="nc bnc" id="L673" title="All 2 branches missed.">		else if (widget != null) //</span>
+<span class="nc" id="L674">			height = widget.getHeight();</span>
+
+<span class="nc" id="L676">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L677" title="All 2 branches missed.">		if (background != null)</span>
+<span class="nc" id="L678">			height = Math.max(height + background.getTopHeight() + background.getBottomHeight(), background.getMinHeight());</span>
+
+<span class="nc bnc" id="L680" title="All 2 branches missed.">		if (scrollX) {</span>
+<span class="nc" id="L681">			float scrollbarHeight = 0;</span>
+<span class="nc bnc" id="L682" title="All 2 branches missed.">			if (style.hScrollKnob != null) scrollbarHeight = style.hScrollKnob.getMinHeight();</span>
+<span class="nc bnc" id="L683" title="All 2 branches missed.">			if (style.hScroll != null) scrollbarHeight = Math.max(scrollbarHeight, style.hScroll.getMinHeight());</span>
+<span class="nc" id="L684">			height += scrollbarHeight;</span>
+		}
+<span class="nc" id="L686">		return height;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc" id="L690">		return 0;</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc" id="L694">		return 0;</span>
+	}
+
+	/** Sets the {@link Actor} embedded in this scroll pane.
+	 * @param actor May be null to remove any current actor. */
+	public void setActor (Actor actor) {
+<span class="nc bnc" id="L700" title="All 2 branches missed.">		if (widget == this) throw new IllegalArgumentException(&quot;widget cannot be the ScrollPane.&quot;);</span>
+<span class="nc bnc" id="L701" title="All 2 branches missed.">		if (this.widget != null) super.removeActor(this.widget);</span>
+<span class="nc" id="L702">		this.widget = actor;</span>
+<span class="nc bnc" id="L703" title="All 2 branches missed.">		if (widget != null) super.addActor(widget);</span>
+<span class="nc" id="L704">	}</span>
+
+	/** Returns the actor embedded in this scroll pane, or null. */
+	public Actor getActor () {
+<span class="nc" id="L708">		return widget;</span>
+	}
+
+	/** @deprecated Use {@link #setActor(Actor)}. */
+	public void setWidget (Actor actor) {
+<span class="nc" id="L713">		setActor(actor);</span>
+<span class="nc" id="L714">	}</span>
+
+	/** @deprecated Use {@link #getActor()}. */
+	public Actor getWidget () {
+<span class="nc" id="L718">		return widget;</span>
+	}
+
+	/** @deprecated ScrollPane may have only a single child.
+	 * @see #setWidget(Actor) */
+	public void addActor (Actor actor) {
+<span class="nc" id="L724">		throw new UnsupportedOperationException(&quot;Use ScrollPane#setWidget.&quot;);</span>
+	}
+
+	/** @deprecated ScrollPane may have only a single child.
+	 * @see #setWidget(Actor) */
+	public void addActorAt (int index, Actor actor) {
+<span class="nc" id="L730">		throw new UnsupportedOperationException(&quot;Use ScrollPane#setWidget.&quot;);</span>
+	}
+
+	/** @deprecated ScrollPane may have only a single child.
+	 * @see #setWidget(Actor) */
+	public void addActorBefore (Actor actorBefore, Actor actor) {
+<span class="nc" id="L736">		throw new UnsupportedOperationException(&quot;Use ScrollPane#setWidget.&quot;);</span>
+	}
+
+	/** @deprecated ScrollPane may have only a single child.
+	 * @see #setWidget(Actor) */
+	public void addActorAfter (Actor actorAfter, Actor actor) {
+<span class="nc" id="L742">		throw new UnsupportedOperationException(&quot;Use ScrollPane#setWidget.&quot;);</span>
+	}
+
+	public boolean removeActor (Actor actor) {
+<span class="nc bnc" id="L746" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L747" title="All 2 branches missed.">		if (actor != widget) return false;</span>
+<span class="nc" id="L748">		setActor(null);</span>
+<span class="nc" id="L749">		return true;</span>
+	}
+
+	public boolean removeActor (Actor actor, boolean unfocus) {
+<span class="nc bnc" id="L753" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L754" title="All 2 branches missed.">		if (actor != widget) return false;</span>
+<span class="nc" id="L755">		this.widget = null;</span>
+<span class="nc" id="L756">		return super.removeActor(actor, unfocus);</span>
+	}
+
+	public Actor removeActorAt (int index, boolean unfocus) {
+<span class="nc" id="L760">		Actor actor = super.removeActorAt(index, unfocus);</span>
+<span class="nc bnc" id="L761" title="All 2 branches missed.">		if (actor == widget) this.widget = null;</span>
+<span class="nc" id="L762">		return actor;</span>
+	}
+
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L766" title="All 8 branches missed.">		if (x &lt; 0 || x &gt;= getWidth() || y &lt; 0 || y &gt;= getHeight()) return null;</span>
+<span class="nc bnc" id="L767" title="All 6 branches missed.">		if (touchable &amp;&amp; getTouchable() == Touchable.enabled &amp;&amp; isVisible()) {</span>
+<span class="nc bnc" id="L768" title="All 6 branches missed.">			if (scrollX &amp;&amp; touchScrollH &amp;&amp; hScrollBounds.contains(x, y)) return this;</span>
+<span class="nc bnc" id="L769" title="All 6 branches missed.">			if (scrollY &amp;&amp; touchScrollV &amp;&amp; vScrollBounds.contains(x, y)) return this;</span>
+		}
+<span class="nc" id="L771">		return super.hit(x, y, touchable);</span>
+	}
+
+	/** Called whenever the x scroll amount is changed. */
+	protected void scrollX (float pixelsX) {
+<span class="nc" id="L776">		this.amountX = pixelsX;</span>
+<span class="nc" id="L777">	}</span>
+
+	/** Called whenever the y scroll amount is changed. */
+	protected void scrollY (float pixelsY) {
+<span class="nc" id="L781">		this.amountY = pixelsY;</span>
+<span class="nc" id="L782">	}</span>
+
+	/** Called whenever the visual x scroll amount is changed. */
+	protected void visualScrollX (float pixelsX) {
+<span class="nc" id="L786">		this.visualAmountX = pixelsX;</span>
+<span class="nc" id="L787">	}</span>
+
+	/** Called whenever the visual y scroll amount is changed. */
+	protected void visualScrollY (float pixelsY) {
+<span class="nc" id="L791">		this.visualAmountY = pixelsY;</span>
+<span class="nc" id="L792">	}</span>
+
+	/** Returns the amount to scroll horizontally when the mouse wheel is scrolled. */
+	protected float getMouseWheelX () {
+<span class="nc" id="L796">		return Math.min(areaWidth, Math.max(areaWidth * 0.9f, maxX * 0.1f) / 4);</span>
+	}
+
+	/** Returns the amount to scroll vertically when the mouse wheel is scrolled. */
+	protected float getMouseWheelY () {
+<span class="nc" id="L801">		return Math.min(areaHeight, Math.max(areaHeight * 0.9f, maxY * 0.1f) / 4);</span>
+	}
+
+	public void setScrollX (float pixels) {
+<span class="nc" id="L805">		scrollX(MathUtils.clamp(pixels, 0, maxX));</span>
+<span class="nc" id="L806">	}</span>
+
+	/** Returns the x scroll position in pixels, where 0 is the left of the scroll pane. */
+	public float getScrollX () {
+<span class="nc" id="L810">		return amountX;</span>
+	}
+
+	public void setScrollY (float pixels) {
+<span class="nc" id="L814">		scrollY(MathUtils.clamp(pixels, 0, maxY));</span>
+<span class="nc" id="L815">	}</span>
+
+	/** Returns the y scroll position in pixels, where 0 is the top of the scroll pane. */
+	public float getScrollY () {
+<span class="nc" id="L819">		return amountY;</span>
+	}
+
+	/** Sets the visual scroll amount equal to the scroll amount. This can be used when setting the scroll amount without
+	 * animating. */
+	public void updateVisualScroll () {
+<span class="nc" id="L825">		visualAmountX = amountX;</span>
+<span class="nc" id="L826">		visualAmountY = amountY;</span>
+<span class="nc" id="L827">	}</span>
+
+	public float getVisualScrollX () {
+<span class="nc bnc" id="L830" title="All 2 branches missed.">		return !scrollX ? 0 : visualAmountX;</span>
+	}
+
+	public float getVisualScrollY () {
+<span class="nc bnc" id="L834" title="All 2 branches missed.">		return !scrollY ? 0 : visualAmountY;</span>
+	}
+
+	public float getVisualScrollPercentX () {
+<span class="nc bnc" id="L838" title="All 2 branches missed.">		if (maxX == 0) return 0;</span>
+<span class="nc" id="L839">		return MathUtils.clamp(visualAmountX / maxX, 0, 1);</span>
+	}
+
+	public float getVisualScrollPercentY () {
+<span class="nc bnc" id="L843" title="All 2 branches missed.">		if (maxY == 0) return 0;</span>
+<span class="nc" id="L844">		return MathUtils.clamp(visualAmountY / maxY, 0, 1);</span>
+	}
+
+	public float getScrollPercentX () {
+<span class="nc bnc" id="L848" title="All 2 branches missed.">		if (maxX == 0) return 0;</span>
+<span class="nc" id="L849">		return MathUtils.clamp(amountX / maxX, 0, 1);</span>
+	}
+
+	public void setScrollPercentX (float percentX) {
+<span class="nc" id="L853">		scrollX(maxX * MathUtils.clamp(percentX, 0, 1));</span>
+<span class="nc" id="L854">	}</span>
+
+	public float getScrollPercentY () {
+<span class="nc bnc" id="L857" title="All 2 branches missed.">		if (maxY == 0) return 0;</span>
+<span class="nc" id="L858">		return MathUtils.clamp(amountY / maxY, 0, 1);</span>
+	}
+
+	public void setScrollPercentY (float percentY) {
+<span class="nc" id="L862">		scrollY(maxY * MathUtils.clamp(percentY, 0, 1));</span>
+<span class="nc" id="L863">	}</span>
+
+	public void setFlickScroll (boolean flickScroll) {
+<span class="nc bnc" id="L866" title="All 2 branches missed.">		if (this.flickScroll == flickScroll) return;</span>
+<span class="nc" id="L867">		this.flickScroll = flickScroll;</span>
+<span class="nc bnc" id="L868" title="All 2 branches missed.">		if (flickScroll)</span>
+<span class="nc" id="L869">			addListener(flickScrollListener);</span>
+		else
+<span class="nc" id="L871">			removeListener(flickScrollListener);</span>
+<span class="nc" id="L872">		invalidate();</span>
+<span class="nc" id="L873">	}</span>
+
+	public void setFlickScrollTapSquareSize (float halfTapSquareSize) {
+<span class="nc" id="L876">		flickScrollListener.getGestureDetector().setTapSquareSize(halfTapSquareSize);</span>
+<span class="nc" id="L877">	}</span>
+
+	/** Sets the scroll offset so the specified rectangle is fully in view, if possible. Coordinates are in the scroll pane
+	 * widget's coordinate system. */
+	public void scrollTo (float x, float y, float width, float height) {
+<span class="nc" id="L882">		scrollTo(x, y, width, height, false, false);</span>
+<span class="nc" id="L883">	}</span>
+
+	/** Sets the scroll offset so the specified rectangle is fully in view, and optionally centered vertically and/or horizontally,
+	 * if possible. Coordinates are in the scroll pane widget's coordinate system. */
+	public void scrollTo (float x, float y, float width, float height, boolean centerHorizontal, boolean centerVertical) {
+<span class="nc" id="L888">		validate();</span>
+
+<span class="nc" id="L890">		float amountX = this.amountX;</span>
+<span class="nc bnc" id="L891" title="All 2 branches missed.">		if (centerHorizontal) {</span>
+<span class="nc" id="L892">			amountX = x - areaWidth / 2 + width / 2;</span>
+		} else {
+<span class="nc bnc" id="L894" title="All 2 branches missed.">			if (x + width &gt; amountX + areaWidth) amountX = x + width - areaWidth;</span>
+<span class="nc bnc" id="L895" title="All 2 branches missed.">			if (x &lt; amountX) amountX = x;</span>
+		}
+<span class="nc" id="L897">		scrollX(MathUtils.clamp(amountX, 0, maxX));</span>
+
+<span class="nc" id="L899">		float amountY = this.amountY;</span>
+<span class="nc bnc" id="L900" title="All 2 branches missed.">		if (centerVertical) {</span>
+<span class="nc" id="L901">			amountY = maxY - y + areaHeight / 2 - height / 2;</span>
+		} else {
+<span class="nc bnc" id="L903" title="All 2 branches missed.">			if (amountY &gt; maxY - y - height + areaHeight) amountY = maxY - y - height + areaHeight;</span>
+<span class="nc bnc" id="L904" title="All 2 branches missed.">			if (amountY &lt; maxY - y) amountY = maxY - y;</span>
+		}
+<span class="nc" id="L906">		scrollY(MathUtils.clamp(amountY, 0, maxY));</span>
+<span class="nc" id="L907">	}</span>
+
+	/** Returns the maximum scroll value in the x direction. */
+	public float getMaxX () {
+<span class="nc" id="L911">		return maxX;</span>
+	}
+
+	/** Returns the maximum scroll value in the y direction. */
+	public float getMaxY () {
+<span class="nc" id="L916">		return maxY;</span>
+	}
+
+	public float getScrollBarHeight () {
+<span class="nc bnc" id="L920" title="All 2 branches missed.">		if (!scrollX) return 0;</span>
+<span class="nc" id="L921">		float height = 0;</span>
+<span class="nc bnc" id="L922" title="All 2 branches missed.">		if (style.hScrollKnob != null) height = style.hScrollKnob.getMinHeight();</span>
+<span class="nc bnc" id="L923" title="All 2 branches missed.">		if (style.hScroll != null) height = Math.max(height, style.hScroll.getMinHeight());</span>
+<span class="nc" id="L924">		return height;</span>
+	}
+
+	public float getScrollBarWidth () {
+<span class="nc bnc" id="L928" title="All 2 branches missed.">		if (!scrollY) return 0;</span>
+<span class="nc" id="L929">		float width = 0;</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">		if (style.vScrollKnob != null) width = style.vScrollKnob.getMinWidth();</span>
+<span class="nc bnc" id="L931" title="All 2 branches missed.">		if (style.vScroll != null) width = Math.max(width, style.vScroll.getMinWidth());</span>
+<span class="nc" id="L932">		return width;</span>
+	}
+
+	/** Returns the width of the scrolled viewport. */
+	public float getScrollWidth () {
+<span class="nc" id="L937">		return areaWidth;</span>
+	}
+
+	/** Returns the height of the scrolled viewport. */
+	public float getScrollHeight () {
+<span class="nc" id="L942">		return areaHeight;</span>
+	}
+
+	/** Returns true if the widget is larger than the scroll pane horizontally. */
+	public boolean isScrollX () {
+<span class="nc" id="L947">		return scrollX;</span>
+	}
+
+	/** Returns true if the widget is larger than the scroll pane vertically. */
+	public boolean isScrollY () {
+<span class="nc" id="L952">		return scrollY;</span>
+	}
+
+	/** Disables scrolling in a direction. The widget will be sized to the FlickScrollPane in the disabled direction. */
+	public void setScrollingDisabled (boolean x, boolean y) {
+<span class="nc" id="L957">		disableX = x;</span>
+<span class="nc" id="L958">		disableY = y;</span>
+<span class="nc" id="L959">		invalidate();</span>
+<span class="nc" id="L960">	}</span>
+
+	public boolean isScrollingDisabledX () {
+<span class="nc" id="L963">		return disableX;</span>
+	}
+
+	public boolean isScrollingDisabledY () {
+<span class="nc" id="L967">		return disableY;</span>
+	}
+
+	public boolean isLeftEdge () {
+<span class="nc bnc" id="L971" title="All 4 branches missed.">		return !scrollX || amountX &lt;= 0;</span>
+	}
+
+	public boolean isRightEdge () {
+<span class="nc bnc" id="L975" title="All 4 branches missed.">		return !scrollX || amountX &gt;= maxX;</span>
+	}
+
+	public boolean isTopEdge () {
+<span class="nc bnc" id="L979" title="All 4 branches missed.">		return !scrollY || amountY &lt;= 0;</span>
+	}
+
+	public boolean isBottomEdge () {
+<span class="nc bnc" id="L983" title="All 4 branches missed.">		return !scrollY || amountY &gt;= maxY;</span>
+	}
+
+	public boolean isDragging () {
+<span class="nc bnc" id="L987" title="All 2 branches missed.">		return draggingPointer != -1;</span>
+	}
+
+	public boolean isPanning () {
+<span class="nc" id="L991">		return flickScrollListener.getGestureDetector().isPanning();</span>
+	}
+
+	public boolean isFlinging () {
+<span class="nc bnc" id="L995" title="All 2 branches missed.">		return flingTimer &gt; 0;</span>
+	}
+
+	public void setVelocityX (float velocityX) {
+<span class="nc" id="L999">		this.velocityX = velocityX;</span>
+<span class="nc" id="L1000">	}</span>
+
+	/** Gets the flick scroll x velocity. */
+	public float getVelocityX () {
+<span class="nc" id="L1004">		return velocityX;</span>
+	}
+
+	public void setVelocityY (float velocityY) {
+<span class="nc" id="L1008">		this.velocityY = velocityY;</span>
+<span class="nc" id="L1009">	}</span>
+
+	/** Gets the flick scroll y velocity. */
+	public float getVelocityY () {
+<span class="nc" id="L1013">		return velocityY;</span>
+	}
+
+	/** For flick scroll, if true the widget can be scrolled slightly past its bounds and will animate back to its bounds when
+	 * scrolling is stopped. Default is true. */
+	public void setOverscroll (boolean overscrollX, boolean overscrollY) {
+<span class="nc" id="L1019">		this.overscrollX = overscrollX;</span>
+<span class="nc" id="L1020">		this.overscrollY = overscrollY;</span>
+<span class="nc" id="L1021">	}</span>
+
+	/** For flick scroll, sets the overscroll distance in pixels and the speed it returns to the widget's bounds in seconds.
+	 * Default is 50, 30, 200. */
+	public void setupOverscroll (float distance, float speedMin, float speedMax) {
+<span class="nc" id="L1026">		overscrollDistance = distance;</span>
+<span class="nc" id="L1027">		overscrollSpeedMin = speedMin;</span>
+<span class="nc" id="L1028">		overscrollSpeedMax = speedMax;</span>
+<span class="nc" id="L1029">	}</span>
+
+	public float getOverscrollDistance () {
+<span class="nc" id="L1032">		return overscrollDistance;</span>
+	}
+
+	/** Forces enabling scrollbars (for non-flick scroll) and overscrolling (for flick scroll) in a direction, even if the contents
+	 * do not exceed the bounds in that direction. */
+	public void setForceScroll (boolean x, boolean y) {
+<span class="nc" id="L1038">		forceScrollX = x;</span>
+<span class="nc" id="L1039">		forceScrollY = y;</span>
+<span class="nc" id="L1040">	}</span>
+
+	public boolean isForceScrollX () {
+<span class="nc" id="L1043">		return forceScrollX;</span>
+	}
+
+	public boolean isForceScrollY () {
+<span class="nc" id="L1047">		return forceScrollY;</span>
+	}
+
+	/** For flick scroll, sets the amount of time in seconds that a fling will continue to scroll. Default is 1. */
+	public void setFlingTime (float flingTime) {
+<span class="nc" id="L1052">		this.flingTime = flingTime;</span>
+<span class="nc" id="L1053">	}</span>
+
+	/** For flick scroll, prevents scrolling out of the widget's bounds. Default is true. */
+	public void setClamp (boolean clamp) {
+<span class="nc" id="L1057">		this.clamp = clamp;</span>
+<span class="nc" id="L1058">	}</span>
+
+	/** Set the position of the vertical and horizontal scroll bars. */
+	public void setScrollBarPositions (boolean bottom, boolean right) {
+<span class="nc" id="L1062">		hScrollOnBottom = bottom;</span>
+<span class="nc" id="L1063">		vScrollOnRight = right;</span>
+<span class="nc" id="L1064">	}</span>
+
+	/** When true the scrollbars don't reduce the scrollable size and fade out after some time of not being used. */
+	public void setFadeScrollBars (boolean fadeScrollBars) {
+<span class="nc bnc" id="L1068" title="All 2 branches missed.">		if (this.fadeScrollBars == fadeScrollBars) return;</span>
+<span class="nc" id="L1069">		this.fadeScrollBars = fadeScrollBars;</span>
+<span class="nc bnc" id="L1070" title="All 2 branches missed.">		if (!fadeScrollBars) fadeAlpha = fadeAlphaSeconds;</span>
+<span class="nc" id="L1071">		invalidate();</span>
+<span class="nc" id="L1072">	}</span>
+
+	public void setupFadeScrollBars (float fadeAlphaSeconds, float fadeDelaySeconds) {
+<span class="nc" id="L1075">		this.fadeAlphaSeconds = fadeAlphaSeconds;</span>
+<span class="nc" id="L1076">		this.fadeDelaySeconds = fadeDelaySeconds;</span>
+<span class="nc" id="L1077">	}</span>
+
+	public boolean getFadeScrollBars () {
+<span class="nc" id="L1080">		return fadeScrollBars;</span>
+	}
+
+	/** When false, the scroll bars don't respond to touch or mouse events. Default is true. */
+	public void setScrollBarTouch (boolean scrollBarTouch) {
+<span class="nc" id="L1085">		this.scrollBarTouch = scrollBarTouch;</span>
+<span class="nc" id="L1086">	}</span>
+
+	public void setSmoothScrolling (boolean smoothScrolling) {
+<span class="nc" id="L1089">		this.smoothScrolling = smoothScrolling;</span>
+<span class="nc" id="L1090">	}</span>
+
+	/** When false (the default), the widget is clipped so it is not drawn under the scrollbars. When true, the widget is clipped
+	 * to the entire scroll pane bounds and the scrollbars are drawn on top of the widget. If {@link #setFadeScrollBars(boolean)}
+	 * is true, the scroll bars are always drawn on top. */
+	public void setScrollbarsOnTop (boolean scrollbarsOnTop) {
+<span class="nc" id="L1096">		this.scrollbarsOnTop = scrollbarsOnTop;</span>
+<span class="nc" id="L1097">		invalidate();</span>
+<span class="nc" id="L1098">	}</span>
+
+	public boolean getVariableSizeKnobs () {
+<span class="nc" id="L1101">		return variableSizeKnobs;</span>
+	}
+
+	/** If true, the scroll knobs are sized based on {@link #getMaxX()} or {@link #getMaxY()}. If false, the scroll knobs are sized
+	 * based on {@link Drawable#getMinWidth()} or {@link Drawable#getMinHeight()}. Default is true. */
+	public void setVariableSizeKnobs (boolean variableSizeKnobs) {
+<span class="nc" id="L1107">		this.variableSizeKnobs = variableSizeKnobs;</span>
+<span class="nc" id="L1108">	}</span>
+
+	/** When true (default) and flick scrolling begins, {@link #cancelTouchFocus()} is called. This causes any widgets inside the
+	 * scrollpane that have received touchDown to receive touchUp when flick scrolling begins. */
+	public void setCancelTouchFocus (boolean cancelTouchFocus) {
+<span class="nc" id="L1113">		this.cancelTouchFocus = cancelTouchFocus;</span>
+<span class="nc" id="L1114">	}</span>
+
+	public void drawDebug (ShapeRenderer shapes) {
+<span class="nc" id="L1117">		drawDebugBounds(shapes);</span>
+<span class="nc" id="L1118">		applyTransform(shapes, computeTransform());</span>
+<span class="nc bnc" id="L1119" title="All 2 branches missed.">		if (clipBegin(widgetAreaBounds.x, widgetAreaBounds.y, widgetAreaBounds.width, widgetAreaBounds.height)) {</span>
+<span class="nc" id="L1120">			drawDebugChildren(shapes);</span>
+<span class="nc" id="L1121">			shapes.flush();</span>
+<span class="nc" id="L1122">			clipEnd();</span>
+		}
+<span class="nc" id="L1124">		resetTransform(shapes);</span>
+<span class="nc" id="L1125">	}</span>
+
+	/** The style for a scroll pane, see {@link ScrollPane}.
+	 * @author mzechner
+	 * @author Nathan Sweet */
+	static public class ScrollPaneStyle {
+		/** Optional. */
+		public Drawable background, corner;
+		/** Optional. */
+		public Drawable hScroll, hScrollKnob;
+		/** Optional. */
+		public Drawable vScroll, vScrollKnob;
+
+<span class="nc" id="L1138">		public ScrollPaneStyle () {</span>
+<span class="nc" id="L1139">		}</span>
+
+		public ScrollPaneStyle (Drawable background, Drawable hScroll, Drawable hScrollKnob, Drawable vScroll,
+<span class="nc" id="L1142">			Drawable vScrollKnob) {</span>
+<span class="nc" id="L1143">			this.background = background;</span>
+<span class="nc" id="L1144">			this.hScroll = hScroll;</span>
+<span class="nc" id="L1145">			this.hScrollKnob = hScrollKnob;</span>
+<span class="nc" id="L1146">			this.vScroll = vScroll;</span>
+<span class="nc" id="L1147">			this.vScrollKnob = vScrollKnob;</span>
+<span class="nc" id="L1148">		}</span>
+
+<span class="nc" id="L1150">		public ScrollPaneStyle (ScrollPaneStyle style) {</span>
+<span class="nc" id="L1151">			this.background = style.background;</span>
+<span class="nc" id="L1152">			this.corner = style.corner;</span>
+<span class="nc" id="L1153">			this.hScroll = style.hScroll;</span>
+<span class="nc" id="L1154">			this.hScrollKnob = style.hScrollKnob;</span>
+<span class="nc" id="L1155">			this.vScroll = style.vScroll;</span>
+<span class="nc" id="L1156">			this.vScrollKnob = style.vScrollKnob;</span>
+<span class="nc" id="L1157">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

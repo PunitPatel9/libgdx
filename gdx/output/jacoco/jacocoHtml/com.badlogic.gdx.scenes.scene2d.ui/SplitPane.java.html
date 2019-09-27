@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SplitPane.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">SplitPane.java</span></div><h1>SplitPane.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.Layout;
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** A container that contains two widgets and is divided either horizontally or vertically. The user may resize the widgets. The
+ * child widgets are always sized to fill their side of the SplitPane.
+ * &lt;p&gt;
+ * Minimum and maximum split amounts can be set to limit the motion of the resizing handle. The handle position is also prevented
+ * from shrinking the children below their minimum sizes. If these limits over-constrain the handle, it will be locked and placed
+ * at an averaged location, resulting in cropped children. The minimum child size can be ignored (allowing dynamic cropping) by
+ * wrapping the child in a {@linkplain Container} with a minimum size of 0 and {@linkplain Container#fill() fill()} set, or by
+ * overriding {@link #clampSplitAmount()}.
+ * &lt;p&gt;
+ * The preferred size of a SplitPane is that of the child widgets and the size of the {@link SplitPaneStyle#handle}. The widgets
+ * are sized depending on the SplitPane size and the {@link #setSplitAmount(float) split position}.
+ * @author mzechner
+ * @author Nathan Sweet */
+public class SplitPane extends WidgetGroup {
+	SplitPaneStyle style;
+	private Actor firstWidget, secondWidget;
+	boolean vertical;
+<span class="nc" id="L49">	float splitAmount = 0.5f, minAmount, maxAmount = 1;</span>
+
+<span class="nc" id="L51">	private Rectangle firstWidgetBounds = new Rectangle();</span>
+<span class="nc" id="L52">	private Rectangle secondWidgetBounds = new Rectangle();</span>
+<span class="nc" id="L53">	Rectangle handleBounds = new Rectangle();</span>
+	boolean cursorOverHandle;
+<span class="nc" id="L55">	private Rectangle tempScissors = new Rectangle();</span>
+
+<span class="nc" id="L57">	Vector2 lastPoint = new Vector2();</span>
+<span class="nc" id="L58">	Vector2 handlePosition = new Vector2();</span>
+
+	/** @param firstWidget May be null.
+	 * @param secondWidget May be null. */
+	public SplitPane (Actor firstWidget, Actor secondWidget, boolean vertical, Skin skin) {
+<span class="nc bnc" id="L63" title="All 2 branches missed.">		this(firstWidget, secondWidget, vertical, skin, &quot;default-&quot; + (vertical ? &quot;vertical&quot; : &quot;horizontal&quot;));</span>
+<span class="nc" id="L64">	}</span>
+
+	/** @param firstWidget May be null.
+	 * @param secondWidget May be null. */
+	public SplitPane (Actor firstWidget, Actor secondWidget, boolean vertical, Skin skin, String styleName) {
+<span class="nc" id="L69">		this(firstWidget, secondWidget, vertical, skin.get(styleName, SplitPaneStyle.class));</span>
+<span class="nc" id="L70">	}</span>
+
+	/** @param firstWidget May be null.
+	 * @param secondWidget May be null. */
+<span class="nc" id="L74">	public SplitPane (Actor firstWidget, Actor secondWidget, boolean vertical, SplitPaneStyle style) {</span>
+<span class="nc" id="L75">		this.vertical = vertical;</span>
+<span class="nc" id="L76">		setStyle(style);</span>
+<span class="nc" id="L77">		setFirstWidget(firstWidget);</span>
+<span class="nc" id="L78">		setSecondWidget(secondWidget);</span>
+<span class="nc" id="L79">		setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L80">		initialize();</span>
+<span class="nc" id="L81">	}</span>
+
+	private void initialize () {
+<span class="nc" id="L84">		addListener(new InputListener() {</span>
+<span class="nc" id="L85">			int draggingPointer = -1;</span>
+
+			public boolean touchDown (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">				if (draggingPointer != -1) return false;</span>
+<span class="nc bnc" id="L89" title="All 4 branches missed.">				if (pointer == 0 &amp;&amp; button != 0) return false;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">				if (handleBounds.contains(x, y)) {</span>
+<span class="nc" id="L91">					draggingPointer = pointer;</span>
+<span class="nc" id="L92">					lastPoint.set(x, y);</span>
+<span class="nc" id="L93">					handlePosition.set(handleBounds.x, handleBounds.y);</span>
+<span class="nc" id="L94">					return true;</span>
+				}
+<span class="nc" id="L96">				return false;</span>
+			}
+
+			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">				if (pointer == draggingPointer) draggingPointer = -1;</span>
+<span class="nc" id="L101">			}</span>
+
+			public void touchDragged (InputEvent event, float x, float y, int pointer) {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">				if (pointer != draggingPointer) return;</span>
+
+<span class="nc" id="L106">				Drawable handle = style.handle;</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">				if (!vertical) {</span>
+<span class="nc" id="L108">					float delta = x - lastPoint.x;</span>
+<span class="nc" id="L109">					float availWidth = getWidth() - handle.getMinWidth();</span>
+<span class="nc" id="L110">					float dragX = handlePosition.x + delta;</span>
+<span class="nc" id="L111">					handlePosition.x = dragX;</span>
+<span class="nc" id="L112">					dragX = Math.max(0, dragX);</span>
+<span class="nc" id="L113">					dragX = Math.min(availWidth, dragX);</span>
+<span class="nc" id="L114">					splitAmount = dragX / availWidth;</span>
+<span class="nc" id="L115">					lastPoint.set(x, y);</span>
+<span class="nc" id="L116">				} else {</span>
+<span class="nc" id="L117">					float delta = y - lastPoint.y;</span>
+<span class="nc" id="L118">					float availHeight = getHeight() - handle.getMinHeight();</span>
+<span class="nc" id="L119">					float dragY = handlePosition.y + delta;</span>
+<span class="nc" id="L120">					handlePosition.y = dragY;</span>
+<span class="nc" id="L121">					dragY = Math.max(0, dragY);</span>
+<span class="nc" id="L122">					dragY = Math.min(availHeight, dragY);</span>
+<span class="nc" id="L123">					splitAmount = 1 - (dragY / availHeight);</span>
+<span class="nc" id="L124">					lastPoint.set(x, y);</span>
+				}
+<span class="nc" id="L126">				invalidate();</span>
+<span class="nc" id="L127">			}</span>
+
+			public boolean mouseMoved (InputEvent event, float x, float y) {
+<span class="nc" id="L130">				cursorOverHandle = handleBounds.contains(x, y);</span>
+<span class="nc" id="L131">				return false;</span>
+			}
+		});
+<span class="nc" id="L134">	}</span>
+
+	public void setStyle (SplitPaneStyle style) {
+<span class="nc" id="L137">		this.style = style;</span>
+<span class="nc" id="L138">		invalidateHierarchy();</span>
+<span class="nc" id="L139">	}</span>
+
+	/** Returns the split pane's style. Modifying the returned style may not have an effect until {@link #setStyle(SplitPaneStyle)}
+	 * is called. */
+	public SplitPaneStyle getStyle () {
+<span class="nc" id="L144">		return style;</span>
+	}
+
+	public void layout () {
+<span class="nc" id="L148">		clampSplitAmount();</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">		if (!vertical)</span>
+<span class="nc" id="L150">			calculateHorizBoundsAndPositions();</span>
+		else
+<span class="nc" id="L152">			calculateVertBoundsAndPositions();</span>
+
+<span class="nc" id="L154">		Actor firstWidget = this.firstWidget;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">		if (firstWidget != null) {</span>
+<span class="nc" id="L156">			Rectangle firstWidgetBounds = this.firstWidgetBounds;</span>
+<span class="nc" id="L157">			firstWidget.setBounds(firstWidgetBounds.x, firstWidgetBounds.y, firstWidgetBounds.width, firstWidgetBounds.height);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">			if (firstWidget instanceof Layout) ((Layout)firstWidget).validate();</span>
+		}
+<span class="nc" id="L160">		Actor secondWidget = this.secondWidget;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">		if (secondWidget != null) {</span>
+<span class="nc" id="L162">			Rectangle secondWidgetBounds = this.secondWidgetBounds;</span>
+<span class="nc" id="L163">			secondWidget.setBounds(secondWidgetBounds.x, secondWidgetBounds.y, secondWidgetBounds.width, secondWidgetBounds.height);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">			if (secondWidget instanceof Layout) ((Layout)secondWidget).validate();</span>
+		}
+<span class="nc" id="L166">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		float first = firstWidget == null ? 0</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">			: (firstWidget instanceof Layout ? ((Layout)firstWidget).getPrefWidth() : firstWidget.getWidth());</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">		float second = secondWidget == null ? 0</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">			: (secondWidget instanceof Layout ? ((Layout)secondWidget).getPrefWidth() : secondWidget.getWidth());</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">		if (vertical) return Math.max(first, second);</span>
+<span class="nc" id="L174">		return first + style.handle.getMinWidth() + second;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		float first = firstWidget == null ? 0</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">			: (firstWidget instanceof Layout ? ((Layout)firstWidget).getPrefHeight() : firstWidget.getHeight());</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">		float second = secondWidget == null ? 0</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">			: (secondWidget instanceof Layout ? ((Layout)secondWidget).getPrefHeight() : secondWidget.getHeight());</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">		if (!vertical) return Math.max(first, second);</span>
+<span class="nc" id="L183">		return first + style.handle.getMinHeight() + second;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		float first = firstWidget instanceof Layout ? ((Layout)firstWidget).getMinWidth() : 0;</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		float second = secondWidget instanceof Layout ? ((Layout)secondWidget).getMinWidth() : 0;</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		if (vertical) return Math.max(first, second);</span>
+<span class="nc" id="L190">		return first + style.handle.getMinWidth() + second;</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		float first = firstWidget instanceof Layout ? ((Layout)firstWidget).getMinHeight() : 0;</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">		float second = secondWidget instanceof Layout ? ((Layout)secondWidget).getMinHeight() : 0;</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">		if (!vertical) return Math.max(first, second);</span>
+<span class="nc" id="L197">		return first + style.handle.getMinHeight() + second;</span>
+	}
+
+	public void setVertical (boolean vertical) {
+<span class="nc bnc" id="L201" title="All 2 branches missed.">		if (this.vertical == vertical) return;</span>
+<span class="nc" id="L202">		this.vertical = vertical;</span>
+<span class="nc" id="L203">		invalidateHierarchy();</span>
+<span class="nc" id="L204">	}</span>
+
+	public boolean isVertical () {
+<span class="nc" id="L207">		return vertical;</span>
+	}
+
+	private void calculateHorizBoundsAndPositions () {
+<span class="nc" id="L211">		Drawable handle = style.handle;</span>
+
+<span class="nc" id="L213">		float height = getHeight();</span>
+
+<span class="nc" id="L215">		float availWidth = getWidth() - handle.getMinWidth();</span>
+<span class="nc" id="L216">		float leftAreaWidth = (int)(availWidth * splitAmount);</span>
+<span class="nc" id="L217">		float rightAreaWidth = availWidth - leftAreaWidth;</span>
+<span class="nc" id="L218">		float handleWidth = handle.getMinWidth();</span>
+
+<span class="nc" id="L220">		firstWidgetBounds.set(0, 0, leftAreaWidth, height);</span>
+<span class="nc" id="L221">		secondWidgetBounds.set(leftAreaWidth + handleWidth, 0, rightAreaWidth, height);</span>
+<span class="nc" id="L222">		handleBounds.set(leftAreaWidth, 0, handleWidth, height);</span>
+<span class="nc" id="L223">	}</span>
+
+	private void calculateVertBoundsAndPositions () {
+<span class="nc" id="L226">		Drawable handle = style.handle;</span>
+
+<span class="nc" id="L228">		float width = getWidth();</span>
+<span class="nc" id="L229">		float height = getHeight();</span>
+
+<span class="nc" id="L231">		float availHeight = height - handle.getMinHeight();</span>
+<span class="nc" id="L232">		float topAreaHeight = (int)(availHeight * splitAmount);</span>
+<span class="nc" id="L233">		float bottomAreaHeight = availHeight - topAreaHeight;</span>
+<span class="nc" id="L234">		float handleHeight = handle.getMinHeight();</span>
+
+<span class="nc" id="L236">		firstWidgetBounds.set(0, height - topAreaHeight, width, topAreaHeight);</span>
+<span class="nc" id="L237">		secondWidgetBounds.set(0, 0, width, bottomAreaHeight);</span>
+<span class="nc" id="L238">		handleBounds.set(0, bottomAreaHeight, width, handleHeight);</span>
+<span class="nc" id="L239">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L242">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">		if (stage == null) return;</span>
+
+<span class="nc" id="L245">		validate();</span>
+
+<span class="nc" id="L247">		Color color = getColor();</span>
+<span class="nc" id="L248">		float alpha = color.a * parentAlpha;</span>
+
+<span class="nc" id="L250">		applyTransform(batch, computeTransform());</span>
+<span class="nc bnc" id="L251" title="All 4 branches missed.">		if (firstWidget != null &amp;&amp; firstWidget.isVisible()) {</span>
+<span class="nc" id="L252">			batch.flush();</span>
+<span class="nc" id="L253">			stage.calculateScissors(firstWidgetBounds, tempScissors);</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">			if (ScissorStack.pushScissors(tempScissors)) {</span>
+<span class="nc" id="L255">				firstWidget.draw(batch, alpha);</span>
+<span class="nc" id="L256">				batch.flush();</span>
+<span class="nc" id="L257">				ScissorStack.popScissors();</span>
+			}
+		}
+<span class="nc bnc" id="L260" title="All 4 branches missed.">		if (secondWidget != null &amp;&amp; secondWidget.isVisible()) {</span>
+<span class="nc" id="L261">			batch.flush();</span>
+<span class="nc" id="L262">			stage.calculateScissors(secondWidgetBounds, tempScissors);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">			if (ScissorStack.pushScissors(tempScissors)) {</span>
+<span class="nc" id="L264">				secondWidget.draw(batch, alpha);</span>
+<span class="nc" id="L265">				batch.flush();</span>
+<span class="nc" id="L266">				ScissorStack.popScissors();</span>
+			}
+		}
+<span class="nc" id="L269">		batch.setColor(color.r, color.g, color.b, alpha);</span>
+<span class="nc" id="L270">		style.handle.draw(batch, handleBounds.x, handleBounds.y, handleBounds.width, handleBounds.height);</span>
+<span class="nc" id="L271">		resetTransform(batch);</span>
+<span class="nc" id="L272">	}</span>
+
+	/** @param splitAmount The split amount between the min and max amount. This parameter is clamped during layout. See
+	 *           {@link #clampSplitAmount()}. */
+	public void setSplitAmount (float splitAmount) {
+<span class="nc" id="L277">		this.splitAmount = splitAmount; // will be clamped during layout</span>
+<span class="nc" id="L278">		invalidate();</span>
+<span class="nc" id="L279">	}</span>
+
+	public float getSplitAmount () {
+<span class="nc" id="L282">		return splitAmount;</span>
+	}
+
+	/** Called during layout to clamp the {@link #splitAmount} within the set limits. By default it imposes the limits of the
+	 * {@linkplain #getMinSplitAmount() min amount}, {@linkplain #getMaxSplitAmount() max amount}, and min sizes of the children.
+	 * This method is internally called in response to layout, so it should not call {@link #invalidate()}. */
+	protected void clampSplitAmount () {
+<span class="nc" id="L289">		float effectiveMinAmount = minAmount, effectiveMaxAmount = maxAmount;</span>
+
+<span class="nc bnc" id="L291" title="All 2 branches missed.">		if (vertical) {</span>
+<span class="nc" id="L292">			float availableHeight = getHeight() - style.handle.getMinHeight();</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">			if (firstWidget instanceof Layout) effectiveMinAmount = Math.max(effectiveMinAmount,</span>
+<span class="nc" id="L294">				Math.min(((Layout)firstWidget).getMinHeight() / availableHeight, 1));</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">			if (secondWidget instanceof Layout) effectiveMaxAmount = Math.min(effectiveMaxAmount,</span>
+<span class="nc" id="L296">				1 - Math.min(((Layout)secondWidget).getMinHeight() / availableHeight, 1));</span>
+<span class="nc" id="L297">		} else {</span>
+<span class="nc" id="L298">			float availableWidth = getWidth() - style.handle.getMinWidth();</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">			if (firstWidget instanceof Layout)</span>
+<span class="nc" id="L300">				effectiveMinAmount = Math.max(effectiveMinAmount, Math.min(((Layout)firstWidget).getMinWidth() / availableWidth, 1));</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">			if (secondWidget instanceof Layout) effectiveMaxAmount = Math.min(effectiveMaxAmount,</span>
+<span class="nc" id="L302">				1 - Math.min(((Layout)secondWidget).getMinWidth() / availableWidth, 1));</span>
+		}
+
+<span class="nc bnc" id="L305" title="All 2 branches missed.">		if (effectiveMinAmount &gt; effectiveMaxAmount) // Locked handle. Average the position.</span>
+<span class="nc" id="L306">			splitAmount = 0.5f * (effectiveMinAmount + effectiveMaxAmount);</span>
+		else
+<span class="nc" id="L308">			splitAmount = Math.max(Math.min(splitAmount, effectiveMaxAmount), effectiveMinAmount);</span>
+<span class="nc" id="L309">	}</span>
+
+	public float getMinSplitAmount () {
+<span class="nc" id="L312">		return minAmount;</span>
+	}
+
+	public void setMinSplitAmount (float minAmount) {
+<span class="nc bnc" id="L316" title="All 4 branches missed.">		if (minAmount &lt; 0 || minAmount &gt; 1) throw new GdxRuntimeException(&quot;minAmount has to be &gt;= 0 and &lt;= 1&quot;);</span>
+<span class="nc" id="L317">		this.minAmount = minAmount;</span>
+<span class="nc" id="L318">	}</span>
+
+	public float getMaxSplitAmount () {
+<span class="nc" id="L321">		return maxAmount;</span>
+	}
+
+	public void setMaxSplitAmount (float maxAmount) {
+<span class="nc bnc" id="L325" title="All 4 branches missed.">		if (maxAmount &lt; 0 || maxAmount &gt; 1) throw new GdxRuntimeException(&quot;maxAmount has to be &gt;= 0 and &lt;= 1&quot;);</span>
+<span class="nc" id="L326">		this.maxAmount = maxAmount;</span>
+<span class="nc" id="L327">	}</span>
+
+	/** @param widget May be null. */
+	public void setFirstWidget (Actor widget) {
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		if (firstWidget != null) super.removeActor(firstWidget);</span>
+<span class="nc" id="L332">		firstWidget = widget;</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">		if (widget != null) super.addActor(widget);</span>
+<span class="nc" id="L334">		invalidate();</span>
+<span class="nc" id="L335">	}</span>
+
+	/** @param widget May be null. */
+	public void setSecondWidget (Actor widget) {
+<span class="nc bnc" id="L339" title="All 2 branches missed.">		if (secondWidget != null) super.removeActor(secondWidget);</span>
+<span class="nc" id="L340">		secondWidget = widget;</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">		if (widget != null) super.addActor(widget);</span>
+<span class="nc" id="L342">		invalidate();</span>
+<span class="nc" id="L343">	}</span>
+
+	public void addActor (Actor actor) {
+<span class="nc" id="L346">		throw new UnsupportedOperationException(&quot;Use SplitPane#setWidget.&quot;);</span>
+	}
+
+	public void addActorAt (int index, Actor actor) {
+<span class="nc" id="L350">		throw new UnsupportedOperationException(&quot;Use SplitPane#setWidget.&quot;);</span>
+	}
+
+	public void addActorBefore (Actor actorBefore, Actor actor) {
+<span class="nc" id="L354">		throw new UnsupportedOperationException(&quot;Use SplitPane#setWidget.&quot;);</span>
+	}
+
+	public boolean removeActor (Actor actor) {
+<span class="nc bnc" id="L358" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">		if (actor == firstWidget) {</span>
+<span class="nc" id="L360">			setFirstWidget(null);</span>
+<span class="nc" id="L361">			return true;</span>
+		}
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		if (actor == secondWidget) {</span>
+<span class="nc" id="L364">			setSecondWidget(null);</span>
+<span class="nc" id="L365">			return true;</span>
+		}
+<span class="nc" id="L367">		return true;</span>
+	}
+
+	public boolean removeActor (Actor actor, boolean unfocus) {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">		if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">		if (actor == firstWidget) {</span>
+<span class="nc" id="L373">			super.removeActor(actor, unfocus);</span>
+<span class="nc" id="L374">			firstWidget = null;</span>
+<span class="nc" id="L375">			invalidate();</span>
+<span class="nc" id="L376">			return true;</span>
+		}
+<span class="nc bnc" id="L378" title="All 2 branches missed.">		if (actor == secondWidget) {</span>
+<span class="nc" id="L379">			super.removeActor(actor, unfocus);</span>
+<span class="nc" id="L380">			secondWidget = null;</span>
+<span class="nc" id="L381">			invalidate();</span>
+<span class="nc" id="L382">			return true;</span>
+		}
+<span class="nc" id="L384">		return false;</span>
+	}
+
+	public Actor removeActorAt (int index, boolean unfocus) {
+<span class="nc" id="L388">		Actor actor = super.removeActorAt(index, unfocus);</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">		if (actor == firstWidget) {</span>
+<span class="nc" id="L390">			super.removeActor(actor, unfocus);</span>
+<span class="nc" id="L391">			firstWidget = null;</span>
+<span class="nc" id="L392">			invalidate();</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">		} else if (actor == secondWidget) {</span>
+<span class="nc" id="L394">			super.removeActor(actor, unfocus);</span>
+<span class="nc" id="L395">			secondWidget = null;</span>
+<span class="nc" id="L396">			invalidate();</span>
+		}
+<span class="nc" id="L398">		return actor;</span>
+	}
+
+	public boolean isCursorOverHandle () {
+<span class="nc" id="L402">		return cursorOverHandle;</span>
+	}
+
+	/** The style for a splitpane, see {@link SplitPane}.
+	 * @author mzechner
+	 * @author Nathan Sweet */
+	static public class SplitPaneStyle {
+		public Drawable handle;
+
+<span class="nc" id="L411">		public SplitPaneStyle () {</span>
+<span class="nc" id="L412">		}</span>
+
+<span class="nc" id="L414">		public SplitPaneStyle (Drawable handle) {</span>
+<span class="nc" id="L415">			this.handle = handle;</span>
+<span class="nc" id="L416">		}</span>
+
+<span class="nc" id="L418">		public SplitPaneStyle (SplitPaneStyle style) {</span>
+<span class="nc" id="L419">			this.handle = style.handle;</span>
+<span class="nc" id="L420">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

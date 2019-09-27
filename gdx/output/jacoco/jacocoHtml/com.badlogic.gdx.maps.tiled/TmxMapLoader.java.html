@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TmxMapLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.maps.tiled</a> &gt; <span class="el_source">TmxMapLoader.java</span></div><h1>TmxMapLoader.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.maps.tiled;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.assets.loaders.FileHandleResolver;
+import com.badlogic.gdx.assets.loaders.TextureLoader;
+import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.ImageResolver;
+import com.badlogic.gdx.maps.ImageResolver.AssetManagerImageResolver;
+import com.badlogic.gdx.maps.ImageResolver.DirectImageResolver;
+import com.badlogic.gdx.maps.MapProperties;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.XmlReader.Element;
+
+/** @brief synchronous loader for TMX maps created with the Tiled tool */
+public class TmxMapLoader extends BaseTmxMapLoader&lt;TmxMapLoader.Parameters&gt; {
+
+<span class="nc" id="L38">	public static class Parameters extends BaseTmxMapLoader.Parameters {</span>
+
+	}
+
+	public TmxMapLoader () {
+<span class="nc" id="L43">		super(new InternalFileHandleResolver());</span>
+<span class="nc" id="L44">	}</span>
+
+	/** Creates loader
+	 * 
+	 * @param resolver */
+	public TmxMapLoader (FileHandleResolver resolver) {
+<span class="nc" id="L50">		super(resolver);</span>
+<span class="nc" id="L51">	}</span>
+
+	/** Loads the {@link TiledMap} from the given file. The file is resolved via the {@link FileHandleResolver} set in the
+	 * constructor of this class. By default it will resolve to an internal file. The map will be loaded for a y-up coordinate
+	 * system.
+	 * @param fileName the filename
+	 * @return the TiledMap */
+	public TiledMap load (String fileName) {
+<span class="nc" id="L59">		return load(fileName, new TmxMapLoader.Parameters());</span>
+	}
+
+	/** Loads the {@link TiledMap} from the given file. The file is resolved via the {@link FileHandleResolver} set in the
+	 * constructor of this class. By default it will resolve to an internal file.
+	 * @param fileName the filename
+	 * @param parameter specifies whether to use y-up, generate mip maps etc.
+	 * @return the TiledMap */
+	public TiledMap load (String fileName, TmxMapLoader.Parameters parameter) {
+<span class="nc" id="L68">		FileHandle tmxFile = resolve(fileName);</span>
+
+<span class="nc" id="L70">		this.root = xml.parse(tmxFile);</span>
+
+<span class="nc" id="L72">		ObjectMap&lt;String, Texture&gt; textures = new ObjectMap&lt;String, Texture&gt;();</span>
+
+<span class="nc" id="L74">		final Array&lt;FileHandle&gt; textureFiles = getDependencyFileHandles(tmxFile);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">		for (FileHandle textureFile : textureFiles) {</span>
+<span class="nc" id="L76">			Texture texture = new Texture(textureFile, parameter.generateMipMaps);</span>
+<span class="nc" id="L77">			texture.setFilter(parameter.textureMinFilter, parameter.textureMagFilter);</span>
+<span class="nc" id="L78">			textures.put(textureFile.path(), texture);</span>
+<span class="nc" id="L79">		}</span>
+
+<span class="nc" id="L81">		TiledMap map = loadTiledMap(tmxFile, parameter, new DirectImageResolver(textures));</span>
+<span class="nc" id="L82">		map.setOwnedResources(textures.values().toArray());</span>
+<span class="nc" id="L83">		return map;</span>
+	}
+
+	@Override
+	public void loadAsync (AssetManager manager, String fileName, FileHandle tmxFile, Parameters parameter) {
+<span class="nc" id="L88">		this.map = loadTiledMap(tmxFile, parameter, new AssetManagerImageResolver(manager));</span>
+<span class="nc" id="L89">	}</span>
+
+	@Override
+	public TiledMap loadSync (AssetManager manager, String fileName, FileHandle file, Parameters parameter) {
+<span class="nc" id="L93">		return map;</span>
+	}
+
+	@Override
+	protected Array&lt;AssetDescriptor&gt; getDependencyAssetDescriptors (FileHandle tmxFile,	TextureLoader.TextureParameter textureParameter) {
+<span class="nc" id="L98">		Array&lt;AssetDescriptor&gt; descriptors = new Array&lt;AssetDescriptor&gt;();</span>
+
+<span class="nc" id="L100">		final Array&lt;FileHandle&gt; fileHandles = getDependencyFileHandles(tmxFile);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">		for (FileHandle handle : fileHandles) {</span>
+<span class="nc" id="L102">			descriptors.add(new AssetDescriptor(handle, Texture.class, textureParameter));</span>
+<span class="nc" id="L103">		}</span>
+
+<span class="nc" id="L105">		return descriptors;</span>
+	}
+
+	private Array&lt;FileHandle&gt; getDependencyFileHandles (FileHandle tmxFile) {
+<span class="nc" id="L109">		Array&lt;FileHandle&gt; fileHandles = new Array&lt;FileHandle&gt;();</span>
+
+		// TileSet descriptors
+<span class="nc bnc" id="L112" title="All 2 branches missed.">		for (Element tileset : root.getChildrenByName(&quot;tileset&quot;)) {</span>
+<span class="nc" id="L113">			String source = tileset.getAttribute(&quot;source&quot;, null);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">			if (source != null) {</span>
+<span class="nc" id="L115">				FileHandle tsxFile = getRelativeFileHandle(tmxFile, source);</span>
+<span class="nc" id="L116">				tileset = xml.parse(tsxFile);</span>
+<span class="nc" id="L117">				Element imageElement = tileset.getChildByName(&quot;image&quot;);</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">				if (imageElement != null) {</span>
+<span class="nc" id="L119">					String imageSource = tileset.getChildByName(&quot;image&quot;).getAttribute(&quot;source&quot;);</span>
+<span class="nc" id="L120">					FileHandle image = getRelativeFileHandle(tsxFile, imageSource);</span>
+<span class="nc" id="L121">					fileHandles.add(image);</span>
+<span class="nc" id="L122">				} else {</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">					for (Element tile : tileset.getChildrenByName(&quot;tile&quot;)) {</span>
+<span class="nc" id="L124">						String imageSource = tile.getChildByName(&quot;image&quot;).getAttribute(&quot;source&quot;);</span>
+<span class="nc" id="L125">						FileHandle image = getRelativeFileHandle(tsxFile, imageSource);</span>
+<span class="nc" id="L126">						fileHandles.add(image);</span>
+<span class="nc" id="L127">					}</span>
+				}
+<span class="nc" id="L129">			} else {</span>
+<span class="nc" id="L130">				Element imageElement = tileset.getChildByName(&quot;image&quot;);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">				if (imageElement != null) {</span>
+<span class="nc" id="L132">					String imageSource = tileset.getChildByName(&quot;image&quot;).getAttribute(&quot;source&quot;);</span>
+<span class="nc" id="L133">					FileHandle image = getRelativeFileHandle(tmxFile, imageSource);</span>
+<span class="nc" id="L134">					fileHandles.add(image);</span>
+<span class="nc" id="L135">				} else {</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">					for (Element tile : tileset.getChildrenByName(&quot;tile&quot;)) {</span>
+<span class="nc" id="L137">						String imageSource = tile.getChildByName(&quot;image&quot;).getAttribute(&quot;source&quot;);</span>
+<span class="nc" id="L138">						FileHandle image = getRelativeFileHandle(tmxFile, imageSource);</span>
+<span class="nc" id="L139">						fileHandles.add(image);</span>
+<span class="nc" id="L140">					}</span>
+				}
+			}
+<span class="nc" id="L143">		}</span>
+
+		// ImageLayer descriptors
+<span class="nc bnc" id="L146" title="All 2 branches missed.">		for (Element imageLayer : root.getChildrenByName(&quot;imagelayer&quot;)) {</span>
+<span class="nc" id="L147">			Element image = imageLayer.getChildByName(&quot;image&quot;);</span>
+<span class="nc" id="L148">			String source = image.getAttribute(&quot;source&quot;, null);</span>
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">			if (source != null) {</span>
+<span class="nc" id="L151">				FileHandle handle = getRelativeFileHandle(tmxFile, source);</span>
+<span class="nc" id="L152">				fileHandles.add(handle);</span>
+			}
+<span class="nc" id="L154">		}</span>
+
+<span class="nc" id="L156">		return fileHandles;</span>
+	}
+
+	@Override
+	protected void addStaticTiles (FileHandle tmxFile, ImageResolver imageResolver, TiledMapTileSet tileSet,	Element element,
+		Array&lt;Element&gt; tileElements, String name, int firstgid, int tilewidth, int tileheight, int spacing, int margin,
+		String source, int offsetX, int offsetY, String imageSource, int imageWidth, int imageHeight, FileHandle image) {
+
+<span class="nc" id="L164">		MapProperties props = tileSet.getProperties();</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		if (image != null) {</span>
+			// One image for the whole tileSet
+<span class="nc" id="L167">			TextureRegion texture = imageResolver.getImage(image.path());</span>
+
+<span class="nc" id="L169">			props.put(&quot;imagesource&quot;, imageSource);</span>
+<span class="nc" id="L170">			props.put(&quot;imagewidth&quot;, imageWidth);</span>
+<span class="nc" id="L171">			props.put(&quot;imageheight&quot;, imageHeight);</span>
+<span class="nc" id="L172">			props.put(&quot;tilewidth&quot;, tilewidth);</span>
+<span class="nc" id="L173">			props.put(&quot;tileheight&quot;, tileheight);</span>
+<span class="nc" id="L174">			props.put(&quot;margin&quot;, margin);</span>
+<span class="nc" id="L175">			props.put(&quot;spacing&quot;, spacing);</span>
+
+<span class="nc" id="L177">			int stopWidth = texture.getRegionWidth() - tilewidth;</span>
+<span class="nc" id="L178">			int stopHeight = texture.getRegionHeight() - tileheight;</span>
+
+<span class="nc" id="L180">			int id = firstgid;</span>
+
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			for (int y = margin; y &lt;= stopHeight; y += tileheight + spacing) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">				for (int x = margin; x &lt;= stopWidth; x += tilewidth + spacing) {</span>
+<span class="nc" id="L184">					TextureRegion tileRegion = new TextureRegion(texture, x, y, tilewidth, tileheight);</span>
+<span class="nc" id="L185">					int tileId = id++;</span>
+<span class="nc" id="L186">					addStaticTiledMapTile(tileSet, tileRegion, tileId, offsetX, offsetY);</span>
+				}
+			}
+<span class="nc" id="L189">		} else {</span>
+			// Every tile has its own image source
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			for (Element tileElement : tileElements) {</span>
+<span class="nc" id="L192">				Element imageElement = tileElement.getChildByName(&quot;image&quot;);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">				if (imageElement != null) {</span>
+<span class="nc" id="L194">					imageSource = imageElement.getAttribute(&quot;source&quot;);</span>
+
+<span class="nc bnc" id="L196" title="All 2 branches missed.">					if (source != null) {</span>
+<span class="nc" id="L197">						image = getRelativeFileHandle(getRelativeFileHandle(tmxFile, source), imageSource);</span>
+					} else {
+<span class="nc" id="L199">						image = getRelativeFileHandle(tmxFile, imageSource);</span>
+					}
+				}
+<span class="nc" id="L202">				TextureRegion texture = imageResolver.getImage(image.path());</span>
+<span class="nc" id="L203">				int tileId = firstgid + tileElement.getIntAttribute(&quot;id&quot;);</span>
+<span class="nc" id="L204">				addStaticTiledMapTile(tileSet, texture, tileId, offsetX, offsetY);</span>
+<span class="nc" id="L205">			}</span>
+		}
+<span class="nc" id="L207">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

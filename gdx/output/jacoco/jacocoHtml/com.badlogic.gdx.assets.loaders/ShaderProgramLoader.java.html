@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ShaderProgramLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.assets.loaders</a> &gt; <span class="el_source">ShaderProgramLoader.java</span></div><h1>ShaderProgramLoader.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.assets.loaders;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetLoaderParameters;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** {@link AssetLoader} for {@link ShaderProgram} instances loaded from text files. If the file suffix is &quot;.vert&quot;, it is assumed
+ * to be a vertex shader, and a fragment shader is found using the same file name with a &quot;.frag&quot; suffix. And vice versa if the
+ * file suffix is &quot;.frag&quot;. These default suffixes can be changed in the ShaderProgramLoader constructor.
+ * &lt;p&gt;
+ * For all other file suffixes, the same file is used for both (and therefore should internally distinguish between the programs
+ * using preprocessor directives and {@link ShaderProgram#prependVertexCode} and {@link ShaderProgram#prependFragmentCode}).
+ * &lt;p&gt;
+ * The above default behavior for finding the files can be overridden by explicitly setting the file names in a
+ * {@link ShaderProgramParameter}. The parameter can also be used to prepend code to the programs.
+ * @author cypherdare */
+public class ShaderProgramLoader extends AsynchronousAssetLoader&lt;ShaderProgram, ShaderProgramLoader.ShaderProgramParameter&gt; {
+
+<span class="nc" id="L39">	private String vertexFileSuffix = &quot;.vert&quot;;</span>
+<span class="nc" id="L40">	private String fragmentFileSuffix = &quot;.frag&quot;;</span>
+
+	public ShaderProgramLoader (FileHandleResolver resolver) {
+<span class="nc" id="L43">		super(resolver);</span>
+<span class="nc" id="L44">	}</span>
+
+	public ShaderProgramLoader (FileHandleResolver resolver, String vertexFileSuffix, String fragmentFileSuffix) {
+<span class="nc" id="L47">		super(resolver);</span>
+<span class="nc" id="L48">		this.vertexFileSuffix = vertexFileSuffix;</span>
+<span class="nc" id="L49">		this.fragmentFileSuffix = fragmentFileSuffix;</span>
+<span class="nc" id="L50">	}</span>
+
+	@Override
+	public Array&lt;AssetDescriptor&gt; getDependencies (String fileName, FileHandle file, ShaderProgramParameter parameter) {
+<span class="nc" id="L54">		return null;</span>
+	}
+
+	@Override
+	public void loadAsync (AssetManager manager, String fileName, FileHandle file, ShaderProgramParameter parameter) {
+<span class="nc" id="L59">	}</span>
+
+	@Override
+	public ShaderProgram loadSync (AssetManager manager, String fileName, FileHandle file, ShaderProgramParameter parameter) {
+<span class="nc" id="L63">		String vertFileName = null, fragFileName = null;</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">		if (parameter != null) {</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">			if (parameter.vertexFile != null) vertFileName = parameter.vertexFile;</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">			if (parameter.fragmentFile != null) fragFileName = parameter.fragmentFile;</span>
+		}
+<span class="nc bnc" id="L68" title="All 4 branches missed.">		if (vertFileName == null &amp;&amp; fileName.endsWith(fragmentFileSuffix)) {</span>
+<span class="nc" id="L69">			vertFileName = fileName.substring(0, fileName.length() - fragmentFileSuffix.length()) + vertexFileSuffix;</span>
+		}
+<span class="nc bnc" id="L71" title="All 4 branches missed.">		if (fragFileName == null &amp;&amp; fileName.endsWith(vertexFileSuffix)) {</span>
+<span class="nc" id="L72">			fragFileName = fileName.substring(0, fileName.length() - vertexFileSuffix.length()) + fragmentFileSuffix;</span>
+		}
+<span class="nc bnc" id="L74" title="All 2 branches missed.">		FileHandle vertexFile = vertFileName == null ? file : resolve(vertFileName);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">		FileHandle fragmentFile = fragFileName == null ? file : resolve(fragFileName);</span>
+<span class="nc" id="L76">		String vertexCode = vertexFile.readString();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">		String fragmentCode = vertexFile.equals(fragmentFile) ? vertexCode : fragmentFile.readString();</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">		if (parameter != null) {</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">			if (parameter.prependVertexCode != null) vertexCode = parameter.prependVertexCode + vertexCode;</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">			if (parameter.prependFragmentCode != null) fragmentCode = parameter.prependFragmentCode + fragmentCode;</span>
+		}
+
+<span class="nc" id="L83">		ShaderProgram shaderProgram = new ShaderProgram(vertexCode, fragmentCode);</span>
+<span class="nc bnc" id="L84" title="All 6 branches missed.">		if ((parameter == null || parameter.logOnCompileFailure) &amp;&amp; !shaderProgram.isCompiled()) {</span>
+<span class="nc" id="L85">			manager.getLogger().error(&quot;ShaderProgram &quot; + fileName + &quot; failed to compile:\n&quot; + shaderProgram.getLog());</span>
+		}
+
+<span class="nc" id="L88">		return shaderProgram;</span>
+	}
+
+<span class="nc" id="L91">	static public class ShaderProgramParameter extends AssetLoaderParameters&lt;ShaderProgram&gt; {</span>
+		/** File name to be used for the vertex program instead of the default determined by the file name used to submit this asset
+		 * to AssetManager. */
+		public String vertexFile;
+		/** File name to be used for the fragment program instead of the default determined by the file name used to submit this
+		 * asset to AssetManager. */
+		public String fragmentFile;
+		/** Whether to log (at the error level) the shader's log if it fails to compile. Default true. */
+<span class="nc" id="L99">		public boolean logOnCompileFailure = true;</span>
+		/** Code that is always added to the vertex shader code. This is added as-is, and you should include a newline (`\n`) if
+		 * needed. {@linkplain ShaderProgram#prependVertexCode} is placed before this code. */
+		public String prependVertexCode;
+		/** Code that is always added to the fragment shader code. This is added as-is, and you should include a newline (`\n`) if
+		 * needed. {@linkplain ShaderProgram#prependFragmentCode} is placed before this code. */
+		public String prependFragmentCode;
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

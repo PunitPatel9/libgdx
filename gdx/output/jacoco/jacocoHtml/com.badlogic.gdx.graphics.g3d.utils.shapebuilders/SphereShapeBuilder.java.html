@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SphereShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">SphereShapeBuilder.java</span></div><h1>SphereShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix3;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.utils.ShortArray;
+
+/** Helper class with static methods to build sphere shapes using {@link MeshPartBuilder}.
+ * @author xoppa */
+<span class="nc" id="L28">public class SphereShapeBuilder extends BaseShapeBuilder {</span>
+<span class="nc" id="L29">	private final static ShortArray tmpIndices = new ShortArray();</span>
+<span class="nc" id="L30">	private final static Matrix3 normalTransform = new Matrix3();</span>
+
+	public static void build (MeshPartBuilder builder, float width, float height, float depth, int divisionsU, int divisionsV) {
+<span class="nc" id="L33">		build(builder, width, height, depth, divisionsU, divisionsV, 0, 360, 0, 180);</span>
+<span class="nc" id="L34">	}</span>
+
+	/** @deprecated use {@link MeshPartBuilder#setVertexTransform(Matrix4)} instead of using the method signature taking a matrix. */
+	@Deprecated
+	public static void build (MeshPartBuilder builder, final Matrix4 transform, float width, float height, float depth,
+		int divisionsU, int divisionsV) {
+<span class="nc" id="L40">		build(builder, transform, width, height, depth, divisionsU, divisionsV, 0, 360, 0, 180);</span>
+<span class="nc" id="L41">	}</span>
+
+	public static void build (MeshPartBuilder builder, float width, float height, float depth, int divisionsU, int divisionsV,
+		float angleUFrom, float angleUTo, float angleVFrom, float angleVTo) {
+<span class="nc" id="L45">		build(builder, matTmp1.idt(), width, height, depth, divisionsU, divisionsV, angleUFrom, angleUTo, angleVFrom, angleVTo);</span>
+<span class="nc" id="L46">	}</span>
+
+	/** @deprecated use {@link MeshPartBuilder#setVertexTransform(Matrix4)} instead of using the method signature taking a matrix. */
+	@Deprecated
+	public static void build (MeshPartBuilder builder, final Matrix4 transform, float width, float height, float depth,
+		int divisionsU, int divisionsV, float angleUFrom, float angleUTo, float angleVFrom, float angleVTo) {
+		// FIXME create better sphere method (- only one vertex for each pole, - position)
+<span class="nc" id="L53">		final float hw = width * 0.5f;</span>
+<span class="nc" id="L54">		final float hh = height * 0.5f;</span>
+<span class="nc" id="L55">		final float hd = depth * 0.5f;</span>
+<span class="nc" id="L56">		final float auo = MathUtils.degreesToRadians * angleUFrom;</span>
+<span class="nc" id="L57">		final float stepU = (MathUtils.degreesToRadians * (angleUTo - angleUFrom)) / divisionsU;</span>
+<span class="nc" id="L58">		final float avo = MathUtils.degreesToRadians * angleVFrom;</span>
+<span class="nc" id="L59">		final float stepV = (MathUtils.degreesToRadians * (angleVTo - angleVFrom)) / divisionsV;</span>
+<span class="nc" id="L60">		final float us = 1f / divisionsU;</span>
+<span class="nc" id="L61">		final float vs = 1f / divisionsV;</span>
+<span class="nc" id="L62">		float u = 0f;</span>
+<span class="nc" id="L63">		float v = 0f;</span>
+<span class="nc" id="L64">		float angleU = 0f;</span>
+<span class="nc" id="L65">		float angleV = 0f;</span>
+<span class="nc" id="L66">		VertexInfo curr1 = vertTmp3.set(null, null, null, null);</span>
+<span class="nc" id="L67">		curr1.hasUV = curr1.hasPosition = curr1.hasNormal = true;</span>
+
+<span class="nc" id="L69">		normalTransform.set(transform);</span>
+
+<span class="nc" id="L71">		final int s = divisionsU + 3;</span>
+<span class="nc" id="L72">		tmpIndices.clear();</span>
+<span class="nc" id="L73">		tmpIndices.ensureCapacity(divisionsU * 2);</span>
+<span class="nc" id="L74">		tmpIndices.size = s;</span>
+<span class="nc" id="L75">		int tempOffset = 0;</span>
+
+<span class="nc" id="L77">		builder.ensureVertices((divisionsV + 1) * (divisionsU + 1));</span>
+<span class="nc" id="L78">		builder.ensureRectangleIndices(divisionsU);</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		for (int iv = 0; iv &lt;= divisionsV; iv++) {</span>
+<span class="nc" id="L80">			angleV = avo + stepV * iv;</span>
+<span class="nc" id="L81">			v = vs * iv;</span>
+<span class="nc" id="L82">			final float t = MathUtils.sin(angleV);</span>
+<span class="nc" id="L83">			final float h = MathUtils.cos(angleV) * hh;</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">			for (int iu = 0; iu &lt;= divisionsU; iu++) {</span>
+<span class="nc" id="L85">				angleU = auo + stepU * iu;</span>
+<span class="nc" id="L86">				u = 1f - us * iu;</span>
+<span class="nc" id="L87">				curr1.position.set(MathUtils.cos(angleU) * hw * t, h, MathUtils.sin(angleU) * hd * t);</span>
+<span class="nc" id="L88">				curr1.normal.set(curr1.position).mul(normalTransform).nor();</span>
+<span class="nc" id="L89">				curr1.position.mul(transform);</span>
+<span class="nc" id="L90">				curr1.uv.set(u, v);</span>
+<span class="nc" id="L91">				tmpIndices.set(tempOffset, builder.vertex(curr1));</span>
+<span class="nc" id="L92">				final int o = tempOffset + s;</span>
+<span class="nc bnc" id="L93" title="All 4 branches missed.">				if ((iv &gt; 0) &amp;&amp; (iu &gt; 0)) // FIXME don't duplicate lines and points</span>
+<span class="nc" id="L94">					builder.rect(tmpIndices.get(tempOffset), tmpIndices.get((o - 1) % s), tmpIndices.get((o - (divisionsU + 2)) % s),</span>
+<span class="nc" id="L95">						tmpIndices.get((o - (divisionsU + 1)) % s));</span>
+<span class="nc" id="L96">				tempOffset = (tempOffset + 1) % tmpIndices.size;</span>
+			}
+		}
+<span class="nc" id="L99">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

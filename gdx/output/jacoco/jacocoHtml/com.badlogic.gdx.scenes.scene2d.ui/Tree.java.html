@@ -1,0 +1,833 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Tree.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Tree.java</span></div><h1>Tree.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Application.ApplicationType;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Group;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Tree.Node;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.Layout;
+import com.badlogic.gdx.scenes.scene2d.utils.Selection;
+import com.badlogic.gdx.scenes.scene2d.utils.UIUtils;
+import com.badlogic.gdx.utils.Array;
+
+/** A tree widget where each node has an icon, actor, and child nodes.
+ * &lt;p&gt;
+ * The preferred size of the tree is determined by the preferred size of the actors for the expanded nodes.
+ * &lt;p&gt;
+ * {@link ChangeEvent} is fired when the selected node changes.
+ * @param &lt;N&gt; The type of nodes in the tree.
+ * @param &lt;V&gt; The type of values for each node.
+ * @author Nathan Sweet */
+public class Tree&lt;N extends Node, V&gt; extends WidgetGroup {
+<span class="nc" id="L46">	static private final Vector2 tmp = new Vector2();</span>
+
+	TreeStyle style;
+<span class="nc" id="L49">	final Array&lt;N&gt; rootNodes = new Array();</span>
+	final Selection&lt;N&gt; selection;
+<span class="nc" id="L51">	float ySpacing = 4, iconSpacingLeft = 2, iconSpacingRight = 2, paddingLeft, paddingRight, indentSpacing;</span>
+	private float prefWidth, prefHeight;
+<span class="nc" id="L53">	private boolean sizeInvalid = true;</span>
+	private N foundNode, overNode;
+	N rangeStart;
+	private ClickListener clickListener;
+
+	public Tree (Skin skin) {
+<span class="nc" id="L59">		this(skin.get(TreeStyle.class));</span>
+<span class="nc" id="L60">	}</span>
+
+	public Tree (Skin skin, String styleName) {
+<span class="nc" id="L63">		this(skin.get(styleName, TreeStyle.class));</span>
+<span class="nc" id="L64">	}</span>
+
+<span class="nc" id="L66">	public Tree (TreeStyle style) {</span>
+<span class="nc" id="L67">		selection = new Selection&lt;N&gt;() {</span>
+			protected void changed () {
+<span class="nc bnc" id="L69" title="All 3 branches missed.">				switch (size()) {</span>
+				case 0:
+<span class="nc" id="L71">					rangeStart = null;</span>
+<span class="nc" id="L72">					break;</span>
+				case 1:
+<span class="nc" id="L74">					rangeStart = first();</span>
+					break;
+				}
+<span class="nc" id="L77">			}</span>
+		};
+<span class="nc" id="L79">		selection.setActor(this);</span>
+<span class="nc" id="L80">		selection.setMultiple(true);</span>
+<span class="nc" id="L81">		setStyle(style);</span>
+<span class="nc" id="L82">		initialize();</span>
+<span class="nc" id="L83">	}</span>
+
+	private void initialize () {
+<span class="nc" id="L86">		addListener(clickListener = new ClickListener() {</span>
+			public void clicked (InputEvent event, float x, float y) {
+<span class="nc" id="L88">				N node = getNodeAt(y);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">				if (node == null) return;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">				if (node != getNodeAt(getTouchDownY())) return;</span>
+<span class="nc bnc" id="L91" title="All 6 branches missed.">				if (selection.getMultiple() &amp;&amp; selection.notEmpty() &amp;&amp; UIUtils.shift()) {</span>
+					// Select range (shift).
+<span class="nc bnc" id="L93" title="All 2 branches missed.">					if (rangeStart == null) rangeStart = node;</span>
+<span class="nc" id="L94">					N rangeStart = Tree.this.rangeStart;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">					if (!UIUtils.ctrl()) selection.clear();</span>
+<span class="nc" id="L96">					float start = rangeStart.actor.getY(), end = node.actor.getY();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">					if (start &gt; end)</span>
+<span class="nc" id="L98">						selectNodes(rootNodes, end, start);</span>
+					else {
+<span class="nc" id="L100">						selectNodes(rootNodes, start, end);</span>
+<span class="nc" id="L101">						selection.items().orderedItems().reverse();</span>
+					}
+
+<span class="nc" id="L104">					selection.fireChangeEvent();</span>
+<span class="nc" id="L105">					Tree.this.rangeStart = rangeStart;</span>
+<span class="nc" id="L106">					return;</span>
+				}
+<span class="nc bnc" id="L108" title="All 6 branches missed.">				if (node.children.size &gt; 0 &amp;&amp; (!selection.getMultiple() || !UIUtils.ctrl())) {</span>
+					// Toggle expanded if left of icon.
+<span class="nc" id="L110">					float rowX = node.actor.getX();</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">					if (node.icon != null) rowX -= iconSpacingRight + node.icon.getMinWidth();</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">					if (x &lt; rowX) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">						node.setExpanded(!node.expanded);</span>
+<span class="nc" id="L114">						return;</span>
+					}
+				}
+<span class="nc bnc" id="L117" title="All 2 branches missed.">				if (!node.isSelectable()) return;</span>
+<span class="nc" id="L118">				selection.choose(node);</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">				if (!selection.isEmpty()) rangeStart = node;</span>
+<span class="nc" id="L120">			}</span>
+
+			public boolean mouseMoved (InputEvent event, float x, float y) {
+<span class="nc" id="L123">				setOverNode(getNodeAt(y));</span>
+<span class="nc" id="L124">				return false;</span>
+			}
+
+			public void enter (InputEvent event, float x, float y, int pointer, Actor fromActor) {
+<span class="nc" id="L128">				super.enter(event, x, y, pointer, fromActor);</span>
+<span class="nc" id="L129">				setOverNode(getNodeAt(y));</span>
+<span class="nc" id="L130">			}</span>
+
+			public void exit (InputEvent event, float x, float y, int pointer, Actor toActor) {
+<span class="nc" id="L133">				super.exit(event, x, y, pointer, toActor);</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">				if (toActor == null || !toActor.isDescendantOf(Tree.this)) setOverNode(null);</span>
+<span class="nc" id="L135">			}</span>
+		});
+<span class="nc" id="L137">	}</span>
+
+	public void setStyle (TreeStyle style) {
+<span class="nc" id="L140">		this.style = style;</span>
+
+		// Reasonable default.
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		if (indentSpacing == 0) indentSpacing = plusMinusWidth();</span>
+<span class="nc" id="L144">	}</span>
+
+	public void add (N node) {
+<span class="nc" id="L147">		insert(rootNodes.size, node);</span>
+<span class="nc" id="L148">	}</span>
+
+	public void insert (int index, N node) {
+<span class="nc" id="L151">		int existingIndex = rootNodes.indexOf(node, true);</span>
+<span class="nc bnc" id="L152" title="All 4 branches missed.">		if (existingIndex != -1 &amp;&amp; existingIndex &lt; index) index--;</span>
+<span class="nc" id="L153">		remove(node);</span>
+<span class="nc" id="L154">		node.parent = null;</span>
+<span class="nc" id="L155">		rootNodes.insert(index, node);</span>
+<span class="nc" id="L156">		node.addToTree(this);</span>
+<span class="nc" id="L157">		invalidateHierarchy();</span>
+<span class="nc" id="L158">	}</span>
+
+	public void remove (N node) {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">		if (node.parent != null) {</span>
+<span class="nc" id="L162">			node.parent.remove(node);</span>
+<span class="nc" id="L163">			return;</span>
+		}
+<span class="nc" id="L165">		rootNodes.removeValue(node, true);</span>
+<span class="nc" id="L166">		node.removeFromTree(this);</span>
+<span class="nc" id="L167">		invalidateHierarchy();</span>
+<span class="nc" id="L168">	}</span>
+
+	/** Removes all tree nodes. */
+	public void clearChildren () {
+<span class="nc" id="L172">		super.clearChildren();</span>
+<span class="nc" id="L173">		setOverNode(null);</span>
+<span class="nc" id="L174">		rootNodes.clear();</span>
+<span class="nc" id="L175">		selection.clear();</span>
+<span class="nc" id="L176">	}</span>
+
+	public Array&lt;N&gt; getNodes () {
+<span class="nc" id="L179">		return rootNodes;</span>
+	}
+
+	public void invalidate () {
+<span class="nc" id="L183">		super.invalidate();</span>
+<span class="nc" id="L184">		sizeInvalid = true;</span>
+<span class="nc" id="L185">	}</span>
+
+	private float plusMinusWidth () {
+<span class="nc" id="L188">		float width = Math.max(style.plus.getMinWidth(), style.minus.getMinWidth());</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		if (style.plusOver != null) width = Math.max(width, style.plusOver.getMinWidth());</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">		if (style.minusOver != null) width = Math.max(width, style.minusOver.getMinWidth());</span>
+<span class="nc" id="L191">		return width;</span>
+	}
+
+	private void computeSize () {
+<span class="nc" id="L195">		sizeInvalid = false;</span>
+<span class="nc" id="L196">		prefWidth = plusMinusWidth();</span>
+<span class="nc" id="L197">		prefHeight = 0;</span>
+<span class="nc" id="L198">		computeSize(rootNodes, 0, prefWidth);</span>
+<span class="nc" id="L199">		prefWidth += paddingLeft + paddingRight;</span>
+<span class="nc" id="L200">	}</span>
+
+	private void computeSize (Array&lt;N&gt; nodes, float indent, float plusMinusWidth) {
+<span class="nc" id="L203">		float ySpacing = this.ySpacing;</span>
+<span class="nc" id="L204">		float spacing = iconSpacingLeft + iconSpacingRight;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L206">			N node = nodes.get(i);</span>
+<span class="nc" id="L207">			float rowWidth = indent + plusMinusWidth;</span>
+<span class="nc" id="L208">			Actor actor = node.actor;</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">			if (actor instanceof Layout) {</span>
+<span class="nc" id="L210">				Layout layout = (Layout)actor;</span>
+<span class="nc" id="L211">				rowWidth += layout.getPrefWidth();</span>
+<span class="nc" id="L212">				node.height = layout.getPrefHeight();</span>
+<span class="nc" id="L213">			} else {</span>
+<span class="nc" id="L214">				rowWidth += actor.getWidth();</span>
+<span class="nc" id="L215">				node.height = actor.getHeight();</span>
+			}
+<span class="nc bnc" id="L217" title="All 2 branches missed.">			if (node.icon != null) {</span>
+<span class="nc" id="L218">				rowWidth += spacing + node.icon.getMinWidth();</span>
+<span class="nc" id="L219">				node.height = Math.max(node.height, node.icon.getMinHeight());</span>
+			}
+<span class="nc" id="L221">			prefWidth = Math.max(prefWidth, rowWidth);</span>
+<span class="nc" id="L222">			prefHeight += node.height + ySpacing;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">			if (node.expanded) computeSize(node.children, indent + indentSpacing, plusMinusWidth);</span>
+		}
+<span class="nc" id="L225">	}</span>
+
+	public void layout () {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L229">		layout(rootNodes, paddingLeft, getHeight() - ySpacing / 2, plusMinusWidth());</span>
+<span class="nc" id="L230">	}</span>
+
+	private float layout (Array&lt;N&gt; nodes, float indent, float y, float plusMinusWidth) {
+<span class="nc" id="L233">		float ySpacing = this.ySpacing;</span>
+<span class="nc" id="L234">		float iconSpacingLeft = this.iconSpacingLeft;</span>
+<span class="nc" id="L235">		float spacing = iconSpacingLeft + iconSpacingRight;</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L237">			N node = nodes.get(i);</span>
+<span class="nc" id="L238">			float x = indent + plusMinusWidth;</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">			if (node.icon != null)</span>
+<span class="nc" id="L240">				x += spacing + node.icon.getMinWidth();</span>
+			else
+<span class="nc" id="L242">				x += iconSpacingLeft;</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">			if (node.actor instanceof Layout) ((Layout)node.actor).pack();</span>
+<span class="nc" id="L244">			y -= node.getHeight();</span>
+<span class="nc" id="L245">			node.actor.setPosition(x, y);</span>
+<span class="nc" id="L246">			y -= ySpacing;</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">			if (node.expanded) y = layout(node.children, indent + indentSpacing, y, plusMinusWidth);</span>
+		}
+<span class="nc" id="L249">		return y;</span>
+	}
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L253">		drawBackground(batch, parentAlpha);</span>
+<span class="nc" id="L254">		Color color = getColor();</span>
+<span class="nc" id="L255">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L256">		draw(batch, rootNodes, paddingLeft, plusMinusWidth());</span>
+<span class="nc" id="L257">		super.draw(batch, parentAlpha); // Draw node actors.</span>
+<span class="nc" id="L258">	}</span>
+
+	/** Called to draw the background. Default implementation draws the style background drawable. */
+	protected void drawBackground (Batch batch, float parentAlpha) {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">		if (style.background != null) {</span>
+<span class="nc" id="L263">			Color color = getColor();</span>
+<span class="nc" id="L264">			batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L265">			style.background.draw(batch, getX(), getY(), getWidth(), getHeight());</span>
+		}
+<span class="nc" id="L267">	}</span>
+
+	/** Draws selection, icons, and expand icons. */
+	private void draw (Batch batch, Array&lt;N&gt; nodes, float indent, float plusMinusWidth) {
+<span class="nc" id="L271">		Rectangle cullingArea = getCullingArea();</span>
+<span class="nc" id="L272">		float cullBottom = 0, cullTop = 0;</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">		if (cullingArea != null) {</span>
+<span class="nc" id="L274">			cullBottom = cullingArea.y;</span>
+<span class="nc" id="L275">			cullTop = cullBottom + cullingArea.height;</span>
+		}
+<span class="nc" id="L277">		TreeStyle style = this.style;</span>
+<span class="nc" id="L278">		float x = getX(), y = getY(), expandX = x + indent, iconX = expandX + plusMinusWidth + iconSpacingLeft;</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L280">			N node = nodes.get(i);</span>
+<span class="nc" id="L281">			Actor actor = node.actor;</span>
+<span class="nc" id="L282">			float actorY = actor.getY(), height = node.height;</span>
+<span class="nc bnc" id="L283" title="All 6 branches missed.">			if (cullingArea == null || (actorY + height &gt;= cullBottom &amp;&amp; actorY &lt;= cullTop)) {</span>
+<span class="nc bnc" id="L284" title="All 4 branches missed.">				if (selection.contains(node) &amp;&amp; style.selection != null) {</span>
+<span class="nc" id="L285">					drawSelection(node, style.selection, batch, x, y + actorY - ySpacing / 2, getWidth(), height + ySpacing);</span>
+<span class="nc bnc" id="L286" title="All 4 branches missed.">				} else if (node == overNode &amp;&amp; style.over != null) {</span>
+<span class="nc" id="L287">					drawOver(node, style.over, batch, x, y + actorY - ySpacing / 2, getWidth(), height + ySpacing);</span>
+				}
+
+<span class="nc bnc" id="L290" title="All 2 branches missed.">				if (node.icon != null) {</span>
+<span class="nc" id="L291">					float iconY = y + actorY + Math.round((height - node.icon.getMinHeight()) / 2);</span>
+<span class="nc" id="L292">					batch.setColor(actor.getColor());</span>
+<span class="nc" id="L293">					drawIcon(node, node.icon, batch, iconX, iconY);</span>
+<span class="nc" id="L294">					batch.setColor(1, 1, 1, 1);</span>
+				}
+
+<span class="nc bnc" id="L297" title="All 2 branches missed.">				if (node.children.size &gt; 0) {</span>
+<span class="nc" id="L298">					Drawable expandIcon = getExpandIcon(node, iconX);</span>
+<span class="nc" id="L299">					float iconY = y + actorY + Math.round((height - expandIcon.getMinHeight()) / 2);</span>
+<span class="nc" id="L300">					drawExpandIcon(node, expandIcon, batch, expandX, iconY);</span>
+<span class="nc" id="L301">				}</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">			} else if (actorY &lt; cullBottom) {</span>
+<span class="nc" id="L303">				return;</span>
+			}
+<span class="nc bnc" id="L305" title="All 4 branches missed.">			if (node.expanded &amp;&amp; node.children.size &gt; 0) draw(batch, node.children, indent + indentSpacing, plusMinusWidth);</span>
+		}
+<span class="nc" id="L307">	}</span>
+
+	protected void drawSelection (N node, Drawable selection, Batch batch, float x, float y, float width, float height) {
+<span class="nc" id="L310">		selection.draw(batch, x, y, width, height);</span>
+<span class="nc" id="L311">	}</span>
+
+	protected void drawOver (N node, Drawable over, Batch batch, float x, float y, float width, float height) {
+<span class="nc" id="L314">		over.draw(batch, x, y, width, height);</span>
+<span class="nc" id="L315">	}</span>
+
+	protected void drawExpandIcon (N node, Drawable expandIcon, Batch batch, float x, float y) {
+<span class="nc" id="L318">		expandIcon.draw(batch, x, y, expandIcon.getMinWidth(), expandIcon.getMinHeight());</span>
+<span class="nc" id="L319">	}</span>
+
+	protected void drawIcon (N node, Drawable icon, Batch batch, float x, float y) {
+<span class="nc" id="L322">		icon.draw(batch, x, y, icon.getMinWidth(), icon.getMinHeight());</span>
+<span class="nc" id="L323">	}</span>
+
+	/** Returns the drawable for the expand icon. The default implementation returns {@link TreeStyle#plusOver} or
+	 * {@link TreeStyle#minusOver} on the desktop if the node is the {@link #getOverNode() over node}, the mouse is left of
+	 * &lt;code&gt;iconX&lt;/code&gt;, and clicking would expand the node.
+	 * @param iconX The X coordinate of the over node's icon. */
+	protected Drawable getExpandIcon (N node, float iconX) {
+<span class="nc" id="L330">		boolean over = false;</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		if (node == overNode //</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">			&amp;&amp; Gdx.app.getType() == ApplicationType.Desktop //</span>
+<span class="nc bnc" id="L333" title="All 6 branches missed.">			&amp;&amp; (!selection.getMultiple() || (!UIUtils.ctrl() &amp;&amp; !UIUtils.shift())) //</span>
+		) {
+<span class="nc" id="L335">			float mouseX = screenToLocalCoordinates(tmp.set(Gdx.input.getX(), 0)).x;</span>
+<span class="nc bnc" id="L336" title="All 4 branches missed.">			if (mouseX &gt;= 0 &amp;&amp; mouseX &lt; iconX) over = true;</span>
+		}
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (over) {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">			Drawable icon = node.expanded ? style.minusOver : style.plusOver;</span>
+<span class="nc bnc" id="L340" title="All 2 branches missed.">			if (icon != null) return icon;</span>
+		}
+<span class="nc bnc" id="L342" title="All 2 branches missed.">		return node.expanded ? style.minus : style.plus;</span>
+	}
+
+	/** @return May be null. */
+	public N getNodeAt (float y) {
+<span class="nc" id="L347">		foundNode = null;</span>
+<span class="nc" id="L348">		getNodeAt(rootNodes, y, getHeight());</span>
+<span class="nc" id="L349">		return foundNode;</span>
+	}
+
+	private float getNodeAt (Array&lt;N&gt; nodes, float y, float rowY) {
+<span class="nc bnc" id="L353" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L354">			N node = nodes.get(i);</span>
+<span class="nc" id="L355">			float height = node.height;</span>
+<span class="nc" id="L356">			rowY -= node.getHeight() - height; // Node subclass may increase getHeight.</span>
+<span class="nc bnc" id="L357" title="All 4 branches missed.">			if (y &gt;= rowY - height - ySpacing &amp;&amp; y &lt; rowY) {</span>
+<span class="nc" id="L358">				foundNode = node;</span>
+<span class="nc" id="L359">				return -1;</span>
+			}
+<span class="nc" id="L361">			rowY -= height + ySpacing;</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">			if (node.expanded) {</span>
+<span class="nc" id="L363">				rowY = getNodeAt(node.children, y, rowY);</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">				if (rowY == -1) return -1;</span>
+			}
+		}
+<span class="nc" id="L367">		return rowY;</span>
+	}
+
+	void selectNodes (Array&lt;N&gt; nodes, float low, float high) {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L372">			N node = nodes.get(i);</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">			if (node.actor.getY() &lt; low) break;</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">			if (!node.isSelectable()) continue;</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">			if (node.actor.getY() &lt;= high) selection.add(node);</span>
+<span class="nc bnc" id="L376" title="All 2 branches missed.">			if (node.expanded) selectNodes(node.children, low, high);</span>
+		}
+<span class="nc" id="L378">	}</span>
+
+	public Selection&lt;N&gt; getSelection () {
+<span class="nc" id="L381">		return selection;</span>
+	}
+
+	/** Returns the first selected node, or null. */
+	public N getSelectedNode () {
+<span class="nc" id="L386">		return selection.first();</span>
+	}
+
+	/** Returns the first selected value, or null. */
+	public V getSelectedValue () {
+<span class="nc" id="L391">		N node = selection.first();</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">		return node == null ? null : (V)node.getValue();</span>
+	}
+
+	public TreeStyle getStyle () {
+<span class="nc" id="L396">		return style;</span>
+	}
+
+	public Array&lt;N&gt; getRootNodes () {
+<span class="nc" id="L400">		return rootNodes;</span>
+	}
+
+	/** Removes the root node actors from the tree and adds them again. This is useful after changing the order of
+	 * {@link #getRootNodes()}.
+	 * @see Node#updateChildren() */
+	public void updateRootNodes () {
+<span class="nc bnc" id="L407" title="All 2 branches missed.">		for (int i = rootNodes.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L408">			rootNodes.get(i).removeFromTree(this);</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">		for (int i = 0, n = rootNodes.size; i &lt; n; i++)</span>
+<span class="nc" id="L410">			rootNodes.get(i).addToTree(this);</span>
+<span class="nc" id="L411">	}</span>
+
+	/** @return May be null. */
+	public N getOverNode () {
+<span class="nc" id="L415">		return overNode;</span>
+	}
+
+	/** @return May be null. */
+	public V getOverValue () {
+<span class="nc bnc" id="L420" title="All 2 branches missed.">		if (overNode == null) return null;</span>
+<span class="nc" id="L421">		return (V)overNode.getValue();</span>
+	}
+
+	/** @param overNode May be null. */
+	public void setOverNode (N overNode) {
+<span class="nc" id="L426">		this.overNode = overNode;</span>
+<span class="nc" id="L427">	}</span>
+
+	/** Sets the amount of horizontal space between the nodes and the left/right edges of the tree. */
+	public void setPadding (float padding) {
+<span class="nc" id="L431">		paddingLeft = padding;</span>
+<span class="nc" id="L432">		paddingRight = padding;</span>
+<span class="nc" id="L433">	}</span>
+
+	/** Sets the amount of horizontal space between the nodes and the left/right edges of the tree. */
+	public void setPadding (float left, float right) {
+<span class="nc" id="L437">		this.paddingLeft = left;</span>
+<span class="nc" id="L438">		this.paddingRight = right;</span>
+<span class="nc" id="L439">	}</span>
+
+	public void setIndentSpacing (float indentSpacing) {
+<span class="nc" id="L442">		this.indentSpacing = indentSpacing;</span>
+<span class="nc" id="L443">	}</span>
+
+	/** Returns the amount of horizontal space for indentation level. */
+	public float getIndentSpacing () {
+<span class="nc" id="L447">		return indentSpacing;</span>
+	}
+
+	/** Sets the amount of vertical space between nodes. */
+	public void setYSpacing (float ySpacing) {
+<span class="nc" id="L452">		this.ySpacing = ySpacing;</span>
+<span class="nc" id="L453">	}</span>
+
+	public float getYSpacing () {
+<span class="nc" id="L456">		return ySpacing;</span>
+	}
+
+	/** Sets the amount of horizontal space left and right of the node's icon. If a node has no icon, the left spacing is used
+	 * between the plus/minus drawable and the node's actor. */
+	public void setIconSpacing (float left, float right) {
+<span class="nc" id="L462">		this.iconSpacingLeft = left;</span>
+<span class="nc" id="L463">		this.iconSpacingRight = right;</span>
+<span class="nc" id="L464">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc bnc" id="L467" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L468">		return prefWidth;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L472" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L473">		return prefHeight;</span>
+	}
+
+	public void findExpandedValues (Array&lt;V&gt; values) {
+<span class="nc" id="L477">		findExpandedValues(rootNodes, values);</span>
+<span class="nc" id="L478">	}</span>
+
+	public void restoreExpandedValues (Array&lt;V&gt; values) {
+<span class="nc bnc" id="L481" title="All 2 branches missed.">		for (int i = 0, n = values.size; i &lt; n; i++) {</span>
+<span class="nc" id="L482">			N node = findNode(values.get(i));</span>
+<span class="nc bnc" id="L483" title="All 2 branches missed.">			if (node != null) {</span>
+<span class="nc" id="L484">				node.setExpanded(true);</span>
+<span class="nc" id="L485">				node.expandTo();</span>
+			}
+		}
+<span class="nc" id="L488">	}</span>
+
+	static boolean findExpandedValues (Array&lt;? extends Node&gt; nodes, Array values) {
+<span class="nc" id="L491">		boolean expanded = false;</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L493">			Node node = nodes.get(i);</span>
+<span class="nc bnc" id="L494" title="All 4 branches missed.">			if (node.expanded &amp;&amp; !findExpandedValues(node.children, values)) values.add(node.value);</span>
+		}
+<span class="nc" id="L496">		return expanded;</span>
+	}
+
+	/** Returns the node with the specified value, or null. */
+	public N findNode (V value) {
+<span class="nc bnc" id="L501" title="All 2 branches missed.">		if (value == null) throw new IllegalArgumentException(&quot;value cannot be null.&quot;);</span>
+<span class="nc" id="L502">		return (N)findNode(rootNodes, value);</span>
+	}
+
+	static Node findNode (Array&lt;? extends Node&gt; nodes, Object value) {
+<span class="nc bnc" id="L506" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L507">			Node node = nodes.get(i);</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">			if (value.equals(node.value)) return node;</span>
+		}
+<span class="nc bnc" id="L510" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L511">			Node node = nodes.get(i);</span>
+<span class="nc" id="L512">			Node found = findNode(node.children, value);</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">			if (found != null) return found;</span>
+		}
+<span class="nc" id="L515">		return null;</span>
+	}
+
+	public void collapseAll () {
+<span class="nc" id="L519">		collapseAll(rootNodes);</span>
+<span class="nc" id="L520">	}</span>
+
+	static void collapseAll (Array&lt;? extends Node&gt; nodes) {
+<span class="nc bnc" id="L523" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++) {</span>
+<span class="nc" id="L524">			Node node = nodes.get(i);</span>
+<span class="nc" id="L525">			node.setExpanded(false);</span>
+<span class="nc" id="L526">			collapseAll(node.children);</span>
+		}
+<span class="nc" id="L528">	}</span>
+
+	public void expandAll () {
+<span class="nc" id="L531">		expandAll(rootNodes);</span>
+<span class="nc" id="L532">	}</span>
+
+	static void expandAll (Array&lt;? extends Node&gt; nodes) {
+<span class="nc bnc" id="L535" title="All 2 branches missed.">		for (int i = 0, n = nodes.size; i &lt; n; i++)</span>
+<span class="nc" id="L536">			nodes.get(i).expandAll();</span>
+<span class="nc" id="L537">	}</span>
+
+	/** Returns the click listener the tree uses for clicking on nodes and the over node. */
+	public ClickListener getClickListener () {
+<span class="nc" id="L541">		return clickListener;</span>
+	}
+
+	/** A {@link Tree} node which has an actor and value.
+	 * &lt;p&gt;
+	 * A subclass can be used so the generic type parameters don't need to be specified repeatedly.
+	 * @param &lt;N&gt; The type for the node's parent and child nodes.
+	 * @param &lt;V&gt; The type for the node's value.
+	 * @param &lt;A&gt; The type for the node's actor.
+	 * @author Nathan Sweet */
+	static abstract public class Node&lt;N extends Node, V, A extends Actor&gt; {
+		A actor;
+		N parent;
+<span class="nc" id="L554">		final Array&lt;N&gt; children = new Array(0);</span>
+<span class="nc" id="L555">		boolean selectable = true;</span>
+		boolean expanded;
+		Drawable icon;
+		float height;
+		V value;
+
+<span class="nc" id="L561">		public Node (A actor) {</span>
+<span class="nc bnc" id="L562" title="All 2 branches missed.">			if (actor == null) throw new IllegalArgumentException(&quot;actor cannot be null.&quot;);</span>
+<span class="nc" id="L563">			this.actor = actor;</span>
+<span class="nc" id="L564">		}</span>
+
+		/** Creates a node without an actor. An actor must be set using {@link #setActor(Actor)} before this node can be used. */
+<span class="nc" id="L567">		public Node () {</span>
+<span class="nc" id="L568">		}</span>
+
+		public void setExpanded (boolean expanded) {
+<span class="nc bnc" id="L571" title="All 2 branches missed.">			if (expanded == this.expanded) return;</span>
+<span class="nc" id="L572">			this.expanded = expanded;</span>
+<span class="nc bnc" id="L573" title="All 2 branches missed.">			if (children.size == 0) return;</span>
+<span class="nc" id="L574">			Tree tree = getTree();</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">			if (tree == null) return;</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">			if (expanded) {</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">				for (int i = 0, n = children.size; i &lt; n; i++)</span>
+<span class="nc" id="L578">					children.get(i).addToTree(tree);</span>
+			} else {
+<span class="nc bnc" id="L580" title="All 2 branches missed.">				for (int i = children.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L581">					children.get(i).removeFromTree(tree);</span>
+			}
+<span class="nc" id="L583">			tree.invalidateHierarchy();</span>
+<span class="nc" id="L584">		}</span>
+
+		/** Called to add the actor to the tree when the node's parent is expanded. */
+		protected void addToTree (Tree&lt;N, V&gt; tree) {
+<span class="nc" id="L588">			tree.addActor(actor);</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">			if (!expanded) return;</span>
+<span class="nc" id="L590">			Object[] children = this.children.items;</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">			for (int i = this.children.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L592">				((N)children[i]).addToTree(tree);</span>
+<span class="nc" id="L593">		}</span>
+
+		/** Called to remove the actor from the tree when the node's parent is collapsed. */
+		protected void removeFromTree (Tree&lt;N, V&gt; tree) {
+<span class="nc" id="L597">			tree.removeActor(actor);</span>
+<span class="nc bnc" id="L598" title="All 2 branches missed.">			if (!expanded) return;</span>
+<span class="nc" id="L599">			Object[] children = this.children.items;</span>
+<span class="nc bnc" id="L600" title="All 2 branches missed.">			for (int i = this.children.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L601">				((N)children[i]).removeFromTree(tree);</span>
+<span class="nc" id="L602">		}</span>
+
+		public void add (N node) {
+<span class="nc" id="L605">			insert(children.size, node);</span>
+<span class="nc" id="L606">		}</span>
+
+		public void addAll (Array&lt;N&gt; nodes) {
+<span class="nc bnc" id="L609" title="All 2 branches missed.">			for (int i = 0, n = nodes.size; i &lt; n; i++)</span>
+<span class="nc" id="L610">				insert(children.size, nodes.get(i));</span>
+<span class="nc" id="L611">		}</span>
+
+		public void insert (int index, N node) {
+<span class="nc" id="L614">			node.parent = this;</span>
+<span class="nc" id="L615">			children.insert(index, node);</span>
+<span class="nc" id="L616">			updateChildren();</span>
+<span class="nc" id="L617">		}</span>
+
+		public void remove () {
+<span class="nc" id="L620">			Tree tree = getTree();</span>
+<span class="nc bnc" id="L621" title="All 2 branches missed.">			if (tree != null)</span>
+<span class="nc" id="L622">				tree.remove(this);</span>
+<span class="nc bnc" id="L623" title="All 2 branches missed.">			else if (parent != null) //</span>
+<span class="nc" id="L624">				parent.remove(this);</span>
+<span class="nc" id="L625">		}</span>
+
+		public void remove (N node) {
+<span class="nc" id="L628">			children.removeValue(node, true);</span>
+<span class="nc bnc" id="L629" title="All 2 branches missed.">			if (!expanded) return;</span>
+<span class="nc" id="L630">			Tree tree = getTree();</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">			if (tree != null) node.removeFromTree(tree);</span>
+<span class="nc" id="L632">		}</span>
+
+		public void removeAll () {
+<span class="nc" id="L635">			Tree tree = getTree();</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">			if (tree != null) {</span>
+<span class="nc" id="L637">				Object[] children = this.children.items;</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">				for (int i = this.children.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L639">					((N)children[i]).removeFromTree(tree);</span>
+			}
+<span class="nc" id="L641">			children.clear();</span>
+<span class="nc" id="L642">		}</span>
+
+		/** Returns the tree this node's actor is currently in, or null. The actor is only in the tree when all of its parent nodes
+		 * are expanded. */
+		public Tree&lt;N, V&gt; getTree () {
+<span class="nc" id="L647">			Group parent = actor.getParent();</span>
+<span class="nc bnc" id="L648" title="All 2 branches missed.">			if (parent instanceof Tree) return (Tree)parent;</span>
+<span class="nc" id="L649">			return null;</span>
+		}
+
+		public void setActor (A newActor) {
+<span class="nc bnc" id="L653" title="All 2 branches missed.">			if (actor != null) {</span>
+<span class="nc" id="L654">				Tree&lt;N, V&gt; tree = getTree();</span>
+<span class="nc bnc" id="L655" title="All 2 branches missed.">				if (tree != null) {</span>
+<span class="nc" id="L656">					actor.remove();</span>
+<span class="nc" id="L657">					tree.addActor(newActor);</span>
+				}
+			}
+<span class="nc" id="L660">			actor = newActor;</span>
+<span class="nc" id="L661">		}</span>
+
+		public A getActor () {
+<span class="nc" id="L664">			return actor;</span>
+		}
+
+		public boolean isExpanded () {
+<span class="nc" id="L668">			return expanded;</span>
+		}
+
+		/** If the children order is changed, {@link #updateChildren()} must be called. */
+		public Array&lt;N&gt; getChildren () {
+<span class="nc" id="L673">			return children;</span>
+		}
+
+		public boolean hasChildren () {
+<span class="nc bnc" id="L677" title="All 2 branches missed.">			return children.size &gt; 0;</span>
+		}
+
+		/** Removes the child node actors from the tree and adds them again. This is useful after changing the order of
+		 * {@link #getChildren()}.
+		 * @see Tree#updateRootNodes() */
+		public void updateChildren () {
+<span class="nc bnc" id="L684" title="All 2 branches missed.">			if (!expanded) return;</span>
+<span class="nc" id="L685">			Tree tree = getTree();</span>
+<span class="nc bnc" id="L686" title="All 2 branches missed.">			if (tree == null) return;</span>
+<span class="nc bnc" id="L687" title="All 2 branches missed.">			for (int i = children.size - 1; i &gt;= 0; i--)</span>
+<span class="nc" id="L688">				children.get(i).removeFromTree(tree);</span>
+<span class="nc bnc" id="L689" title="All 2 branches missed.">			for (int i = 0, n = children.size; i &lt; n; i++)</span>
+<span class="nc" id="L690">				children.get(i).addToTree(tree);</span>
+<span class="nc" id="L691">		}</span>
+
+		/** @return May be null. */
+		public N getParent () {
+<span class="nc" id="L695">			return parent;</span>
+		}
+
+		/** Sets an icon that will be drawn to the left of the actor. */
+		public void setIcon (Drawable icon) {
+<span class="nc" id="L700">			this.icon = icon;</span>
+<span class="nc" id="L701">		}</span>
+
+		public V getValue () {
+<span class="nc" id="L704">			return value;</span>
+		}
+
+		/** Sets an application specific value for this node. */
+		public void setValue (V value) {
+<span class="nc" id="L709">			this.value = value;</span>
+<span class="nc" id="L710">		}</span>
+
+		public Drawable getIcon () {
+<span class="nc" id="L713">			return icon;</span>
+		}
+
+		public int getLevel () {
+<span class="nc" id="L717">			int level = 0;</span>
+<span class="nc" id="L718">			Node current = this;</span>
+			do {
+<span class="nc" id="L720">				level++;</span>
+<span class="nc" id="L721">				current = current.getParent();</span>
+<span class="nc bnc" id="L722" title="All 2 branches missed.">			} while (current != null);</span>
+<span class="nc" id="L723">			return level;</span>
+		}
+
+		/** Returns this node or the child node with the specified value, or null. */
+		public N findNode (V value) {
+<span class="nc bnc" id="L728" title="All 2 branches missed.">			if (value == null) throw new IllegalArgumentException(&quot;value cannot be null.&quot;);</span>
+<span class="nc bnc" id="L729" title="All 2 branches missed.">			if (value.equals(this.value)) return (N)this;</span>
+<span class="nc" id="L730">			return (N)Tree.findNode(children, value);</span>
+		}
+
+		/** Collapses all nodes under and including this node. */
+		public void collapseAll () {
+<span class="nc" id="L735">			setExpanded(false);</span>
+<span class="nc" id="L736">			Tree.collapseAll(children);</span>
+<span class="nc" id="L737">		}</span>
+
+		/** Expands all nodes under and including this node. */
+		public void expandAll () {
+<span class="nc" id="L741">			setExpanded(true);</span>
+<span class="nc bnc" id="L742" title="All 2 branches missed.">			if (children.size &gt; 0) Tree.expandAll(children);</span>
+<span class="nc" id="L743">		}</span>
+
+		/** Expands all parent nodes of this node. */
+		public void expandTo () {
+<span class="nc" id="L747">			Node node = parent;</span>
+<span class="nc bnc" id="L748" title="All 2 branches missed.">			while (node != null) {</span>
+<span class="nc" id="L749">				node.setExpanded(true);</span>
+<span class="nc" id="L750">				node = node.parent;</span>
+			}
+<span class="nc" id="L752">		}</span>
+
+		public boolean isSelectable () {
+<span class="nc" id="L755">			return selectable;</span>
+		}
+
+		public void setSelectable (boolean selectable) {
+<span class="nc" id="L759">			this.selectable = selectable;</span>
+<span class="nc" id="L760">		}</span>
+
+		public void findExpandedValues (Array&lt;V&gt; values) {
+<span class="nc bnc" id="L763" title="All 4 branches missed.">			if (expanded &amp;&amp; !Tree.findExpandedValues(children, values)) values.add(value);</span>
+<span class="nc" id="L764">		}</span>
+
+		public void restoreExpandedValues (Array&lt;V&gt; values) {
+<span class="nc bnc" id="L767" title="All 2 branches missed.">			for (int i = 0, n = values.size; i &lt; n; i++) {</span>
+<span class="nc" id="L768">				N node = findNode(values.get(i));</span>
+<span class="nc bnc" id="L769" title="All 2 branches missed.">				if (node != null) {</span>
+<span class="nc" id="L770">					node.setExpanded(true);</span>
+<span class="nc" id="L771">					node.expandTo();</span>
+				}
+			}
+<span class="nc" id="L774">		}</span>
+
+		/** Returns the height of the node as calculated for layout. A subclass may override and increase the returned height to
+		 * create a blank space in the tree above the node, eg for a separator. */
+		public float getHeight () {
+<span class="nc" id="L779">			return height;</span>
+		}
+
+		/** Returns true if the specified node is this node or an ascendant of this node. */
+		public boolean isAscendantOf (N node) {
+<span class="nc bnc" id="L784" title="All 2 branches missed.">			if (node == null) throw new IllegalArgumentException(&quot;node cannot be null.&quot;);</span>
+<span class="nc" id="L785">			Node current = node;</span>
+			do {
+<span class="nc bnc" id="L787" title="All 2 branches missed.">				if (current == this) return true;</span>
+<span class="nc" id="L788">				current = current.parent;</span>
+<span class="nc bnc" id="L789" title="All 2 branches missed.">			} while (current != null);</span>
+<span class="nc" id="L790">			return false;</span>
+		}
+
+		/** Returns true if the specified node is this node or an descendant of this node. */
+		public boolean isDescendantOf (N node) {
+<span class="nc bnc" id="L795" title="All 2 branches missed.">			if (node == null) throw new IllegalArgumentException(&quot;node cannot be null.&quot;);</span>
+<span class="nc" id="L796">			Node parent = this;</span>
+			do {
+<span class="nc bnc" id="L798" title="All 2 branches missed.">				if (parent == node) return true;</span>
+<span class="nc" id="L799">				parent = parent.parent;</span>
+<span class="nc bnc" id="L800" title="All 2 branches missed.">			} while (parent != null);</span>
+<span class="nc" id="L801">			return false;</span>
+		}
+	}
+
+	/** The style for a {@link Tree}.
+	 * @author Nathan Sweet */
+	static public class TreeStyle {
+		public Drawable plus, minus;
+		/** Optional. */
+		public Drawable plusOver, minusOver;
+		public Drawable over, selection, background;
+
+<span class="nc" id="L813">		public TreeStyle () {</span>
+<span class="nc" id="L814">		}</span>
+
+<span class="nc" id="L816">		public TreeStyle (Drawable plus, Drawable minus, Drawable selection) {</span>
+<span class="nc" id="L817">			this.plus = plus;</span>
+<span class="nc" id="L818">			this.minus = minus;</span>
+<span class="nc" id="L819">			this.selection = selection;</span>
+<span class="nc" id="L820">		}</span>
+
+<span class="nc" id="L822">		public TreeStyle (TreeStyle style) {</span>
+<span class="nc" id="L823">			this.plus = style.plus;</span>
+<span class="nc" id="L824">			this.minus = style.minus;</span>
+<span class="nc" id="L825">			this.plusOver = style.plusOver;</span>
+<span class="nc" id="L826">			this.minusOver = style.minusOver;</span>
+<span class="nc" id="L827">			this.over = style.over;</span>
+<span class="nc" id="L828">			this.selection = style.selection;</span>
+<span class="nc" id="L829">			this.background = style.background;</span>
+<span class="nc" id="L830">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

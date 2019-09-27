@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DynamicsInfluencer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">DynamicsInfluencer.java</span></div><h1>DynamicsInfluencer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import java.util.Arrays;
+
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleController;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** It's an {@link Influencer} which controls the particles dynamics (movement, rotations).
+ * @author Inferno */
+public class DynamicsInfluencer extends Influencer {
+	public Array&lt;DynamicsModifier&gt; velocities;
+	private FloatChannel accellerationChannel, positionChannel, previousPositionChannel, rotationChannel, angularVelocityChannel;
+	boolean hasAcceleration, has2dAngularVelocity, has3dAngularVelocity;
+
+<span class="nc" id="L36">	public DynamicsInfluencer () {</span>
+<span class="nc" id="L37">		this.velocities = new Array&lt;DynamicsModifier&gt;(true, 3, DynamicsModifier.class);</span>
+<span class="nc" id="L38">	}</span>
+
+<span class="nc" id="L40">	public DynamicsInfluencer (DynamicsModifier... velocities) {</span>
+<span class="nc" id="L41">		this.velocities = new Array&lt;DynamicsModifier&gt;(true, velocities.length, DynamicsModifier.class);</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">		for (DynamicsModifier value : velocities) {</span>
+<span class="nc" id="L43">			this.velocities.add((DynamicsModifier)value.copy());</span>
+		}
+<span class="nc" id="L45">	}</span>
+
+	public DynamicsInfluencer (DynamicsInfluencer velocityInfluencer) {
+<span class="nc" id="L48">		this((DynamicsModifier[])velocityInfluencer.velocities.toArray(DynamicsModifier.class));</span>
+<span class="nc" id="L49">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc bnc" id="L53" title="All 2 branches missed.">		for (int k = 0; k &lt; velocities.size; ++k) {</span>
+<span class="nc" id="L54">			velocities.items[k].allocateChannels();</span>
+		}
+
+		// Hack, shouldn't be done but after all the modifiers allocated their channels
+		// it's possible to check if we need to allocate previous position channel
+<span class="nc" id="L59">		accellerationChannel = controller.particles.getChannel(ParticleChannels.Acceleration);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">		hasAcceleration = accellerationChannel != null;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">		if (hasAcceleration) {</span>
+<span class="nc" id="L62">			positionChannel = controller.particles.addChannel(ParticleChannels.Position);</span>
+<span class="nc" id="L63">			previousPositionChannel = controller.particles.addChannel(ParticleChannels.PreviousPosition);</span>
+		}
+
+		// Angular velocity check
+<span class="nc" id="L67">		angularVelocityChannel = controller.particles.getChannel(ParticleChannels.AngularVelocity2D);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">		has2dAngularVelocity = angularVelocityChannel != null;</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">		if (has2dAngularVelocity) {</span>
+<span class="nc" id="L70">			rotationChannel = controller.particles.addChannel(ParticleChannels.Rotation2D);</span>
+<span class="nc" id="L71">			has3dAngularVelocity = false;</span>
+		} else {
+<span class="nc" id="L73">			angularVelocityChannel = controller.particles.getChannel(ParticleChannels.AngularVelocity3D);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">			has3dAngularVelocity = angularVelocityChannel != null;</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">			if (has3dAngularVelocity) rotationChannel = controller.particles.addChannel(ParticleChannels.Rotation3D);</span>
+		}
+<span class="nc" id="L77">	}</span>
+
+	@Override
+	public void set (ParticleController particleController) {
+<span class="nc" id="L81">		super.set(particleController);</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">		for (int k = 0; k &lt; velocities.size; ++k) {</span>
+<span class="nc" id="L83">			velocities.items[k].set(particleController);</span>
+		}
+<span class="nc" id="L85">	}</span>
+
+	@Override
+	public void init () {
+<span class="nc bnc" id="L89" title="All 2 branches missed.">		for (int k = 0; k &lt; velocities.size; ++k) {</span>
+<span class="nc" id="L90">			velocities.items[k].init();</span>
+		}
+<span class="nc" id="L92">	}</span>
+
+	public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">		if (hasAcceleration) {</span>
+			// Previous position is the current position
+			// Attention, this requires that some other influencer setting the position channel must execute before this influencer.
+<span class="nc bnc" id="L98" title="All 2 branches missed.">			for (int i = startIndex * positionChannel.strideSize, c = i + count * positionChannel.strideSize; i &lt; c; i += positionChannel.strideSize) {</span>
+<span class="nc" id="L99">				previousPositionChannel.data[i + ParticleChannels.XOffset] = positionChannel.data[i + ParticleChannels.XOffset];</span>
+<span class="nc" id="L100">				previousPositionChannel.data[i + ParticleChannels.YOffset] = positionChannel.data[i + ParticleChannels.YOffset];</span>
+<span class="nc" id="L101">				previousPositionChannel.data[i + ParticleChannels.ZOffset] = positionChannel.data[i + ParticleChannels.ZOffset];</span>
+				/*
+				 * //Euler intialization previousPositionChannel.data[i+ParticleChannels.XOffset] =
+				 * previousPositionChannel.data[i+ParticleChannels.YOffset] = previousPositionChannel.data[i+ParticleChannels.ZOffset]
+				 * = 0;
+				 */
+			}
+		}
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">		if (has2dAngularVelocity) {</span>
+			// Rotation back to 0
+<span class="nc bnc" id="L112" title="All 2 branches missed.">			for (int i = startIndex * rotationChannel.strideSize, c = i + count * rotationChannel.strideSize; i &lt; c; i += rotationChannel.strideSize) {</span>
+<span class="nc" id="L113">				rotationChannel.data[i + ParticleChannels.CosineOffset] = 1;</span>
+<span class="nc" id="L114">				rotationChannel.data[i + ParticleChannels.SineOffset] = 0;</span>
+			}
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		} else if (has3dAngularVelocity) {</span>
+			// Rotation back to 0
+<span class="nc bnc" id="L118" title="All 2 branches missed.">			for (int i = startIndex * rotationChannel.strideSize, c = i + count * rotationChannel.strideSize; i &lt; c; i += rotationChannel.strideSize) {</span>
+<span class="nc" id="L119">				rotationChannel.data[i + ParticleChannels.XOffset] = 0;</span>
+<span class="nc" id="L120">				rotationChannel.data[i + ParticleChannels.YOffset] = 0;</span>
+<span class="nc" id="L121">				rotationChannel.data[i + ParticleChannels.ZOffset] = 0;</span>
+<span class="nc" id="L122">				rotationChannel.data[i + ParticleChannels.WOffset] = 1;</span>
+			}
+		}
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		for (int k = 0; k &lt; velocities.size; ++k) {</span>
+<span class="nc" id="L127">			velocities.items[k].activateParticles(startIndex, count);</span>
+		}
+<span class="nc" id="L129">	}</span>
+
+	public void update () {
+		// Clean previouse frame velocities
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		if (hasAcceleration)</span>
+<span class="nc" id="L134">			Arrays.fill(accellerationChannel.data, 0, controller.particles.size * accellerationChannel.strideSize, 0);</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">		if (has2dAngularVelocity || has3dAngularVelocity)</span>
+<span class="nc" id="L136">			Arrays.fill(angularVelocityChannel.data, 0, controller.particles.size * angularVelocityChannel.strideSize, 0);</span>
+
+		// Sum all the forces/accelerations
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		for (int k = 0; k &lt; velocities.size; ++k) {</span>
+<span class="nc" id="L140">			velocities.items[k].update();</span>
+		}
+
+		// Apply the forces
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		if (hasAcceleration) {</span>
+			/*
+			 * //Euler Integration for(int i=0, offset = 0; i &lt; controller.particles.size; ++i, offset +=positionChannel.strideSize){
+			 * previousPositionChannel.data[offset + ParticleChannels.XOffset] += accellerationChannel.data[offset +
+			 * ParticleChannels.XOffset]*controller.deltaTime; previousPositionChannel.data[offset + ParticleChannels.YOffset] +=
+			 * accellerationChannel.data[offset + ParticleChannels.YOffset]*controller.deltaTime; previousPositionChannel.data[offset
+			 * + ParticleChannels.ZOffset] += accellerationChannel.data[offset + ParticleChannels.ZOffset]*controller.deltaTime;
+			 * 
+			 * positionChannel.data[offset + ParticleChannels.XOffset] += previousPositionChannel.data[offset +
+			 * ParticleChannels.XOffset]*controller.deltaTime; positionChannel.data[offset + ParticleChannels.YOffset] +=
+			 * previousPositionChannel.data[offset + ParticleChannels.YOffset]*controller.deltaTime; positionChannel.data[offset +
+			 * ParticleChannels.ZOffset] += previousPositionChannel.data[offset + ParticleChannels.ZOffset]*controller.deltaTime; }
+			 */
+			// Verlet integration
+<span class="nc bnc" id="L158" title="All 2 branches missed.">			for (int i = 0, offset = 0; i &lt; controller.particles.size; ++i, offset += positionChannel.strideSize) {</span>
+<span class="nc" id="L159">				float x = positionChannel.data[offset + ParticleChannels.XOffset], y = positionChannel.data[offset</span>
+<span class="nc" id="L160">					+ ParticleChannels.YOffset], z = positionChannel.data[offset + ParticleChannels.ZOffset];</span>
+<span class="nc" id="L161">				positionChannel.data[offset + ParticleChannels.XOffset] = 2 * x</span>
+					- previousPositionChannel.data[offset + ParticleChannels.XOffset]
+					+ accellerationChannel.data[offset + ParticleChannels.XOffset] * controller.deltaTimeSqr;
+<span class="nc" id="L164">				positionChannel.data[offset + ParticleChannels.YOffset] = 2 * y</span>
+					- previousPositionChannel.data[offset + ParticleChannels.YOffset]
+					+ accellerationChannel.data[offset + ParticleChannels.YOffset] * controller.deltaTimeSqr;
+<span class="nc" id="L167">				positionChannel.data[offset + ParticleChannels.ZOffset] = 2 * z</span>
+					- previousPositionChannel.data[offset + ParticleChannels.ZOffset]
+					+ accellerationChannel.data[offset + ParticleChannels.ZOffset] * controller.deltaTimeSqr;
+<span class="nc" id="L170">				previousPositionChannel.data[offset + ParticleChannels.XOffset] = x;</span>
+<span class="nc" id="L171">				previousPositionChannel.data[offset + ParticleChannels.YOffset] = y;</span>
+<span class="nc" id="L172">				previousPositionChannel.data[offset + ParticleChannels.ZOffset] = z;</span>
+			}
+		}
+
+<span class="nc bnc" id="L176" title="All 2 branches missed.">		if (has2dAngularVelocity) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			for (int i = 0, offset = 0; i &lt; controller.particles.size; ++i, offset += rotationChannel.strideSize) {</span>
+<span class="nc" id="L178">				float rotation = angularVelocityChannel.data[i] * controller.deltaTime;</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">				if (rotation != 0) {</span>
+<span class="nc" id="L180">					float cosBeta = MathUtils.cosDeg(rotation), sinBeta = MathUtils.sinDeg(rotation);</span>
+<span class="nc" id="L181">					float currentCosine = rotationChannel.data[offset + ParticleChannels.CosineOffset];</span>
+<span class="nc" id="L182">					float currentSine = rotationChannel.data[offset + ParticleChannels.SineOffset];</span>
+<span class="nc" id="L183">					float newCosine = currentCosine * cosBeta - currentSine * sinBeta, newSine = currentSine * cosBeta + currentCosine</span>
+						* sinBeta;
+<span class="nc" id="L185">					rotationChannel.data[offset + ParticleChannels.CosineOffset] = newCosine;</span>
+<span class="nc" id="L186">					rotationChannel.data[offset + ParticleChannels.SineOffset] = newSine;</span>
+				}
+			}
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		} else if (has3dAngularVelocity) {</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">			for (int i = 0, offset = 0, angularOffset = 0; i &lt; controller.particles.size; ++i, offset += rotationChannel.strideSize, angularOffset += angularVelocityChannel.strideSize) {</span>
+
+<span class="nc" id="L192">				float wx = angularVelocityChannel.data[angularOffset + ParticleChannels.XOffset], wy = angularVelocityChannel.data[angularOffset</span>
+<span class="nc" id="L193">					+ ParticleChannels.YOffset], wz = angularVelocityChannel.data[angularOffset + ParticleChannels.ZOffset], qx = rotationChannel.data[offset</span>
+<span class="nc" id="L194">					+ ParticleChannels.XOffset], qy = rotationChannel.data[offset + ParticleChannels.YOffset], qz = rotationChannel.data[offset</span>
+<span class="nc" id="L195">					+ ParticleChannels.ZOffset], qw = rotationChannel.data[offset + ParticleChannels.WOffset];</span>
+<span class="nc" id="L196">				TMP_Q.set(wx, wy, wz, 0).mul(qx, qy, qz, qw).mul(0.5f * controller.deltaTime).add(qx, qy, qz, qw).nor();</span>
+<span class="nc" id="L197">				rotationChannel.data[offset + ParticleChannels.XOffset] = TMP_Q.x;</span>
+<span class="nc" id="L198">				rotationChannel.data[offset + ParticleChannels.YOffset] = TMP_Q.y;</span>
+<span class="nc" id="L199">				rotationChannel.data[offset + ParticleChannels.ZOffset] = TMP_Q.z;</span>
+<span class="nc" id="L200">				rotationChannel.data[offset + ParticleChannels.WOffset] = TMP_Q.w;</span>
+			}
+		}
+<span class="nc" id="L203">	}</span>
+
+	@Override
+	public DynamicsInfluencer copy () {
+<span class="nc" id="L207">		return new DynamicsInfluencer(this);</span>
+	}
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L212">		json.writeValue(&quot;velocities&quot;, velocities, Array.class, DynamicsModifier.class);</span>
+<span class="nc" id="L213">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L217">		velocities.addAll(json.readValue(&quot;velocities&quot;, Array.class, DynamicsModifier.class, jsonData));</span>
+<span class="nc" id="L218">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

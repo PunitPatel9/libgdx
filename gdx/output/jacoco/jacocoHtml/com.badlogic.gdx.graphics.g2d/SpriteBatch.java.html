@@ -1,0 +1,1112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpriteBatch.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">SpriteBatch.java</span></div><h1>SpriteBatch.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Mesh;
+import com.badlogic.gdx.graphics.Mesh.VertexDataType;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
+import com.badlogic.gdx.math.Affine2;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.utils.NumberUtils;
+
+/** Draws batched quads using indices.
+ * @see Batch
+ * @author mzechner
+ * @author Nathan Sweet */
+public class SpriteBatch implements Batch {
+	/** @deprecated Do not use, this field is for testing only and is likely to be removed. Sets the {@link VertexDataType} to be
+	 *             used when gles 3 is not available, defaults to {@link VertexDataType#VertexArray}. */
+<span class="nc" id="L40">	@Deprecated public static VertexDataType defaultVertexDataType = VertexDataType.VertexArray;</span>
+
+	private Mesh mesh;
+
+	final float[] vertices;
+<span class="nc" id="L45">	int idx = 0;</span>
+<span class="nc" id="L46">	Texture lastTexture = null;</span>
+<span class="nc" id="L47">	float invTexWidth = 0, invTexHeight = 0;</span>
+
+<span class="nc" id="L49">	boolean drawing = false;</span>
+
+<span class="nc" id="L51">	private final Matrix4 transformMatrix = new Matrix4();</span>
+<span class="nc" id="L52">	private final Matrix4 projectionMatrix = new Matrix4();</span>
+<span class="nc" id="L53">	private final Matrix4 combinedMatrix = new Matrix4();</span>
+
+<span class="nc" id="L55">	private boolean blendingDisabled = false;</span>
+<span class="nc" id="L56">	private int blendSrcFunc = GL20.GL_SRC_ALPHA;</span>
+<span class="nc" id="L57">	private int blendDstFunc = GL20.GL_ONE_MINUS_SRC_ALPHA;</span>
+<span class="nc" id="L58">	private int blendSrcFuncAlpha = GL20.GL_SRC_ALPHA;</span>
+<span class="nc" id="L59">	private int blendDstFuncAlpha = GL20.GL_ONE_MINUS_SRC_ALPHA;</span>
+
+	private final ShaderProgram shader;
+<span class="nc" id="L62">	private ShaderProgram customShader = null;</span>
+	private boolean ownsShader;
+
+<span class="nc" id="L65">	private final Color color = new Color(1, 1, 1, 1);</span>
+<span class="nc" id="L66">	float colorPacked = Color.WHITE_FLOAT_BITS;</span>
+
+	/** Number of render calls since the last {@link #begin()}. **/
+<span class="nc" id="L69">	public int renderCalls = 0;</span>
+
+	/** Number of rendering calls, ever. Will not be reset unless set manually. **/
+<span class="nc" id="L72">	public int totalRenderCalls = 0;</span>
+
+	/** The maximum number of sprites rendered in one batch so far. **/
+<span class="nc" id="L75">	public int maxSpritesInBatch = 0;</span>
+
+	/** Constructs a new SpriteBatch with a size of 1000, one buffer, and the default shader.
+	 * @see SpriteBatch#SpriteBatch(int, ShaderProgram) */
+	public SpriteBatch () {
+<span class="nc" id="L80">		this(1000, null);</span>
+<span class="nc" id="L81">	}</span>
+
+	/** Constructs a SpriteBatch with one buffer and the default shader.
+	 * @see SpriteBatch#SpriteBatch(int, ShaderProgram) */
+	public SpriteBatch (int size) {
+<span class="nc" id="L86">		this(size, null);</span>
+<span class="nc" id="L87">	}</span>
+
+	/** Constructs a new SpriteBatch. Sets the projection matrix to an orthographic projection with y-axis point upwards, x-axis
+	 * point to the right and the origin being in the bottom left corner of the screen. The projection will be pixel perfect with
+	 * respect to the current screen resolution.
+	 * &lt;p&gt;
+	 * The defaultShader specifies the shader to use. Note that the names for uniforms for this default shader are different than
+	 * the ones expect for shaders set with {@link #setShader(ShaderProgram)}. See {@link #createDefaultShader()}.
+	 * @param size The max number of sprites in a single batch. Max of 8191.
+	 * @param defaultShader The default shader to use. This is not owned by the SpriteBatch and must be disposed separately. */
+<span class="nc" id="L97">	public SpriteBatch (int size, ShaderProgram defaultShader) {</span>
+		// 32767 is max vertex index, so 32767 / 4 vertices per sprite = 8191 sprites max.
+<span class="nc bnc" id="L99" title="All 2 branches missed.">		if (size &gt; 8191) throw new IllegalArgumentException(&quot;Can't have more than 8191 sprites per batch: &quot; + size);</span>
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">		VertexDataType vertexDataType = (Gdx.gl30 != null) ? VertexDataType.VertexBufferObjectWithVAO : defaultVertexDataType;</span>
+
+<span class="nc" id="L103">		mesh = new Mesh(vertexDataType, false, size * 4, size * 6,</span>
+			new VertexAttribute(Usage.Position, 2, ShaderProgram.POSITION_ATTRIBUTE),
+			new VertexAttribute(Usage.ColorPacked, 4, ShaderProgram.COLOR_ATTRIBUTE),
+			new VertexAttribute(Usage.TextureCoordinates, 2, ShaderProgram.TEXCOORD_ATTRIBUTE + &quot;0&quot;));
+
+<span class="nc" id="L108">		projectionMatrix.setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());</span>
+
+<span class="nc" id="L110">		vertices = new float[size * Sprite.SPRITE_SIZE];</span>
+
+<span class="nc" id="L112">		int len = size * 6;</span>
+<span class="nc" id="L113">		short[] indices = new short[len];</span>
+<span class="nc" id="L114">		short j = 0;</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">		for (int i = 0; i &lt; len; i += 6, j += 4) {</span>
+<span class="nc" id="L116">			indices[i] = j;</span>
+<span class="nc" id="L117">			indices[i + 1] = (short)(j + 1);</span>
+<span class="nc" id="L118">			indices[i + 2] = (short)(j + 2);</span>
+<span class="nc" id="L119">			indices[i + 3] = (short)(j + 2);</span>
+<span class="nc" id="L120">			indices[i + 4] = (short)(j + 3);</span>
+<span class="nc" id="L121">			indices[i + 5] = j;</span>
+		}
+<span class="nc" id="L123">		mesh.setIndices(indices);</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		if (defaultShader == null) {</span>
+<span class="nc" id="L126">			shader = createDefaultShader();</span>
+<span class="nc" id="L127">			ownsShader = true;</span>
+		} else
+<span class="nc" id="L129">			shader = defaultShader;</span>
+<span class="nc" id="L130">	}</span>
+
+	/** Returns a new instance of the default shader used by SpriteBatch for GL2 when no shader is specified. */
+	static public ShaderProgram createDefaultShader () {
+<span class="nc" id="L134">		String vertexShader = &quot;attribute vec4 &quot; + ShaderProgram.POSITION_ATTRIBUTE + &quot;;\n&quot; //</span>
+			+ &quot;attribute vec4 &quot; + ShaderProgram.COLOR_ATTRIBUTE + &quot;;\n&quot; //
+			+ &quot;attribute vec2 &quot; + ShaderProgram.TEXCOORD_ATTRIBUTE + &quot;0;\n&quot; //
+			+ &quot;uniform mat4 u_projTrans;\n&quot; //
+			+ &quot;varying vec4 v_color;\n&quot; //
+			+ &quot;varying vec2 v_texCoords;\n&quot; //
+			+ &quot;\n&quot; //
+			+ &quot;void main()\n&quot; //
+			+ &quot;{\n&quot; //
+			+ &quot;   v_color = &quot; + ShaderProgram.COLOR_ATTRIBUTE + &quot;;\n&quot; //
+			+ &quot;   v_color.a = v_color.a * (255.0/254.0);\n&quot; //
+			+ &quot;   v_texCoords = &quot; + ShaderProgram.TEXCOORD_ATTRIBUTE + &quot;0;\n&quot; //
+			+ &quot;   gl_Position =  u_projTrans * &quot; + ShaderProgram.POSITION_ATTRIBUTE + &quot;;\n&quot; //
+			+ &quot;}\n&quot;;
+<span class="nc" id="L148">		String fragmentShader = &quot;#ifdef GL_ES\n&quot; //</span>
+			+ &quot;#define LOWP lowp\n&quot; //
+			+ &quot;precision mediump float;\n&quot; //
+			+ &quot;#else\n&quot; //
+			+ &quot;#define LOWP \n&quot; //
+			+ &quot;#endif\n&quot; //
+			+ &quot;varying LOWP vec4 v_color;\n&quot; //
+			+ &quot;varying vec2 v_texCoords;\n&quot; //
+			+ &quot;uniform sampler2D u_texture;\n&quot; //
+			+ &quot;void main()\n&quot;//
+			+ &quot;{\n&quot; //
+			+ &quot;  gl_FragColor = v_color * texture2D(u_texture, v_texCoords);\n&quot; //
+			+ &quot;}&quot;;
+
+<span class="nc" id="L162">		ShaderProgram shader = new ShaderProgram(vertexShader, fragmentShader);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">		if (!shader.isCompiled()) throw new IllegalArgumentException(&quot;Error compiling shader: &quot; + shader.getLog());</span>
+<span class="nc" id="L164">		return shader;</span>
+	}
+
+	@Override
+	public void begin () {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (drawing) throw new IllegalStateException(&quot;SpriteBatch.end must be called before begin.&quot;);</span>
+<span class="nc" id="L170">		renderCalls = 0;</span>
+
+<span class="nc" id="L172">		Gdx.gl.glDepthMask(false);</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">		if (customShader != null)</span>
+<span class="nc" id="L174">			customShader.begin();</span>
+		else
+<span class="nc" id="L176">			shader.begin();</span>
+<span class="nc" id="L177">		setupMatrices();</span>
+
+<span class="nc" id="L179">		drawing = true;</span>
+<span class="nc" id="L180">	}</span>
+
+	@Override
+	public void end () {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before end.&quot;);</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">		if (idx &gt; 0) flush();</span>
+<span class="nc" id="L186">		lastTexture = null;</span>
+<span class="nc" id="L187">		drawing = false;</span>
+
+<span class="nc" id="L189">		GL20 gl = Gdx.gl;</span>
+<span class="nc" id="L190">		gl.glDepthMask(true);</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">		if (isBlendingEnabled()) gl.glDisable(GL20.GL_BLEND);</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">		if (customShader != null)</span>
+<span class="nc" id="L194">			customShader.end();</span>
+		else
+<span class="nc" id="L196">			shader.end();</span>
+<span class="nc" id="L197">	}</span>
+
+	@Override
+	public void setColor (Color tint) {
+<span class="nc" id="L201">		color.set(tint);</span>
+<span class="nc" id="L202">		colorPacked = tint.toFloatBits();</span>
+<span class="nc" id="L203">	}</span>
+
+	@Override
+	public void setColor (float r, float g, float b, float a) {
+<span class="nc" id="L207">		color.set(r, g, b, a);</span>
+<span class="nc" id="L208">		colorPacked = color.toFloatBits();</span>
+<span class="nc" id="L209">	}</span>
+
+	@Override
+	public Color getColor () {
+<span class="nc" id="L213">		return color;</span>
+	}
+
+	@Override
+	public void setPackedColor (float packedColor) {
+<span class="nc" id="L218">		Color.abgr8888ToColor(color, packedColor);</span>
+<span class="nc" id="L219">		this.colorPacked = packedColor;</span>
+<span class="nc" id="L220">	}</span>
+
+	@Override
+	public float getPackedColor () {
+<span class="nc" id="L224">		return colorPacked;</span>
+	}
+
+	@Override
+	public void draw (Texture texture, float x, float y, float originX, float originY, float width, float height, float scaleX,
+		float scaleY, float rotation, int srcX, int srcY, int srcWidth, int srcHeight, boolean flipX, boolean flipY) {
+<span class="nc bnc" id="L230" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L232">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L234" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L235">			switchTexture(texture);</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		else if (idx == vertices.length) //</span>
+<span class="nc" id="L237">			flush();</span>
+
+		// bottom left and top right corner points relative to origin
+<span class="nc" id="L240">		final float worldOriginX = x + originX;</span>
+<span class="nc" id="L241">		final float worldOriginY = y + originY;</span>
+<span class="nc" id="L242">		float fx = -originX;</span>
+<span class="nc" id="L243">		float fy = -originY;</span>
+<span class="nc" id="L244">		float fx2 = width - originX;</span>
+<span class="nc" id="L245">		float fy2 = height - originY;</span>
+
+		// scale
+<span class="nc bnc" id="L248" title="All 4 branches missed.">		if (scaleX != 1 || scaleY != 1) {</span>
+<span class="nc" id="L249">			fx *= scaleX;</span>
+<span class="nc" id="L250">			fy *= scaleY;</span>
+<span class="nc" id="L251">			fx2 *= scaleX;</span>
+<span class="nc" id="L252">			fy2 *= scaleY;</span>
+		}
+
+		// construct corner points, start from top left and go counter clockwise
+<span class="nc" id="L256">		final float p1x = fx;</span>
+<span class="nc" id="L257">		final float p1y = fy;</span>
+<span class="nc" id="L258">		final float p2x = fx;</span>
+<span class="nc" id="L259">		final float p2y = fy2;</span>
+<span class="nc" id="L260">		final float p3x = fx2;</span>
+<span class="nc" id="L261">		final float p3y = fy2;</span>
+<span class="nc" id="L262">		final float p4x = fx2;</span>
+<span class="nc" id="L263">		final float p4y = fy;</span>
+
+		float x1;
+		float y1;
+		float x2;
+		float y2;
+		float x3;
+		float y3;
+		float x4;
+		float y4;
+
+		// rotate
+<span class="nc bnc" id="L275" title="All 2 branches missed.">		if (rotation != 0) {</span>
+<span class="nc" id="L276">			final float cos = MathUtils.cosDeg(rotation);</span>
+<span class="nc" id="L277">			final float sin = MathUtils.sinDeg(rotation);</span>
+
+<span class="nc" id="L279">			x1 = cos * p1x - sin * p1y;</span>
+<span class="nc" id="L280">			y1 = sin * p1x + cos * p1y;</span>
+
+<span class="nc" id="L282">			x2 = cos * p2x - sin * p2y;</span>
+<span class="nc" id="L283">			y2 = sin * p2x + cos * p2y;</span>
+
+<span class="nc" id="L285">			x3 = cos * p3x - sin * p3y;</span>
+<span class="nc" id="L286">			y3 = sin * p3x + cos * p3y;</span>
+
+<span class="nc" id="L288">			x4 = x1 + (x3 - x2);</span>
+<span class="nc" id="L289">			y4 = y3 - (y2 - y1);</span>
+<span class="nc" id="L290">		} else {</span>
+<span class="nc" id="L291">			x1 = p1x;</span>
+<span class="nc" id="L292">			y1 = p1y;</span>
+
+<span class="nc" id="L294">			x2 = p2x;</span>
+<span class="nc" id="L295">			y2 = p2y;</span>
+
+<span class="nc" id="L297">			x3 = p3x;</span>
+<span class="nc" id="L298">			y3 = p3y;</span>
+
+<span class="nc" id="L300">			x4 = p4x;</span>
+<span class="nc" id="L301">			y4 = p4y;</span>
+		}
+
+<span class="nc" id="L304">		x1 += worldOriginX;</span>
+<span class="nc" id="L305">		y1 += worldOriginY;</span>
+<span class="nc" id="L306">		x2 += worldOriginX;</span>
+<span class="nc" id="L307">		y2 += worldOriginY;</span>
+<span class="nc" id="L308">		x3 += worldOriginX;</span>
+<span class="nc" id="L309">		y3 += worldOriginY;</span>
+<span class="nc" id="L310">		x4 += worldOriginX;</span>
+<span class="nc" id="L311">		y4 += worldOriginY;</span>
+
+<span class="nc" id="L313">		float u = srcX * invTexWidth;</span>
+<span class="nc" id="L314">		float v = (srcY + srcHeight) * invTexHeight;</span>
+<span class="nc" id="L315">		float u2 = (srcX + srcWidth) * invTexWidth;</span>
+<span class="nc" id="L316">		float v2 = srcY * invTexHeight;</span>
+
+<span class="nc bnc" id="L318" title="All 2 branches missed.">		if (flipX) {</span>
+<span class="nc" id="L319">			float tmp = u;</span>
+<span class="nc" id="L320">			u = u2;</span>
+<span class="nc" id="L321">			u2 = tmp;</span>
+		}
+
+<span class="nc bnc" id="L324" title="All 2 branches missed.">		if (flipY) {</span>
+<span class="nc" id="L325">			float tmp = v;</span>
+<span class="nc" id="L326">			v = v2;</span>
+<span class="nc" id="L327">			v2 = tmp;</span>
+		}
+
+<span class="nc" id="L330">		float color = this.colorPacked;</span>
+<span class="nc" id="L331">		int idx = this.idx;</span>
+<span class="nc" id="L332">		vertices[idx] = x1;</span>
+<span class="nc" id="L333">		vertices[idx + 1] = y1;</span>
+<span class="nc" id="L334">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L335">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L336">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L338">		vertices[idx + 5] = x2;</span>
+<span class="nc" id="L339">		vertices[idx + 6] = y2;</span>
+<span class="nc" id="L340">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L341">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L342">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L344">		vertices[idx + 10] = x3;</span>
+<span class="nc" id="L345">		vertices[idx + 11] = y3;</span>
+<span class="nc" id="L346">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L347">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L348">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L350">		vertices[idx + 15] = x4;</span>
+<span class="nc" id="L351">		vertices[idx + 16] = y4;</span>
+<span class="nc" id="L352">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L353">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L354">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L355">		this.idx = idx + 20;</span>
+<span class="nc" id="L356">	}</span>
+
+	@Override
+	public void draw (Texture texture, float x, float y, float width, float height, int srcX, int srcY, int srcWidth,
+		int srcHeight, boolean flipX, boolean flipY) {
+<span class="nc bnc" id="L361" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L363">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L365" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L366">			switchTexture(texture);</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">		else if (idx == vertices.length) //</span>
+<span class="nc" id="L368">			flush();</span>
+
+<span class="nc" id="L370">		float u = srcX * invTexWidth;</span>
+<span class="nc" id="L371">		float v = (srcY + srcHeight) * invTexHeight;</span>
+<span class="nc" id="L372">		float u2 = (srcX + srcWidth) * invTexWidth;</span>
+<span class="nc" id="L373">		float v2 = srcY * invTexHeight;</span>
+<span class="nc" id="L374">		final float fx2 = x + width;</span>
+<span class="nc" id="L375">		final float fy2 = y + height;</span>
+
+<span class="nc bnc" id="L377" title="All 2 branches missed.">		if (flipX) {</span>
+<span class="nc" id="L378">			float tmp = u;</span>
+<span class="nc" id="L379">			u = u2;</span>
+<span class="nc" id="L380">			u2 = tmp;</span>
+		}
+
+<span class="nc bnc" id="L383" title="All 2 branches missed.">		if (flipY) {</span>
+<span class="nc" id="L384">			float tmp = v;</span>
+<span class="nc" id="L385">			v = v2;</span>
+<span class="nc" id="L386">			v2 = tmp;</span>
+		}
+
+<span class="nc" id="L389">		float color = this.colorPacked;</span>
+<span class="nc" id="L390">		int idx = this.idx;</span>
+<span class="nc" id="L391">		vertices[idx] = x;</span>
+<span class="nc" id="L392">		vertices[idx + 1] = y;</span>
+<span class="nc" id="L393">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L394">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L395">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L397">		vertices[idx + 5] = x;</span>
+<span class="nc" id="L398">		vertices[idx + 6] = fy2;</span>
+<span class="nc" id="L399">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L400">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L401">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L403">		vertices[idx + 10] = fx2;</span>
+<span class="nc" id="L404">		vertices[idx + 11] = fy2;</span>
+<span class="nc" id="L405">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L406">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L407">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L409">		vertices[idx + 15] = fx2;</span>
+<span class="nc" id="L410">		vertices[idx + 16] = y;</span>
+<span class="nc" id="L411">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L412">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L413">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L414">		this.idx = idx + 20;</span>
+<span class="nc" id="L415">	}</span>
+
+	@Override
+	public void draw (Texture texture, float x, float y, int srcX, int srcY, int srcWidth, int srcHeight) {
+<span class="nc bnc" id="L419" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L421">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L423" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L424">			switchTexture(texture);</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">		else if (idx == vertices.length) //</span>
+<span class="nc" id="L426">			flush();</span>
+
+<span class="nc" id="L428">		final float u = srcX * invTexWidth;</span>
+<span class="nc" id="L429">		final float v = (srcY + srcHeight) * invTexHeight;</span>
+<span class="nc" id="L430">		final float u2 = (srcX + srcWidth) * invTexWidth;</span>
+<span class="nc" id="L431">		final float v2 = srcY * invTexHeight;</span>
+<span class="nc" id="L432">		final float fx2 = x + srcWidth;</span>
+<span class="nc" id="L433">		final float fy2 = y + srcHeight;</span>
+
+<span class="nc" id="L435">		float color = this.colorPacked;</span>
+<span class="nc" id="L436">		int idx = this.idx;</span>
+<span class="nc" id="L437">		vertices[idx] = x;</span>
+<span class="nc" id="L438">		vertices[idx + 1] = y;</span>
+<span class="nc" id="L439">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L440">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L441">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L443">		vertices[idx + 5] = x;</span>
+<span class="nc" id="L444">		vertices[idx + 6] = fy2;</span>
+<span class="nc" id="L445">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L446">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L447">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L449">		vertices[idx + 10] = fx2;</span>
+<span class="nc" id="L450">		vertices[idx + 11] = fy2;</span>
+<span class="nc" id="L451">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L452">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L453">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L455">		vertices[idx + 15] = fx2;</span>
+<span class="nc" id="L456">		vertices[idx + 16] = y;</span>
+<span class="nc" id="L457">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L458">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L459">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L460">		this.idx = idx + 20;</span>
+<span class="nc" id="L461">	}</span>
+
+	@Override
+	public void draw (Texture texture, float x, float y, float width, float height, float u, float v, float u2, float v2) {
+<span class="nc bnc" id="L465" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L467">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L470">			switchTexture(texture);</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">		else if (idx == vertices.length) //</span>
+<span class="nc" id="L472">			flush();</span>
+
+<span class="nc" id="L474">		final float fx2 = x + width;</span>
+<span class="nc" id="L475">		final float fy2 = y + height;</span>
+
+<span class="nc" id="L477">		float color = this.colorPacked;</span>
+<span class="nc" id="L478">		int idx = this.idx;</span>
+<span class="nc" id="L479">		vertices[idx] = x;</span>
+<span class="nc" id="L480">		vertices[idx + 1] = y;</span>
+<span class="nc" id="L481">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L482">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L483">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L485">		vertices[idx + 5] = x;</span>
+<span class="nc" id="L486">		vertices[idx + 6] = fy2;</span>
+<span class="nc" id="L487">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L488">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L489">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L491">		vertices[idx + 10] = fx2;</span>
+<span class="nc" id="L492">		vertices[idx + 11] = fy2;</span>
+<span class="nc" id="L493">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L494">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L495">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L497">		vertices[idx + 15] = fx2;</span>
+<span class="nc" id="L498">		vertices[idx + 16] = y;</span>
+<span class="nc" id="L499">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L500">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L501">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L502">		this.idx = idx + 20;</span>
+<span class="nc" id="L503">	}</span>
+
+	@Override
+	public void draw (Texture texture, float x, float y) {
+<span class="nc" id="L507">		draw(texture, x, y, texture.getWidth(), texture.getHeight());</span>
+<span class="nc" id="L508">	}</span>
+
+	@Override
+	public void draw (Texture texture, float x, float y, float width, float height) {
+<span class="nc bnc" id="L512" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L514">		float[] vertices = this.vertices;</span>
+
+<span class="nc bnc" id="L516" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L517">			switchTexture(texture);</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">		else if (idx == vertices.length) //</span>
+<span class="nc" id="L519">			flush();</span>
+
+<span class="nc" id="L521">		final float fx2 = x + width;</span>
+<span class="nc" id="L522">		final float fy2 = y + height;</span>
+<span class="nc" id="L523">		final float u = 0;</span>
+<span class="nc" id="L524">		final float v = 1;</span>
+<span class="nc" id="L525">		final float u2 = 1;</span>
+<span class="nc" id="L526">		final float v2 = 0;</span>
+
+<span class="nc" id="L528">		float color = this.colorPacked;</span>
+<span class="nc" id="L529">		int idx = this.idx;</span>
+<span class="nc" id="L530">		vertices[idx] = x;</span>
+<span class="nc" id="L531">		vertices[idx + 1] = y;</span>
+<span class="nc" id="L532">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L533">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L534">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L536">		vertices[idx + 5] = x;</span>
+<span class="nc" id="L537">		vertices[idx + 6] = fy2;</span>
+<span class="nc" id="L538">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L539">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L540">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L542">		vertices[idx + 10] = fx2;</span>
+<span class="nc" id="L543">		vertices[idx + 11] = fy2;</span>
+<span class="nc" id="L544">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L545">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L546">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L548">		vertices[idx + 15] = fx2;</span>
+<span class="nc" id="L549">		vertices[idx + 16] = y;</span>
+<span class="nc" id="L550">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L551">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L552">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L553">		this.idx = idx + 20;</span>
+<span class="nc" id="L554">	}</span>
+
+	@Override
+	public void draw (Texture texture, float[] spriteVertices, int offset, int count) {
+<span class="nc bnc" id="L558" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L560">		int verticesLength = vertices.length;</span>
+<span class="nc" id="L561">		int remainingVertices = verticesLength;</span>
+<span class="nc bnc" id="L562" title="All 2 branches missed.">		if (texture != lastTexture)</span>
+<span class="nc" id="L563">			switchTexture(texture);</span>
+		else {
+<span class="nc" id="L565">			remainingVertices -= idx;</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">			if (remainingVertices == 0) {</span>
+<span class="nc" id="L567">				flush();</span>
+<span class="nc" id="L568">				remainingVertices = verticesLength;</span>
+			}
+		}
+<span class="nc" id="L571">		int copyCount = Math.min(remainingVertices, count);</span>
+
+<span class="nc" id="L573">		System.arraycopy(spriteVertices, offset, vertices, idx, copyCount);</span>
+<span class="nc" id="L574">		idx += copyCount;</span>
+<span class="nc" id="L575">		count -= copyCount;</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">		while (count &gt; 0) {</span>
+<span class="nc" id="L577">			offset += copyCount;</span>
+<span class="nc" id="L578">			flush();</span>
+<span class="nc" id="L579">			copyCount = Math.min(verticesLength, count);</span>
+<span class="nc" id="L580">			System.arraycopy(spriteVertices, offset, vertices, 0, copyCount);</span>
+<span class="nc" id="L581">			idx += copyCount;</span>
+<span class="nc" id="L582">			count -= copyCount;</span>
+		}
+<span class="nc" id="L584">	}</span>
+
+	@Override
+	public void draw (TextureRegion region, float x, float y) {
+<span class="nc" id="L588">		draw(region, x, y, region.getRegionWidth(), region.getRegionHeight());</span>
+<span class="nc" id="L589">	}</span>
+
+	@Override
+	public void draw (TextureRegion region, float x, float y, float width, float height) {
+<span class="nc bnc" id="L593" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L595">		float[] vertices = this.vertices;</span>
+
+<span class="nc" id="L597">		Texture texture = region.texture;</span>
+<span class="nc bnc" id="L598" title="All 2 branches missed.">		if (texture != lastTexture) {</span>
+<span class="nc" id="L599">			switchTexture(texture);</span>
+<span class="nc bnc" id="L600" title="All 2 branches missed.">		} else if (idx == vertices.length) //</span>
+<span class="nc" id="L601">			flush();</span>
+
+<span class="nc" id="L603">		final float fx2 = x + width;</span>
+<span class="nc" id="L604">		final float fy2 = y + height;</span>
+<span class="nc" id="L605">		final float u = region.u;</span>
+<span class="nc" id="L606">		final float v = region.v2;</span>
+<span class="nc" id="L607">		final float u2 = region.u2;</span>
+<span class="nc" id="L608">		final float v2 = region.v;</span>
+
+<span class="nc" id="L610">		float color = this.colorPacked;</span>
+<span class="nc" id="L611">		int idx = this.idx;</span>
+<span class="nc" id="L612">		vertices[idx] = x;</span>
+<span class="nc" id="L613">		vertices[idx + 1] = y;</span>
+<span class="nc" id="L614">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L615">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L616">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L618">		vertices[idx + 5] = x;</span>
+<span class="nc" id="L619">		vertices[idx + 6] = fy2;</span>
+<span class="nc" id="L620">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L621">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L622">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L624">		vertices[idx + 10] = fx2;</span>
+<span class="nc" id="L625">		vertices[idx + 11] = fy2;</span>
+<span class="nc" id="L626">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L627">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L628">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L630">		vertices[idx + 15] = fx2;</span>
+<span class="nc" id="L631">		vertices[idx + 16] = y;</span>
+<span class="nc" id="L632">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L633">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L634">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L635">		this.idx = idx + 20;</span>
+<span class="nc" id="L636">	}</span>
+
+	@Override
+	public void draw (TextureRegion region, float x, float y, float originX, float originY, float width, float height,
+		float scaleX, float scaleY, float rotation) {
+<span class="nc bnc" id="L641" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L643">		float[] vertices = this.vertices;</span>
+
+<span class="nc" id="L645">		Texture texture = region.texture;</span>
+<span class="nc bnc" id="L646" title="All 2 branches missed.">		if (texture != lastTexture) {</span>
+<span class="nc" id="L647">			switchTexture(texture);</span>
+<span class="nc bnc" id="L648" title="All 2 branches missed.">		} else if (idx == vertices.length) //</span>
+<span class="nc" id="L649">			flush();</span>
+
+		// bottom left and top right corner points relative to origin
+<span class="nc" id="L652">		final float worldOriginX = x + originX;</span>
+<span class="nc" id="L653">		final float worldOriginY = y + originY;</span>
+<span class="nc" id="L654">		float fx = -originX;</span>
+<span class="nc" id="L655">		float fy = -originY;</span>
+<span class="nc" id="L656">		float fx2 = width - originX;</span>
+<span class="nc" id="L657">		float fy2 = height - originY;</span>
+
+		// scale
+<span class="nc bnc" id="L660" title="All 4 branches missed.">		if (scaleX != 1 || scaleY != 1) {</span>
+<span class="nc" id="L661">			fx *= scaleX;</span>
+<span class="nc" id="L662">			fy *= scaleY;</span>
+<span class="nc" id="L663">			fx2 *= scaleX;</span>
+<span class="nc" id="L664">			fy2 *= scaleY;</span>
+		}
+
+		// construct corner points, start from top left and go counter clockwise
+<span class="nc" id="L668">		final float p1x = fx;</span>
+<span class="nc" id="L669">		final float p1y = fy;</span>
+<span class="nc" id="L670">		final float p2x = fx;</span>
+<span class="nc" id="L671">		final float p2y = fy2;</span>
+<span class="nc" id="L672">		final float p3x = fx2;</span>
+<span class="nc" id="L673">		final float p3y = fy2;</span>
+<span class="nc" id="L674">		final float p4x = fx2;</span>
+<span class="nc" id="L675">		final float p4y = fy;</span>
+
+		float x1;
+		float y1;
+		float x2;
+		float y2;
+		float x3;
+		float y3;
+		float x4;
+		float y4;
+
+		// rotate
+<span class="nc bnc" id="L687" title="All 2 branches missed.">		if (rotation != 0) {</span>
+<span class="nc" id="L688">			final float cos = MathUtils.cosDeg(rotation);</span>
+<span class="nc" id="L689">			final float sin = MathUtils.sinDeg(rotation);</span>
+
+<span class="nc" id="L691">			x1 = cos * p1x - sin * p1y;</span>
+<span class="nc" id="L692">			y1 = sin * p1x + cos * p1y;</span>
+
+<span class="nc" id="L694">			x2 = cos * p2x - sin * p2y;</span>
+<span class="nc" id="L695">			y2 = sin * p2x + cos * p2y;</span>
+
+<span class="nc" id="L697">			x3 = cos * p3x - sin * p3y;</span>
+<span class="nc" id="L698">			y3 = sin * p3x + cos * p3y;</span>
+
+<span class="nc" id="L700">			x4 = x1 + (x3 - x2);</span>
+<span class="nc" id="L701">			y4 = y3 - (y2 - y1);</span>
+<span class="nc" id="L702">		} else {</span>
+<span class="nc" id="L703">			x1 = p1x;</span>
+<span class="nc" id="L704">			y1 = p1y;</span>
+
+<span class="nc" id="L706">			x2 = p2x;</span>
+<span class="nc" id="L707">			y2 = p2y;</span>
+
+<span class="nc" id="L709">			x3 = p3x;</span>
+<span class="nc" id="L710">			y3 = p3y;</span>
+
+<span class="nc" id="L712">			x4 = p4x;</span>
+<span class="nc" id="L713">			y4 = p4y;</span>
+		}
+
+<span class="nc" id="L716">		x1 += worldOriginX;</span>
+<span class="nc" id="L717">		y1 += worldOriginY;</span>
+<span class="nc" id="L718">		x2 += worldOriginX;</span>
+<span class="nc" id="L719">		y2 += worldOriginY;</span>
+<span class="nc" id="L720">		x3 += worldOriginX;</span>
+<span class="nc" id="L721">		y3 += worldOriginY;</span>
+<span class="nc" id="L722">		x4 += worldOriginX;</span>
+<span class="nc" id="L723">		y4 += worldOriginY;</span>
+
+<span class="nc" id="L725">		final float u = region.u;</span>
+<span class="nc" id="L726">		final float v = region.v2;</span>
+<span class="nc" id="L727">		final float u2 = region.u2;</span>
+<span class="nc" id="L728">		final float v2 = region.v;</span>
+
+<span class="nc" id="L730">		float color = this.colorPacked;</span>
+<span class="nc" id="L731">		int idx = this.idx;</span>
+<span class="nc" id="L732">		vertices[idx] = x1;</span>
+<span class="nc" id="L733">		vertices[idx + 1] = y1;</span>
+<span class="nc" id="L734">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L735">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L736">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L738">		vertices[idx + 5] = x2;</span>
+<span class="nc" id="L739">		vertices[idx + 6] = y2;</span>
+<span class="nc" id="L740">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L741">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L742">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L744">		vertices[idx + 10] = x3;</span>
+<span class="nc" id="L745">		vertices[idx + 11] = y3;</span>
+<span class="nc" id="L746">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L747">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L748">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L750">		vertices[idx + 15] = x4;</span>
+<span class="nc" id="L751">		vertices[idx + 16] = y4;</span>
+<span class="nc" id="L752">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L753">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L754">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L755">		this.idx = idx + 20;</span>
+<span class="nc" id="L756">	}</span>
+
+	@Override
+	public void draw (TextureRegion region, float x, float y, float originX, float originY, float width, float height,
+		float scaleX, float scaleY, float rotation, boolean clockwise) {
+<span class="nc bnc" id="L761" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L763">		float[] vertices = this.vertices;</span>
+
+<span class="nc" id="L765">		Texture texture = region.texture;</span>
+<span class="nc bnc" id="L766" title="All 2 branches missed.">		if (texture != lastTexture) {</span>
+<span class="nc" id="L767">			switchTexture(texture);</span>
+<span class="nc bnc" id="L768" title="All 2 branches missed.">		} else if (idx == vertices.length) //</span>
+<span class="nc" id="L769">			flush();</span>
+
+		// bottom left and top right corner points relative to origin
+<span class="nc" id="L772">		final float worldOriginX = x + originX;</span>
+<span class="nc" id="L773">		final float worldOriginY = y + originY;</span>
+<span class="nc" id="L774">		float fx = -originX;</span>
+<span class="nc" id="L775">		float fy = -originY;</span>
+<span class="nc" id="L776">		float fx2 = width - originX;</span>
+<span class="nc" id="L777">		float fy2 = height - originY;</span>
+
+		// scale
+<span class="nc bnc" id="L780" title="All 4 branches missed.">		if (scaleX != 1 || scaleY != 1) {</span>
+<span class="nc" id="L781">			fx *= scaleX;</span>
+<span class="nc" id="L782">			fy *= scaleY;</span>
+<span class="nc" id="L783">			fx2 *= scaleX;</span>
+<span class="nc" id="L784">			fy2 *= scaleY;</span>
+		}
+
+		// construct corner points, start from top left and go counter clockwise
+<span class="nc" id="L788">		final float p1x = fx;</span>
+<span class="nc" id="L789">		final float p1y = fy;</span>
+<span class="nc" id="L790">		final float p2x = fx;</span>
+<span class="nc" id="L791">		final float p2y = fy2;</span>
+<span class="nc" id="L792">		final float p3x = fx2;</span>
+<span class="nc" id="L793">		final float p3y = fy2;</span>
+<span class="nc" id="L794">		final float p4x = fx2;</span>
+<span class="nc" id="L795">		final float p4y = fy;</span>
+
+		float x1;
+		float y1;
+		float x2;
+		float y2;
+		float x3;
+		float y3;
+		float x4;
+		float y4;
+
+		// rotate
+<span class="nc bnc" id="L807" title="All 2 branches missed.">		if (rotation != 0) {</span>
+<span class="nc" id="L808">			final float cos = MathUtils.cosDeg(rotation);</span>
+<span class="nc" id="L809">			final float sin = MathUtils.sinDeg(rotation);</span>
+
+<span class="nc" id="L811">			x1 = cos * p1x - sin * p1y;</span>
+<span class="nc" id="L812">			y1 = sin * p1x + cos * p1y;</span>
+
+<span class="nc" id="L814">			x2 = cos * p2x - sin * p2y;</span>
+<span class="nc" id="L815">			y2 = sin * p2x + cos * p2y;</span>
+
+<span class="nc" id="L817">			x3 = cos * p3x - sin * p3y;</span>
+<span class="nc" id="L818">			y3 = sin * p3x + cos * p3y;</span>
+
+<span class="nc" id="L820">			x4 = x1 + (x3 - x2);</span>
+<span class="nc" id="L821">			y4 = y3 - (y2 - y1);</span>
+<span class="nc" id="L822">		} else {</span>
+<span class="nc" id="L823">			x1 = p1x;</span>
+<span class="nc" id="L824">			y1 = p1y;</span>
+
+<span class="nc" id="L826">			x2 = p2x;</span>
+<span class="nc" id="L827">			y2 = p2y;</span>
+
+<span class="nc" id="L829">			x3 = p3x;</span>
+<span class="nc" id="L830">			y3 = p3y;</span>
+
+<span class="nc" id="L832">			x4 = p4x;</span>
+<span class="nc" id="L833">			y4 = p4y;</span>
+		}
+
+<span class="nc" id="L836">		x1 += worldOriginX;</span>
+<span class="nc" id="L837">		y1 += worldOriginY;</span>
+<span class="nc" id="L838">		x2 += worldOriginX;</span>
+<span class="nc" id="L839">		y2 += worldOriginY;</span>
+<span class="nc" id="L840">		x3 += worldOriginX;</span>
+<span class="nc" id="L841">		y3 += worldOriginY;</span>
+<span class="nc" id="L842">		x4 += worldOriginX;</span>
+<span class="nc" id="L843">		y4 += worldOriginY;</span>
+
+		float u1, v1, u2, v2, u3, v3, u4, v4;
+<span class="nc bnc" id="L846" title="All 2 branches missed.">		if (clockwise) {</span>
+<span class="nc" id="L847">			u1 = region.u2;</span>
+<span class="nc" id="L848">			v1 = region.v2;</span>
+<span class="nc" id="L849">			u2 = region.u;</span>
+<span class="nc" id="L850">			v2 = region.v2;</span>
+<span class="nc" id="L851">			u3 = region.u;</span>
+<span class="nc" id="L852">			v3 = region.v;</span>
+<span class="nc" id="L853">			u4 = region.u2;</span>
+<span class="nc" id="L854">			v4 = region.v;</span>
+		} else {
+<span class="nc" id="L856">			u1 = region.u;</span>
+<span class="nc" id="L857">			v1 = region.v;</span>
+<span class="nc" id="L858">			u2 = region.u2;</span>
+<span class="nc" id="L859">			v2 = region.v;</span>
+<span class="nc" id="L860">			u3 = region.u2;</span>
+<span class="nc" id="L861">			v3 = region.v2;</span>
+<span class="nc" id="L862">			u4 = region.u;</span>
+<span class="nc" id="L863">			v4 = region.v2;</span>
+		}
+
+<span class="nc" id="L866">		float color = this.colorPacked;</span>
+<span class="nc" id="L867">		int idx = this.idx;</span>
+<span class="nc" id="L868">		vertices[idx] = x1;</span>
+<span class="nc" id="L869">		vertices[idx + 1] = y1;</span>
+<span class="nc" id="L870">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L871">		vertices[idx + 3] = u1;</span>
+<span class="nc" id="L872">		vertices[idx + 4] = v1;</span>
+
+<span class="nc" id="L874">		vertices[idx + 5] = x2;</span>
+<span class="nc" id="L875">		vertices[idx + 6] = y2;</span>
+<span class="nc" id="L876">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L877">		vertices[idx + 8] = u2;</span>
+<span class="nc" id="L878">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L880">		vertices[idx + 10] = x3;</span>
+<span class="nc" id="L881">		vertices[idx + 11] = y3;</span>
+<span class="nc" id="L882">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L883">		vertices[idx + 13] = u3;</span>
+<span class="nc" id="L884">		vertices[idx + 14] = v3;</span>
+
+<span class="nc" id="L886">		vertices[idx + 15] = x4;</span>
+<span class="nc" id="L887">		vertices[idx + 16] = y4;</span>
+<span class="nc" id="L888">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L889">		vertices[idx + 18] = u4;</span>
+<span class="nc" id="L890">		vertices[idx + 19] = v4;</span>
+<span class="nc" id="L891">		this.idx = idx + 20;</span>
+<span class="nc" id="L892">	}</span>
+
+	@Override
+	public void draw (TextureRegion region, float width, float height, Affine2 transform) {
+<span class="nc bnc" id="L896" title="All 2 branches missed.">		if (!drawing) throw new IllegalStateException(&quot;SpriteBatch.begin must be called before draw.&quot;);</span>
+
+<span class="nc" id="L898">		float[] vertices = this.vertices;</span>
+
+<span class="nc" id="L900">		Texture texture = region.texture;</span>
+<span class="nc bnc" id="L901" title="All 2 branches missed.">		if (texture != lastTexture) {</span>
+<span class="nc" id="L902">			switchTexture(texture);</span>
+<span class="nc bnc" id="L903" title="All 2 branches missed.">		} else if (idx == vertices.length) {</span>
+<span class="nc" id="L904">			flush();</span>
+		}
+
+		// construct corner points
+<span class="nc" id="L908">		float x1 = transform.m02;</span>
+<span class="nc" id="L909">		float y1 = transform.m12;</span>
+<span class="nc" id="L910">		float x2 = transform.m01 * height + transform.m02;</span>
+<span class="nc" id="L911">		float y2 = transform.m11 * height + transform.m12;</span>
+<span class="nc" id="L912">		float x3 = transform.m00 * width + transform.m01 * height + transform.m02;</span>
+<span class="nc" id="L913">		float y3 = transform.m10 * width + transform.m11 * height + transform.m12;</span>
+<span class="nc" id="L914">		float x4 = transform.m00 * width + transform.m02;</span>
+<span class="nc" id="L915">		float y4 = transform.m10 * width + transform.m12;</span>
+
+<span class="nc" id="L917">		float u = region.u;</span>
+<span class="nc" id="L918">		float v = region.v2;</span>
+<span class="nc" id="L919">		float u2 = region.u2;</span>
+<span class="nc" id="L920">		float v2 = region.v;</span>
+
+<span class="nc" id="L922">		float color = this.colorPacked;</span>
+<span class="nc" id="L923">		int idx = this.idx;</span>
+<span class="nc" id="L924">		vertices[idx] = x1;</span>
+<span class="nc" id="L925">		vertices[idx + 1] = y1;</span>
+<span class="nc" id="L926">		vertices[idx + 2] = color;</span>
+<span class="nc" id="L927">		vertices[idx + 3] = u;</span>
+<span class="nc" id="L928">		vertices[idx + 4] = v;</span>
+
+<span class="nc" id="L930">		vertices[idx + 5] = x2;</span>
+<span class="nc" id="L931">		vertices[idx + 6] = y2;</span>
+<span class="nc" id="L932">		vertices[idx + 7] = color;</span>
+<span class="nc" id="L933">		vertices[idx + 8] = u;</span>
+<span class="nc" id="L934">		vertices[idx + 9] = v2;</span>
+
+<span class="nc" id="L936">		vertices[idx + 10] = x3;</span>
+<span class="nc" id="L937">		vertices[idx + 11] = y3;</span>
+<span class="nc" id="L938">		vertices[idx + 12] = color;</span>
+<span class="nc" id="L939">		vertices[idx + 13] = u2;</span>
+<span class="nc" id="L940">		vertices[idx + 14] = v2;</span>
+
+<span class="nc" id="L942">		vertices[idx + 15] = x4;</span>
+<span class="nc" id="L943">		vertices[idx + 16] = y4;</span>
+<span class="nc" id="L944">		vertices[idx + 17] = color;</span>
+<span class="nc" id="L945">		vertices[idx + 18] = u2;</span>
+<span class="nc" id="L946">		vertices[idx + 19] = v;</span>
+<span class="nc" id="L947">		this.idx = idx + 20;</span>
+<span class="nc" id="L948">	}</span>
+
+	@Override
+	public void flush () {
+<span class="nc bnc" id="L952" title="All 2 branches missed.">		if (idx == 0) return;</span>
+
+<span class="nc" id="L954">		renderCalls++;</span>
+<span class="nc" id="L955">		totalRenderCalls++;</span>
+<span class="nc" id="L956">		int spritesInBatch = idx / 20;</span>
+<span class="nc bnc" id="L957" title="All 2 branches missed.">		if (spritesInBatch &gt; maxSpritesInBatch) maxSpritesInBatch = spritesInBatch;</span>
+<span class="nc" id="L958">		int count = spritesInBatch * 6;</span>
+
+<span class="nc" id="L960">		lastTexture.bind();</span>
+<span class="nc" id="L961">		Mesh mesh = this.mesh;</span>
+<span class="nc" id="L962">		mesh.setVertices(vertices, 0, idx);</span>
+<span class="nc" id="L963">		mesh.getIndicesBuffer().position(0);</span>
+<span class="nc" id="L964">		mesh.getIndicesBuffer().limit(count);</span>
+
+<span class="nc bnc" id="L966" title="All 2 branches missed.">		if (blendingDisabled) {</span>
+<span class="nc" id="L967">			Gdx.gl.glDisable(GL20.GL_BLEND);</span>
+		} else {
+<span class="nc" id="L969">			Gdx.gl.glEnable(GL20.GL_BLEND);</span>
+<span class="nc bnc" id="L970" title="All 2 branches missed.">			if (blendSrcFunc != -1) Gdx.gl.glBlendFuncSeparate(blendSrcFunc, blendDstFunc, blendSrcFuncAlpha, blendDstFuncAlpha);</span>
+		}
+
+<span class="nc bnc" id="L973" title="All 2 branches missed.">		mesh.render(customShader != null ? customShader : shader, GL20.GL_TRIANGLES, 0, count);</span>
+
+<span class="nc" id="L975">		idx = 0;</span>
+<span class="nc" id="L976">	}</span>
+
+	@Override
+	public void disableBlending () {
+<span class="nc bnc" id="L980" title="All 2 branches missed.">		if (blendingDisabled) return;</span>
+<span class="nc" id="L981">		flush();</span>
+<span class="nc" id="L982">		blendingDisabled = true;</span>
+<span class="nc" id="L983">	}</span>
+
+	@Override
+	public void enableBlending () {
+<span class="nc bnc" id="L987" title="All 2 branches missed.">		if (!blendingDisabled) return;</span>
+<span class="nc" id="L988">		flush();</span>
+<span class="nc" id="L989">		blendingDisabled = false;</span>
+<span class="nc" id="L990">	}</span>
+
+	@Override
+	public void setBlendFunction (int srcFunc, int dstFunc) {
+<span class="nc" id="L994">		setBlendFunctionSeparate(srcFunc, dstFunc, srcFunc, dstFunc);</span>
+<span class="nc" id="L995">	}</span>
+
+	@Override
+	public void setBlendFunctionSeparate (int srcFuncColor, int dstFuncColor, int srcFuncAlpha, int dstFuncAlpha) {
+<span class="nc bnc" id="L999" title="All 8 branches missed.">		if (blendSrcFunc == srcFuncColor &amp;&amp; blendDstFunc == dstFuncColor &amp;&amp; blendSrcFuncAlpha == srcFuncAlpha</span>
+<span class="nc" id="L1000">			&amp;&amp; blendDstFuncAlpha == dstFuncAlpha) return;</span>
+<span class="nc" id="L1001">		flush();</span>
+<span class="nc" id="L1002">		blendSrcFunc = srcFuncColor;</span>
+<span class="nc" id="L1003">		blendDstFunc = dstFuncColor;</span>
+<span class="nc" id="L1004">		blendSrcFuncAlpha = srcFuncAlpha;</span>
+<span class="nc" id="L1005">		blendDstFuncAlpha = dstFuncAlpha;</span>
+<span class="nc" id="L1006">	}</span>
+
+	@Override
+	public int getBlendSrcFunc () {
+<span class="nc" id="L1010">		return blendSrcFunc;</span>
+	}
+
+	@Override
+	public int getBlendDstFunc () {
+<span class="nc" id="L1015">		return blendDstFunc;</span>
+	}
+
+	@Override
+	public int getBlendSrcFuncAlpha () {
+<span class="nc" id="L1020">		return blendSrcFuncAlpha;</span>
+	}
+
+	@Override
+	public int getBlendDstFuncAlpha () {
+<span class="nc" id="L1025">		return blendDstFuncAlpha;</span>
+	}
+
+	@Override
+	public void dispose () {
+<span class="nc" id="L1030">		mesh.dispose();</span>
+<span class="nc bnc" id="L1031" title="All 4 branches missed.">		if (ownsShader &amp;&amp; shader != null) shader.dispose();</span>
+<span class="nc" id="L1032">	}</span>
+
+	@Override
+	public Matrix4 getProjectionMatrix () {
+<span class="nc" id="L1036">		return projectionMatrix;</span>
+	}
+
+	@Override
+	public Matrix4 getTransformMatrix () {
+<span class="nc" id="L1041">		return transformMatrix;</span>
+	}
+
+	@Override
+	public void setProjectionMatrix (Matrix4 projection) {
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">		if (drawing) flush();</span>
+<span class="nc" id="L1047">		projectionMatrix.set(projection);</span>
+<span class="nc bnc" id="L1048" title="All 2 branches missed.">		if (drawing) setupMatrices();</span>
+<span class="nc" id="L1049">	}</span>
+
+	@Override
+	public void setTransformMatrix (Matrix4 transform) {
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">		if (drawing) flush();</span>
+<span class="nc" id="L1054">		transformMatrix.set(transform);</span>
+<span class="nc bnc" id="L1055" title="All 2 branches missed.">		if (drawing) setupMatrices();</span>
+<span class="nc" id="L1056">	}</span>
+
+	private void setupMatrices () {
+<span class="nc" id="L1059">		combinedMatrix.set(projectionMatrix).mul(transformMatrix);</span>
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">		if (customShader != null) {</span>
+<span class="nc" id="L1061">			customShader.setUniformMatrix(&quot;u_projTrans&quot;, combinedMatrix);</span>
+<span class="nc" id="L1062">			customShader.setUniformi(&quot;u_texture&quot;, 0);</span>
+		} else {
+<span class="nc" id="L1064">			shader.setUniformMatrix(&quot;u_projTrans&quot;, combinedMatrix);</span>
+<span class="nc" id="L1065">			shader.setUniformi(&quot;u_texture&quot;, 0);</span>
+		}
+<span class="nc" id="L1067">	}</span>
+
+	protected void switchTexture (Texture texture) {
+<span class="nc" id="L1070">		flush();</span>
+<span class="nc" id="L1071">		lastTexture = texture;</span>
+<span class="nc" id="L1072">		invTexWidth = 1.0f / texture.getWidth();</span>
+<span class="nc" id="L1073">		invTexHeight = 1.0f / texture.getHeight();</span>
+<span class="nc" id="L1074">	}</span>
+
+	@Override
+	public void setShader (ShaderProgram shader) {
+<span class="nc bnc" id="L1078" title="All 2 branches missed.">		if (drawing) {</span>
+<span class="nc" id="L1079">			flush();</span>
+<span class="nc bnc" id="L1080" title="All 2 branches missed.">			if (customShader != null)</span>
+<span class="nc" id="L1081">				customShader.end();</span>
+			else
+<span class="nc" id="L1083">				this.shader.end();</span>
+		}
+<span class="nc" id="L1085">		customShader = shader;</span>
+<span class="nc bnc" id="L1086" title="All 2 branches missed.">		if (drawing) {</span>
+<span class="nc bnc" id="L1087" title="All 2 branches missed.">			if (customShader != null)</span>
+<span class="nc" id="L1088">				customShader.begin();</span>
+			else
+<span class="nc" id="L1090">				this.shader.begin();</span>
+<span class="nc" id="L1091">			setupMatrices();</span>
+		}
+<span class="nc" id="L1093">	}</span>
+
+	@Override
+	public ShaderProgram getShader () {
+<span class="nc bnc" id="L1097" title="All 2 branches missed.">		if (customShader == null) {</span>
+<span class="nc" id="L1098">			return shader;</span>
+		}
+<span class="nc" id="L1100">		return customShader;</span>
+	}
+
+	@Override
+	public boolean isBlendingEnabled () {
+<span class="nc bnc" id="L1105" title="All 2 branches missed.">		return !blendingDisabled;</span>
+	}
+
+	public boolean isDrawing () {
+<span class="nc" id="L1109">		return drawing;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TemporalAction.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.actions</a> &gt; <span class="el_source">TemporalAction.java</span></div><h1>TemporalAction.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.actions;
+
+import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.scenes.scene2d.Action;
+import com.badlogic.gdx.utils.Pool;
+
+/** Base class for actions that transition over time using the percent complete.
+ * @author Nathan Sweet */
+abstract public class TemporalAction extends Action {
+	private float duration, time;
+	private Interpolation interpolation;
+	private boolean reverse, began, complete;
+
+<span class="nc" id="L30">	public TemporalAction () {</span>
+<span class="nc" id="L31">	}</span>
+
+<span class="nc" id="L33">	public TemporalAction (float duration) {</span>
+<span class="nc" id="L34">		this.duration = duration;</span>
+<span class="nc" id="L35">	}</span>
+
+<span class="nc" id="L37">	public TemporalAction (float duration, Interpolation interpolation) {</span>
+<span class="nc" id="L38">		this.duration = duration;</span>
+<span class="nc" id="L39">		this.interpolation = interpolation;</span>
+<span class="nc" id="L40">	}</span>
+
+	public boolean act (float delta) {
+<span class="nc bnc" id="L43" title="All 2 branches missed.">		if (complete) return true;</span>
+<span class="nc" id="L44">		Pool pool = getPool();</span>
+<span class="nc" id="L45">		setPool(null); // Ensure this action can't be returned to the pool while executing.</span>
+		try {
+<span class="nc bnc" id="L47" title="All 2 branches missed.">			if (!began) {</span>
+<span class="nc" id="L48">				begin();</span>
+<span class="nc" id="L49">				began = true;</span>
+			}
+<span class="nc" id="L51">			time += delta;</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">			complete = time &gt;= duration;</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">			float percent = complete ? 1 : time / duration;</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">			if (interpolation != null) percent = interpolation.apply(percent);</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">			update(reverse ? 1 - percent : percent);</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">			if (complete) end();</span>
+<span class="nc" id="L57">			return complete;</span>
+		} finally {
+<span class="nc" id="L59">			setPool(pool);</span>
+		}
+	}
+
+	/** Called the first time {@link #act(float)} is called. This is a good place to query the {@link #actor actor's} starting
+	 * state. */
+	protected void begin () {
+<span class="nc" id="L66">	}</span>
+
+	/** Called the last time {@link #act(float)} is called. */
+	protected void end () {
+<span class="nc" id="L70">	}</span>
+
+	/** Called each frame.
+	 * @param percent The percentage of completion for this action, growing from 0 to 1 over the duration. If
+	 *           {@link #setReverse(boolean) reversed}, this will shrink from 1 to 0. */
+	abstract protected void update (float percent);
+
+	/** Skips to the end of the transition. */
+	public void finish () {
+<span class="nc" id="L79">		time = duration;</span>
+<span class="nc" id="L80">	}</span>
+
+	public void restart () {
+<span class="nc" id="L83">		time = 0;</span>
+<span class="nc" id="L84">		began = false;</span>
+<span class="nc" id="L85">		complete = false;</span>
+<span class="nc" id="L86">	}</span>
+
+	public void reset () {
+<span class="nc" id="L89">		super.reset();</span>
+<span class="nc" id="L90">		reverse = false;</span>
+<span class="nc" id="L91">		interpolation = null;</span>
+<span class="nc" id="L92">	}</span>
+
+	/** Gets the transition time so far. */
+	public float getTime () {
+<span class="nc" id="L96">		return time;</span>
+	}
+
+	/** Sets the transition time so far. */
+	public void setTime (float time) {
+<span class="nc" id="L101">		this.time = time;</span>
+<span class="nc" id="L102">	}</span>
+
+	public float getDuration () {
+<span class="nc" id="L105">		return duration;</span>
+	}
+
+	/** Sets the length of the transition in seconds. */
+	public void setDuration (float duration) {
+<span class="nc" id="L110">		this.duration = duration;</span>
+<span class="nc" id="L111">	}</span>
+
+	public Interpolation getInterpolation () {
+<span class="nc" id="L114">		return interpolation;</span>
+	}
+
+	public void setInterpolation (Interpolation interpolation) {
+<span class="nc" id="L118">		this.interpolation = interpolation;</span>
+<span class="nc" id="L119">	}</span>
+
+	public boolean isReverse () {
+<span class="nc" id="L122">		return reverse;</span>
+	}
+
+	/** When true, the action's progress will go from 100% to 0%. */
+	public void setReverse (boolean reverse) {
+<span class="nc" id="L127">		this.reverse = reverse;</span>
+<span class="nc" id="L128">	}</span>
+
+	/** Returns true after {@link #act(float)} has been called where time &gt;= duration. */
+	public boolean isComplete () {
+<span class="nc" id="L132">		return complete;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -14,7 +14,13 @@
  * limitations under the License.
  ******************************************************************************/
 
+
+
+
+
+
 apply from: "gradle/dependencies.gradle"
+
 
 
 allprojects {
@@ -28,8 +34,9 @@ allprojects {
             mavenCentral()
             maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
         }
-    }
 
+    }
+	
     repositories {
         google()
         jcenter()
@@ -41,10 +48,19 @@ allprojects {
 configure(subprojects - project(":tests:gdx-tests-android")) {
     apply plugin: "idea"
     apply plugin: "java"
-
+        apply plugin: 'jacoco'
+    jacoco {
+    	toolVersion = "0.8.4"
+    }
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.enabled true
+        html.destination file("output/jacoco/jacocoHtml")
+    }
+}
     compileJava {
-        options.fork = true
-        options.incremental = true
     }
 }
 
@@ -55,4 +71,3 @@ task fetchNatives(dependsOn: "ant-task-all"){
     doLast {
     }
 }
-

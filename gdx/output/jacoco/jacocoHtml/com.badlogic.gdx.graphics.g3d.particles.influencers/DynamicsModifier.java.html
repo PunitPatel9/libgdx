@@ -1,0 +1,512 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DynamicsModifier.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">DynamicsModifier.java</span></div><h1>DynamicsModifier.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleControllerComponent;
+import com.badlogic.gdx.graphics.g3d.particles.values.ScaledNumericValue;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** It's the base class for any kind of influencer which operates on angular velocity and acceleration of the particles. All the
+ * classes that will inherit this base class can and should be used only as sub-influencer of an instance of
+ * {@link DynamicsInfluencer} .
+ * @author Inferno */
+public abstract class DynamicsModifier extends Influencer {
+<span class="nc" id="L35">	protected static final Vector3 TMP_V1 = new Vector3(), TMP_V2 = new Vector3(), TMP_V3 = new Vector3();</span>
+<span class="nc" id="L36">	protected static final Quaternion TMP_Q = new Quaternion();</span>
+
+	public static class FaceDirection extends DynamicsModifier {
+		FloatChannel rotationChannel, accellerationChannel;
+
+<span class="nc" id="L41">		public FaceDirection () {</span>
+<span class="nc" id="L42">		}</span>
+
+		public FaceDirection (FaceDirection rotation) {
+<span class="nc" id="L45">			super(rotation);</span>
+<span class="nc" id="L46">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L50">			rotationChannel = controller.particles.addChannel(ParticleChannels.Rotation3D);</span>
+<span class="nc" id="L51">			accellerationChannel = controller.particles.addChannel(ParticleChannels.Acceleration);</span>
+<span class="nc" id="L52">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">			for (int i = 0, accelOffset = 0, c = i + controller.particles.size * rotationChannel.strideSize; i &lt; c; i += rotationChannel.strideSize, accelOffset += accellerationChannel.strideSize) {</span>
+
+<span class="nc" id="L58">				Vector3 axisZ = TMP_V1.set(accellerationChannel.data[accelOffset + ParticleChannels.XOffset],</span>
+					accellerationChannel.data[accelOffset + ParticleChannels.YOffset],
+<span class="nc" id="L60">					accellerationChannel.data[accelOffset + ParticleChannels.ZOffset]).nor(), axisY = TMP_V2.set(TMP_V1)</span>
+<span class="nc" id="L61">					.crs(Vector3.Y).nor().crs(TMP_V1).nor(), axisX = TMP_V3.set(axisY).crs(axisZ).nor();</span>
+<span class="nc" id="L62">				TMP_Q.setFromAxes(false, axisX.x, axisY.x, axisZ.x, axisX.y, axisY.y, axisZ.y, axisX.z, axisY.z, axisZ.z);</span>
+<span class="nc" id="L63">				rotationChannel.data[i + ParticleChannels.XOffset] = TMP_Q.x;</span>
+<span class="nc" id="L64">				rotationChannel.data[i + ParticleChannels.YOffset] = TMP_Q.y;</span>
+<span class="nc" id="L65">				rotationChannel.data[i + ParticleChannels.ZOffset] = TMP_Q.z;</span>
+<span class="nc" id="L66">				rotationChannel.data[i + ParticleChannels.WOffset] = TMP_Q.w;</span>
+			}
+<span class="nc" id="L68">		}</span>
+
+		@Override
+		public ParticleControllerComponent copy () {
+<span class="nc" id="L72">			return new FaceDirection(this);</span>
+		}
+	}
+
+	public static abstract class Strength extends DynamicsModifier {
+		protected FloatChannel strengthChannel;
+		public ScaledNumericValue strengthValue;
+
+<span class="nc" id="L80">		public Strength () {</span>
+<span class="nc" id="L81">			strengthValue = new ScaledNumericValue();</span>
+<span class="nc" id="L82">		}</span>
+
+		public Strength (Strength rotation) {
+<span class="nc" id="L85">			super(rotation);</span>
+<span class="nc" id="L86">			strengthValue = new ScaledNumericValue();</span>
+<span class="nc" id="L87">			strengthValue.load(rotation.strengthValue);</span>
+<span class="nc" id="L88">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L92">			super.allocateChannels();</span>
+<span class="nc" id="L93">			ParticleChannels.Interpolation.id = controller.particleChannels.newId();</span>
+<span class="nc" id="L94">			strengthChannel = controller.particles.addChannel(ParticleChannels.Interpolation);</span>
+<span class="nc" id="L95">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+			float start, diff;
+<span class="nc bnc" id="L100" title="All 2 branches missed.">			for (int i = startIndex * strengthChannel.strideSize, c = i + count * strengthChannel.strideSize; i &lt; c; i += strengthChannel.strideSize) {</span>
+<span class="nc" id="L101">				start = strengthValue.newLowValue();</span>
+<span class="nc" id="L102">				diff = strengthValue.newHighValue();</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">				if (!strengthValue.isRelative()) diff -= start;</span>
+<span class="nc" id="L104">				strengthChannel.data[i + ParticleChannels.VelocityStrengthStartOffset] = start;</span>
+<span class="nc" id="L105">				strengthChannel.data[i + ParticleChannels.VelocityStrengthDiffOffset] = diff;</span>
+			}
+<span class="nc" id="L107">		}</span>
+
+		@Override
+		public void write (Json json) {
+<span class="nc" id="L111">			super.write(json);</span>
+<span class="nc" id="L112">			json.writeValue(&quot;strengthValue&quot;, strengthValue);</span>
+<span class="nc" id="L113">		}</span>
+
+		@Override
+		public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L117">			super.read(json, jsonData);</span>
+<span class="nc" id="L118">			strengthValue = json.readValue(&quot;strengthValue&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L119">		}</span>
+	}
+
+	public static abstract class Angular extends Strength {
+		protected FloatChannel angularChannel;
+		/** Polar angle, XZ plane */
+		public ScaledNumericValue thetaValue;
+		/** Azimuth, Y */
+		public ScaledNumericValue phiValue;
+
+<span class="nc" id="L129">		public Angular () {</span>
+<span class="nc" id="L130">			thetaValue = new ScaledNumericValue();</span>
+<span class="nc" id="L131">			phiValue = new ScaledNumericValue();</span>
+<span class="nc" id="L132">		}</span>
+
+		public Angular (Angular value) {
+<span class="nc" id="L135">			super(value);</span>
+<span class="nc" id="L136">			thetaValue = new ScaledNumericValue();</span>
+<span class="nc" id="L137">			phiValue = new ScaledNumericValue();</span>
+<span class="nc" id="L138">			thetaValue.load(value.thetaValue);</span>
+<span class="nc" id="L139">			phiValue.load(value.phiValue);</span>
+<span class="nc" id="L140">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L144">			super.allocateChannels();</span>
+<span class="nc" id="L145">			ParticleChannels.Interpolation4.id = controller.particleChannels.newId();</span>
+<span class="nc" id="L146">			angularChannel = controller.particles.addChannel(ParticleChannels.Interpolation4);</span>
+<span class="nc" id="L147">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc" id="L151">			super.activateParticles(startIndex, count);</span>
+			float start, diff;
+<span class="nc bnc" id="L153" title="All 2 branches missed.">			for (int i = startIndex * angularChannel.strideSize, c = i + count * angularChannel.strideSize; i &lt; c; i += angularChannel.strideSize) {</span>
+
+				// Theta
+<span class="nc" id="L156">				start = thetaValue.newLowValue();</span>
+<span class="nc" id="L157">				diff = thetaValue.newHighValue();</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">				if (!thetaValue.isRelative()) diff -= start;</span>
+<span class="nc" id="L159">				angularChannel.data[i + ParticleChannels.VelocityThetaStartOffset] = start;</span>
+<span class="nc" id="L160">				angularChannel.data[i + ParticleChannels.VelocityThetaDiffOffset] = diff;</span>
+
+				// Phi
+<span class="nc" id="L163">				start = phiValue.newLowValue();</span>
+<span class="nc" id="L164">				diff = phiValue.newHighValue();</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">				if (!phiValue.isRelative()) diff -= start;</span>
+<span class="nc" id="L166">				angularChannel.data[i + ParticleChannels.VelocityPhiStartOffset] = start;</span>
+<span class="nc" id="L167">				angularChannel.data[i + ParticleChannels.VelocityPhiDiffOffset] = diff;</span>
+			}
+<span class="nc" id="L169">		}</span>
+
+		@Override
+		public void write (Json json) {
+<span class="nc" id="L173">			super.write(json);</span>
+<span class="nc" id="L174">			json.writeValue(&quot;thetaValue&quot;, thetaValue);</span>
+<span class="nc" id="L175">			json.writeValue(&quot;phiValue&quot;, phiValue);</span>
+<span class="nc" id="L176">		}</span>
+
+		@Override
+		public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L180">			super.read(json, jsonData);</span>
+<span class="nc" id="L181">			thetaValue = json.readValue(&quot;thetaValue&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L182">			phiValue = json.readValue(&quot;phiValue&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L183">		}</span>
+	}
+
+	public static class Rotational2D extends Strength {
+		FloatChannel rotationalVelocity2dChannel;
+
+<span class="nc" id="L189">		public Rotational2D () {</span>
+<span class="nc" id="L190">		}</span>
+
+		public Rotational2D (Rotational2D rotation) {
+<span class="nc" id="L193">			super(rotation);</span>
+<span class="nc" id="L194">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L198">			super.allocateChannels();</span>
+<span class="nc" id="L199">			rotationalVelocity2dChannel = controller.particles.addChannel(ParticleChannels.AngularVelocity2D);</span>
+<span class="nc" id="L200">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L204">			for (int i = 0, l = ParticleChannels.LifePercentOffset, s = 0, c = i + controller.particles.size</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">				* rotationalVelocity2dChannel.strideSize; i &lt; c; s += strengthChannel.strideSize, i += rotationalVelocity2dChannel.strideSize, l += lifeChannel.strideSize) {</span>
+<span class="nc" id="L206">				rotationalVelocity2dChannel.data[i] += strengthChannel.data[s + ParticleChannels.VelocityStrengthStartOffset]</span>
+					+ strengthChannel.data[s + ParticleChannels.VelocityStrengthDiffOffset]
+<span class="nc" id="L208">					* strengthValue.getScale(lifeChannel.data[l]);</span>
+			}
+<span class="nc" id="L210">		}</span>
+
+		@Override
+		public Rotational2D copy () {
+<span class="nc" id="L214">			return new Rotational2D(this);</span>
+		}
+	}
+
+	public static class Rotational3D extends Angular {
+		FloatChannel rotationChannel, rotationalForceChannel;
+
+<span class="nc" id="L221">		public Rotational3D () {</span>
+<span class="nc" id="L222">		}</span>
+
+		public Rotational3D (Rotational3D rotation) {
+<span class="nc" id="L225">			super(rotation);</span>
+<span class="nc" id="L226">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L230">			super.allocateChannels();</span>
+<span class="nc" id="L231">			rotationChannel = controller.particles.addChannel(ParticleChannels.Rotation3D);</span>
+<span class="nc" id="L232">			rotationalForceChannel = controller.particles.addChannel(ParticleChannels.AngularVelocity3D);</span>
+<span class="nc" id="L233">		}</span>
+
+		@Override
+		public void update () {
+
+			// Matrix3 I_t = defined by the shape, it's the inertia tensor
+			// Vector3 r = position vector
+			// Vector3 L = r.cross(v.mul(m)), It's the angular momentum, where mv it's the linear momentum
+			// Inverse(I_t) = a diagonal matrix where the diagonal is IyIz, IxIz, IxIy
+			// Vector3 w = L/I_t = inverse(I_t)*L, It's the angular velocity
+			// Quaternion spin = 0.5f*Quaternion(w, 0)*currentRotation
+			// currentRotation += spin*dt
+			// normalize(currentRotation)
+
+			// Algorithm 1
+			// Consider a simple channel which represent an angular velocity w
+			// Sum each w for each rotation
+			// Update rotation
+
+			// Algorithm 2
+			// Consider a channel which represent a sort of angular momentum L (r, v)
+			// Sum each L for each rotation
+			// Multiply sum by constant quantity k = m*I_to(-1) , m could be optional while I is constant and can be calculated at
+// start
+			// Update rotation
+
+			// Algorithm 3
+			// Consider a channel which represent a simple angular momentum L
+			// Proceed as Algorithm 2
+
+<span class="nc" id="L263">			for (int i = 0, l = ParticleChannels.LifePercentOffset, s = 0, a = 0, c = controller.particles.size</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">				* rotationalForceChannel.strideSize; i &lt; c; s += strengthChannel.strideSize, i += rotationalForceChannel.strideSize, a += angularChannel.strideSize, l += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L266">				float lifePercent = lifeChannel.data[l], strength = strengthChannel.data[s</span>
+					+ ParticleChannels.VelocityStrengthStartOffset]
+<span class="nc" id="L268">					+ strengthChannel.data[s + ParticleChannels.VelocityStrengthDiffOffset] * strengthValue.getScale(lifePercent), phi = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityPhiStartOffset]
+<span class="nc" id="L270">					+ angularChannel.data[a + ParticleChannels.VelocityPhiDiffOffset] * phiValue.getScale(lifePercent), theta = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityThetaStartOffset]
+<span class="nc" id="L272">					+ angularChannel.data[a + ParticleChannels.VelocityThetaDiffOffset] * thetaValue.getScale(lifePercent);</span>
+
+<span class="nc" id="L274">				float cosTheta = MathUtils.cosDeg(theta), sinTheta = MathUtils.sinDeg(theta), cosPhi = MathUtils.cosDeg(phi), sinPhi = MathUtils</span>
+<span class="nc" id="L275">					.sinDeg(phi);</span>
+
+<span class="nc" id="L277">				TMP_V3.set(cosTheta * sinPhi, cosPhi, sinTheta * sinPhi);</span>
+<span class="nc" id="L278">				TMP_V3.scl(strength * MathUtils.degreesToRadians);</span>
+
+<span class="nc" id="L280">				rotationalForceChannel.data[i + ParticleChannels.XOffset] += TMP_V3.x;</span>
+<span class="nc" id="L281">				rotationalForceChannel.data[i + ParticleChannels.YOffset] += TMP_V3.y;</span>
+<span class="nc" id="L282">				rotationalForceChannel.data[i + ParticleChannels.ZOffset] += TMP_V3.z;</span>
+			}
+<span class="nc" id="L284">		}</span>
+
+		@Override
+		public Rotational3D copy () {
+<span class="nc" id="L288">			return new Rotational3D(this);</span>
+		}
+	}
+
+	public static class CentripetalAcceleration extends Strength {
+		FloatChannel accelerationChannel;
+		FloatChannel positionChannel;
+
+<span class="nc" id="L296">		public CentripetalAcceleration () {</span>
+<span class="nc" id="L297">		}</span>
+
+		public CentripetalAcceleration (CentripetalAcceleration rotation) {
+<span class="nc" id="L300">			super(rotation);</span>
+<span class="nc" id="L301">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L305">			super.allocateChannels();</span>
+<span class="nc" id="L306">			accelerationChannel = controller.particles.addChannel(ParticleChannels.Acceleration);</span>
+<span class="nc" id="L307">			positionChannel = controller.particles.addChannel(ParticleChannels.Position);</span>
+<span class="nc" id="L308">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L312">			float cx = 0, cy = 0, cz = 0;</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">			if (!isGlobal) {</span>
+<span class="nc" id="L314">				float[] val = controller.transform.val;</span>
+<span class="nc" id="L315">				cx = val[Matrix4.M03];</span>
+<span class="nc" id="L316">				cy = val[Matrix4.M13];</span>
+<span class="nc" id="L317">				cz = val[Matrix4.M23];</span>
+			}
+
+<span class="nc" id="L320">			int lifeOffset = ParticleChannels.LifePercentOffset, strengthOffset = 0, positionOffset = 0, forceOffset = 0;</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">			for (int i = 0, c = controller.particles.size; i &lt; c; ++i, positionOffset += positionChannel.strideSize, strengthOffset += strengthChannel.strideSize, forceOffset += accelerationChannel.strideSize, lifeOffset += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L323">				float strength = strengthChannel.data[strengthOffset + ParticleChannels.VelocityStrengthStartOffset]</span>
+					+ strengthChannel.data[strengthOffset + ParticleChannels.VelocityStrengthDiffOffset]
+<span class="nc" id="L325">					* strengthValue.getScale(lifeChannel.data[lifeOffset]);</span>
+<span class="nc" id="L326">				TMP_V3</span>
+<span class="nc" id="L327">					.set(positionChannel.data[positionOffset + ParticleChannels.XOffset] - cx,</span>
+						positionChannel.data[positionOffset + ParticleChannels.YOffset] - cy,
+<span class="nc" id="L329">						positionChannel.data[positionOffset + ParticleChannels.ZOffset] - cz).nor().scl(strength);</span>
+<span class="nc" id="L330">				accelerationChannel.data[forceOffset + ParticleChannels.XOffset] += TMP_V3.x;</span>
+<span class="nc" id="L331">				accelerationChannel.data[forceOffset + ParticleChannels.YOffset] += TMP_V3.y;</span>
+<span class="nc" id="L332">				accelerationChannel.data[forceOffset + ParticleChannels.ZOffset] += TMP_V3.z;</span>
+			}
+<span class="nc" id="L334">		}</span>
+
+		@Override
+		public CentripetalAcceleration copy () {
+<span class="nc" id="L338">			return new CentripetalAcceleration(this);</span>
+		}
+	}
+
+	public static class PolarAcceleration extends Angular {
+		FloatChannel directionalVelocityChannel;
+
+<span class="nc" id="L345">		public PolarAcceleration () {</span>
+<span class="nc" id="L346">		}</span>
+
+		public PolarAcceleration (PolarAcceleration rotation) {
+<span class="nc" id="L349">			super(rotation);</span>
+<span class="nc" id="L350">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L354">			super.allocateChannels();</span>
+<span class="nc" id="L355">			directionalVelocityChannel = controller.particles.addChannel(ParticleChannels.Acceleration);</span>
+<span class="nc" id="L356">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L360">			for (int i = 0, l = ParticleChannels.LifePercentOffset, s = 0, a = 0, c = i + controller.particles.size</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">				* directionalVelocityChannel.strideSize; i &lt; c; s += strengthChannel.strideSize, i += directionalVelocityChannel.strideSize, a += angularChannel.strideSize, l += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L363">				float lifePercent = lifeChannel.data[l], strength = strengthChannel.data[s</span>
+					+ ParticleChannels.VelocityStrengthStartOffset]
+<span class="nc" id="L365">					+ strengthChannel.data[s + ParticleChannels.VelocityStrengthDiffOffset] * strengthValue.getScale(lifePercent), phi = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityPhiStartOffset]
+<span class="nc" id="L367">					+ angularChannel.data[a + ParticleChannels.VelocityPhiDiffOffset] * phiValue.getScale(lifePercent), theta = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityThetaStartOffset]
+<span class="nc" id="L369">					+ angularChannel.data[a + ParticleChannels.VelocityThetaDiffOffset] * thetaValue.getScale(lifePercent);</span>
+
+<span class="nc" id="L371">				float cosTheta = MathUtils.cosDeg(theta), sinTheta = MathUtils.sinDeg(theta), cosPhi = MathUtils.cosDeg(phi), sinPhi = MathUtils</span>
+<span class="nc" id="L372">					.sinDeg(phi);</span>
+<span class="nc" id="L373">				TMP_V3.set(cosTheta * sinPhi, cosPhi, sinTheta * sinPhi).nor().scl(strength);</span>
+
+<span class="nc bnc" id="L375" title="All 2 branches missed.">				if (!isGlobal) {</span>
+<span class="nc" id="L376">					controller.transform.getRotation(TMP_Q, true);</span>
+<span class="nc" id="L377">					TMP_V3.mul(TMP_Q);</span>
+				}
+
+<span class="nc" id="L380">				directionalVelocityChannel.data[i + ParticleChannels.XOffset] += TMP_V3.x;</span>
+<span class="nc" id="L381">				directionalVelocityChannel.data[i + ParticleChannels.YOffset] += TMP_V3.y;</span>
+<span class="nc" id="L382">				directionalVelocityChannel.data[i + ParticleChannels.ZOffset] += TMP_V3.z;</span>
+			}
+<span class="nc" id="L384">		}</span>
+
+		@Override
+		public PolarAcceleration copy () {
+<span class="nc" id="L388">			return new PolarAcceleration(this);</span>
+		}
+	}
+
+	public static class TangentialAcceleration extends Angular {
+		FloatChannel directionalVelocityChannel, positionChannel;
+
+<span class="nc" id="L395">		public TangentialAcceleration () {</span>
+<span class="nc" id="L396">		}</span>
+
+		public TangentialAcceleration (TangentialAcceleration rotation) {
+<span class="nc" id="L399">			super(rotation);</span>
+<span class="nc" id="L400">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L404">			super.allocateChannels();</span>
+<span class="nc" id="L405">			directionalVelocityChannel = controller.particles.addChannel(ParticleChannels.Acceleration);</span>
+<span class="nc" id="L406">			positionChannel = controller.particles.addChannel(ParticleChannels.Position);</span>
+<span class="nc" id="L407">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L411">			for (int i = 0, l = ParticleChannels.LifePercentOffset, s = 0, a = 0, positionOffset = 0, c = i</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">				+ controller.particles.size * directionalVelocityChannel.strideSize; i &lt; c; s += strengthChannel.strideSize, i += directionalVelocityChannel.strideSize, a += angularChannel.strideSize, l += lifeChannel.strideSize, positionOffset += positionChannel.strideSize) {</span>
+
+<span class="nc" id="L414">				float lifePercent = lifeChannel.data[l], strength = strengthChannel.data[s</span>
+					+ ParticleChannels.VelocityStrengthStartOffset]
+<span class="nc" id="L416">					+ strengthChannel.data[s + ParticleChannels.VelocityStrengthDiffOffset] * strengthValue.getScale(lifePercent), phi = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityPhiStartOffset]
+<span class="nc" id="L418">					+ angularChannel.data[a + ParticleChannels.VelocityPhiDiffOffset] * phiValue.getScale(lifePercent), theta = angularChannel.data[a</span>
+					+ ParticleChannels.VelocityThetaStartOffset]
+<span class="nc" id="L420">					+ angularChannel.data[a + ParticleChannels.VelocityThetaDiffOffset] * thetaValue.getScale(lifePercent);</span>
+
+<span class="nc" id="L422">				float cosTheta = MathUtils.cosDeg(theta), sinTheta = MathUtils.sinDeg(theta), cosPhi = MathUtils.cosDeg(phi), sinPhi = MathUtils</span>
+<span class="nc" id="L423">					.sinDeg(phi);</span>
+<span class="nc" id="L424">				TMP_V3.set(cosTheta * sinPhi, cosPhi, sinTheta * sinPhi);</span>
+<span class="nc" id="L425">				TMP_V1.set(positionChannel.data[positionOffset + ParticleChannels.XOffset],</span>
+					positionChannel.data[positionOffset + ParticleChannels.YOffset],
+					positionChannel.data[positionOffset + ParticleChannels.ZOffset]);
+<span class="nc bnc" id="L428" title="All 2 branches missed.">				if (!isGlobal) {</span>
+<span class="nc" id="L429">					controller.transform.getTranslation(TMP_V2);</span>
+<span class="nc" id="L430">					TMP_V1.sub(TMP_V2);</span>
+<span class="nc" id="L431">					controller.transform.getRotation(TMP_Q, true);</span>
+<span class="nc" id="L432">					TMP_V3.mul(TMP_Q);</span>
+				}
+<span class="nc" id="L434">				TMP_V3.crs(TMP_V1).nor().scl(strength);</span>
+<span class="nc" id="L435">				directionalVelocityChannel.data[i + ParticleChannels.XOffset] += TMP_V3.x;</span>
+<span class="nc" id="L436">				directionalVelocityChannel.data[i + ParticleChannels.YOffset] += TMP_V3.y;</span>
+<span class="nc" id="L437">				directionalVelocityChannel.data[i + ParticleChannels.ZOffset] += TMP_V3.z;</span>
+			}
+<span class="nc" id="L439">		}</span>
+
+		@Override
+		public TangentialAcceleration copy () {
+<span class="nc" id="L443">			return new TangentialAcceleration(this);</span>
+		}
+	}
+
+	public static class BrownianAcceleration extends Strength {
+		FloatChannel accelerationChannel;
+
+<span class="nc" id="L450">		public BrownianAcceleration () {</span>
+<span class="nc" id="L451">		}</span>
+
+		public BrownianAcceleration (BrownianAcceleration rotation) {
+<span class="nc" id="L454">			super(rotation);</span>
+<span class="nc" id="L455">		}</span>
+
+		@Override
+		public void allocateChannels () {
+<span class="nc" id="L459">			super.allocateChannels();</span>
+<span class="nc" id="L460">			accelerationChannel = controller.particles.addChannel(ParticleChannels.Acceleration);</span>
+<span class="nc" id="L461">		}</span>
+
+		@Override
+		public void update () {
+<span class="nc" id="L465">			int lifeOffset = ParticleChannels.LifePercentOffset, strengthOffset = 0, forceOffset = 0;</span>
+<span class="nc bnc" id="L466" title="All 2 branches missed.">			for (int i = 0, c = controller.particles.size; i &lt; c; ++i, strengthOffset += strengthChannel.strideSize, forceOffset += accelerationChannel.strideSize, lifeOffset += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L468">				float strength = strengthChannel.data[strengthOffset + ParticleChannels.VelocityStrengthStartOffset]</span>
+					+ strengthChannel.data[strengthOffset + ParticleChannels.VelocityStrengthDiffOffset]
+<span class="nc" id="L470">					* strengthValue.getScale(lifeChannel.data[lifeOffset]);</span>
+<span class="nc" id="L471">				TMP_V3.set(MathUtils.random(-1, 1f), MathUtils.random(-1, 1f), MathUtils.random(-1, 1f)).nor().scl(strength);</span>
+<span class="nc" id="L472">				accelerationChannel.data[forceOffset + ParticleChannels.XOffset] += TMP_V3.x;</span>
+<span class="nc" id="L473">				accelerationChannel.data[forceOffset + ParticleChannels.YOffset] += TMP_V3.y;</span>
+<span class="nc" id="L474">				accelerationChannel.data[forceOffset + ParticleChannels.ZOffset] += TMP_V3.z;</span>
+			}
+<span class="nc" id="L476">		}</span>
+
+		@Override
+		public BrownianAcceleration copy () {
+<span class="nc" id="L480">			return new BrownianAcceleration(this);</span>
+		}
+	}
+
+<span class="nc" id="L484">	public boolean isGlobal = false;</span>
+	protected FloatChannel lifeChannel;
+
+<span class="nc" id="L487">	public DynamicsModifier () {</span>
+<span class="nc" id="L488">	}</span>
+
+<span class="nc" id="L490">	public DynamicsModifier (DynamicsModifier modifier) {</span>
+<span class="nc" id="L491">		this.isGlobal = modifier.isGlobal;</span>
+<span class="nc" id="L492">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L496">		lifeChannel = controller.particles.addChannel(ParticleChannels.Life);</span>
+<span class="nc" id="L497">	}</span>
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L501">		super.write(json);</span>
+<span class="nc" id="L502">		json.writeValue(&quot;isGlobal&quot;, isGlobal);</span>
+<span class="nc" id="L503">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L507">		super.read(json, jsonData);</span>
+<span class="nc" id="L508">		isGlobal = json.readValue(&quot;isGlobal&quot;, boolean.class, jsonData);</span>
+<span class="nc" id="L509">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

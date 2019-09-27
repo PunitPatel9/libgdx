@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EllipseSpawnShapeValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.values</a> &gt; <span class="el_source">EllipseSpawnShapeValue.java</span></div><h1>EllipseSpawnShapeValue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.values;
+
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** Encapsulate the formulas to spawn a particle on a ellipse shape.
+ * @author Inferno */
+public final class EllipseSpawnShapeValue extends PrimitiveSpawnShapeValue {
+<span class="nc" id="L27">	SpawnSide side = SpawnSide.both;</span>
+
+	public EllipseSpawnShapeValue (EllipseSpawnShapeValue value) {
+<span class="nc" id="L30">		super(value);</span>
+<span class="nc" id="L31">		load(value);</span>
+<span class="nc" id="L32">	}</span>
+
+<span class="nc" id="L34">	public EllipseSpawnShapeValue () {</span>
+<span class="nc" id="L35">	}</span>
+
+	@Override
+	public void spawnAux (Vector3 vector, float percent) {
+		// Generate the point on the surface of the sphere
+<span class="nc" id="L40">		float width = spawnWidth + spawnWidthDiff * spawnWidthValue.getScale(percent);</span>
+<span class="nc" id="L41">		float height = spawnHeight + spawnHeightDiff * spawnHeightValue.getScale(percent);</span>
+<span class="nc" id="L42">		float depth = spawnDepth + spawnDepthDiff * spawnDepthValue.getScale(percent);</span>
+
+		float radiusX, radiusY, radiusZ;
+		// Where generate the point, on edges or inside ?
+<span class="nc" id="L46">		float minT = 0, maxT = MathUtils.PI2;</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">		if (side == SpawnSide.top) {</span>
+<span class="nc" id="L48">			maxT = MathUtils.PI;</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">		} else if (side == SpawnSide.bottom) {</span>
+<span class="nc" id="L50">			maxT = -MathUtils.PI;</span>
+		}
+<span class="nc" id="L52">		float t = MathUtils.random(minT, maxT);</span>
+
+		// Where generate the point, on edges or inside ?
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		if (edges) {</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">			if (width == 0) {</span>
+<span class="nc" id="L57">				vector.set(0, height / 2 * MathUtils.sin(t), depth / 2 * MathUtils.cos(t));</span>
+<span class="nc" id="L58">				return;</span>
+			}
+<span class="nc bnc" id="L60" title="All 2 branches missed.">			if (height == 0) {</span>
+<span class="nc" id="L61">				vector.set(width / 2 * MathUtils.cos(t), 0, depth / 2 * MathUtils.sin(t));</span>
+<span class="nc" id="L62">				return;</span>
+			}
+<span class="nc bnc" id="L64" title="All 2 branches missed.">			if (depth == 0) {</span>
+<span class="nc" id="L65">				vector.set(width / 2 * MathUtils.cos(t), height / 2 * MathUtils.sin(t), 0);</span>
+<span class="nc" id="L66">				return;</span>
+			}
+
+<span class="nc" id="L69">			radiusX = width / 2;</span>
+<span class="nc" id="L70">			radiusY = height / 2;</span>
+<span class="nc" id="L71">			radiusZ = depth / 2;</span>
+		} else {
+<span class="nc" id="L73">			radiusX = MathUtils.random(width / 2);</span>
+<span class="nc" id="L74">			radiusY = MathUtils.random(height / 2);</span>
+<span class="nc" id="L75">			radiusZ = MathUtils.random(depth / 2);</span>
+		}
+
+<span class="nc" id="L78">		float z = MathUtils.random(-1, 1f);</span>
+<span class="nc" id="L79">		float r = (float)Math.sqrt(1f - z * z);</span>
+<span class="nc" id="L80">		vector.set(radiusX * r * MathUtils.cos(t), radiusY * r * MathUtils.sin(t), radiusZ * z);</span>
+<span class="nc" id="L81">	}</span>
+
+	public SpawnSide getSide () {
+<span class="nc" id="L84">		return side;</span>
+	}
+
+	public void setSide (SpawnSide side) {
+<span class="nc" id="L88">		this.side = side;</span>
+<span class="nc" id="L89">	}</span>
+
+	@Override
+	public void load (ParticleValue value) {
+<span class="nc" id="L93">		super.load(value);</span>
+<span class="nc" id="L94">		EllipseSpawnShapeValue shape = (EllipseSpawnShapeValue)value;</span>
+<span class="nc" id="L95">		side = shape.side;</span>
+<span class="nc" id="L96">	}</span>
+
+	@Override
+	public SpawnShapeValue copy () {
+<span class="nc" id="L100">		return new EllipseSpawnShapeValue(this);</span>
+	}
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L105">		super.write(json);</span>
+<span class="nc" id="L106">		json.writeValue(&quot;side&quot;, side);</span>
+<span class="nc" id="L107">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L111">		super.read(json, jsonData);</span>
+<span class="nc" id="L112">		side = json.readValue(&quot;side&quot;, SpawnSide.class, jsonData);</span>
+<span class="nc" id="L113">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AtlasTmxMapLoader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.maps.tiled</a> &gt; <span class="el_source">AtlasTmxMapLoader.java</span></div><h1>AtlasTmxMapLoader.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.maps.tiled;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.assets.loaders.FileHandleResolver;
+import com.badlogic.gdx.assets.loaders.TextureLoader;
+import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas.AtlasRegion;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.maps.ImageResolver;
+import com.badlogic.gdx.maps.MapProperties;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.XmlReader.Element;
+
+/** A TiledMap Loader which loads tiles from a TextureAtlas instead of separate images.
+ * 
+ * It requires a map-level property called 'atlas' with its value being the relative path to the TextureAtlas. The atlas must have
+ * in it indexed regions named after the tilesets used in the map. The indexes shall be local to the tileset (not the global id).
+ * Strip whitespace and rotation should not be used when creating the atlas.
+ * 
+ * @author Justin Shapcott
+ * @author Manuel Bua */
+public class AtlasTmxMapLoader extends BaseTmxMapLoader&lt;AtlasTmxMapLoader.AtlasTiledMapLoaderParameters&gt; {
+
+<span class="nc" id="L45">	public static class AtlasTiledMapLoaderParameters extends BaseTmxMapLoader.Parameters {</span>
+		/** force texture filters? **/
+<span class="nc" id="L47">		public boolean forceTextureFilters = false;</span>
+	}
+
+	private interface AtlasResolver extends ImageResolver {
+
+		public TextureAtlas getAtlas ();
+
+		public static class DirectAtlasResolver implements AtlasTmxMapLoader.AtlasResolver {
+			private final TextureAtlas atlas;
+
+<span class="nc" id="L57">			public DirectAtlasResolver (TextureAtlas atlas) {</span>
+<span class="nc" id="L58">				this.atlas = atlas;</span>
+<span class="nc" id="L59">			}</span>
+
+			@Override
+			public TextureAtlas getAtlas () {
+<span class="nc" id="L63">				return atlas;</span>
+			}
+
+			@Override
+			public TextureRegion getImage (String name) {
+<span class="nc" id="L68">				return atlas.findRegion(name);</span>
+			}
+		}
+
+		public static class AssetManagerAtlasResolver implements AtlasTmxMapLoader.AtlasResolver {
+			private final AssetManager assetManager;
+			private final String atlasName;
+
+<span class="nc" id="L76">			public AssetManagerAtlasResolver (AssetManager assetManager, String atlasName) {</span>
+<span class="nc" id="L77">				this.assetManager = assetManager;</span>
+<span class="nc" id="L78">				this.atlasName = atlasName;</span>
+<span class="nc" id="L79">			}</span>
+
+			@Override
+			public TextureAtlas getAtlas () {
+<span class="nc" id="L83">				return assetManager.get(atlasName, TextureAtlas.class);</span>
+			}
+
+			@Override
+			public TextureRegion getImage (String name) {
+<span class="nc" id="L88">				return getAtlas().findRegion(name);</span>
+			}
+		}
+	}
+
+<span class="nc" id="L93">	protected Array&lt;Texture&gt; trackedTextures = new Array&lt;Texture&gt;();</span>
+
+	protected AtlasResolver atlasResolver;
+
+	public AtlasTmxMapLoader () {
+<span class="nc" id="L98">		super(new InternalFileHandleResolver());</span>
+<span class="nc" id="L99">	}</span>
+
+	public AtlasTmxMapLoader (FileHandleResolver resolver) {
+<span class="nc" id="L102">		super(resolver);</span>
+<span class="nc" id="L103">	}</span>
+
+	public TiledMap load (String fileName) {
+<span class="nc" id="L106">		return load(fileName, new AtlasTiledMapLoaderParameters());</span>
+	}
+
+	public TiledMap load (String fileName, AtlasTiledMapLoaderParameters parameter) {
+<span class="nc" id="L110">		FileHandle tmxFile = resolve(fileName);</span>
+
+<span class="nc" id="L112">		this.root = xml.parse(tmxFile);</span>
+
+<span class="nc" id="L114">		final FileHandle atlasFileHandle = getAtlasFileHandle(tmxFile);</span>
+<span class="nc" id="L115">		TextureAtlas atlas = new TextureAtlas(atlasFileHandle);</span>
+<span class="nc" id="L116">		this.atlasResolver = new AtlasResolver.DirectAtlasResolver(atlas);</span>
+
+<span class="nc" id="L118">		TiledMap map = loadTiledMap(tmxFile, parameter, atlasResolver);</span>
+<span class="nc" id="L119">		map.setOwnedResources(new Array&lt;TextureAtlas&gt;(new TextureAtlas[] {atlas}));</span>
+<span class="nc" id="L120">		setTextureFilters(parameter.textureMinFilter, parameter.textureMagFilter);</span>
+<span class="nc" id="L121">		return map;</span>
+	}
+
+	@Override
+	public void loadAsync (AssetManager manager, String fileName, FileHandle tmxFile, AtlasTiledMapLoaderParameters parameter) {
+<span class="nc" id="L126">		FileHandle atlasHandle = getAtlasFileHandle(tmxFile);</span>
+<span class="nc" id="L127">		this.atlasResolver = new AtlasResolver.AssetManagerAtlasResolver(manager, atlasHandle.path());</span>
+
+<span class="nc" id="L129">		this.map = loadTiledMap(tmxFile, parameter, atlasResolver);</span>
+<span class="nc" id="L130">	}</span>
+
+	@Override
+	public TiledMap loadSync (AssetManager manager, String fileName, FileHandle file, AtlasTiledMapLoaderParameters parameter) {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">		if (parameter != null) {</span>
+<span class="nc" id="L135">			setTextureFilters(parameter.textureMinFilter, parameter.textureMagFilter);</span>
+		}
+
+<span class="nc" id="L138">		return map;</span>
+	}
+
+	@Override
+	protected Array&lt;AssetDescriptor&gt; getDependencyAssetDescriptors (FileHandle tmxFile, TextureLoader.TextureParameter textureParameter) {
+<span class="nc" id="L143">		Array&lt;AssetDescriptor&gt; descriptors = new Array&lt;AssetDescriptor&gt;();</span>
+
+		// Atlas dependencies
+<span class="nc" id="L146">		final FileHandle atlasFileHandle = getAtlasFileHandle(tmxFile);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">		if (atlasFileHandle != null) {</span>
+<span class="nc" id="L148">			descriptors.add(new AssetDescriptor(atlasFileHandle, TextureAtlas.class));</span>
+		}
+
+<span class="nc" id="L151">		return descriptors;</span>
+	}
+
+	@Override
+	protected void addStaticTiles (FileHandle tmxFile, ImageResolver imageResolver, TiledMapTileSet tileSet, Element element,
+		Array&lt;Element&gt; tileElements, String name, int firstgid, int tilewidth, int tileheight, int spacing, int margin,
+		String source, int offsetX, int offsetY, String imageSource, int imageWidth, int imageHeight, FileHandle image) {
+
+<span class="nc" id="L159">		TextureAtlas atlas = atlasResolver.getAtlas();</span>
+<span class="nc" id="L160">		String regionsName = name;</span>
+
+<span class="nc bnc" id="L162" title="All 2 branches missed.">		for (Texture texture : atlas.getTextures()) {</span>
+<span class="nc" id="L163">			trackedTextures.add(texture);</span>
+<span class="nc" id="L164">		}</span>
+
+<span class="nc" id="L166">		MapProperties props = tileSet.getProperties();</span>
+<span class="nc" id="L167">		props.put(&quot;imagesource&quot;, imageSource);</span>
+<span class="nc" id="L168">		props.put(&quot;imagewidth&quot;, imageWidth);</span>
+<span class="nc" id="L169">		props.put(&quot;imageheight&quot;, imageHeight);</span>
+<span class="nc" id="L170">		props.put(&quot;tilewidth&quot;, tilewidth);</span>
+<span class="nc" id="L171">		props.put(&quot;tileheight&quot;, tileheight);</span>
+<span class="nc" id="L172">		props.put(&quot;margin&quot;, margin);</span>
+<span class="nc" id="L173">		props.put(&quot;spacing&quot;, spacing);</span>
+
+<span class="nc bnc" id="L175" title="All 4 branches missed.">		if (imageSource != null &amp;&amp; imageSource.length() &gt; 0) {</span>
+<span class="nc" id="L176">			int lastgid = firstgid + ((imageWidth / tilewidth) * (imageHeight / tileheight)) - 1;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			for (AtlasRegion region : atlas.findRegions(regionsName)) {</span>
+				// Handle unused tileIds
+<span class="nc bnc" id="L179" title="All 2 branches missed.">				if (region != null) {</span>
+<span class="nc" id="L180">					int tileId = firstgid + region.index;</span>
+<span class="nc bnc" id="L181" title="All 4 branches missed.">					if (tileId &gt;= firstgid &amp;&amp; tileId &lt;= lastgid) {</span>
+<span class="nc" id="L182">						addStaticTiledMapTile(tileSet, region, tileId, offsetX, offsetY);</span>
+					}
+				}
+<span class="nc" id="L185">			}</span>
+		}
+
+		// Add tiles with individual image sources
+<span class="nc bnc" id="L189" title="All 2 branches missed.">		for (Element tileElement : tileElements) {</span>
+<span class="nc" id="L190">			int tileId = firstgid + tileElement.getIntAttribute(&quot;id&quot;, 0);</span>
+<span class="nc" id="L191">			TiledMapTile tile = tileSet.getTile(tileId);</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">			if (tile == null) {</span>
+<span class="nc" id="L193">				Element imageElement = tileElement.getChildByName(&quot;image&quot;);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">				if (imageElement != null) {</span>
+<span class="nc" id="L195">					String regionName = imageElement.getAttribute(&quot;source&quot;);</span>
+<span class="nc" id="L196">					regionName = regionName.substring(0, regionName.lastIndexOf('.'));</span>
+<span class="nc" id="L197">					AtlasRegion region = atlas.findRegion(regionName);</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">					if (region == null)</span>
+<span class="nc" id="L199">						throw new GdxRuntimeException(&quot;Tileset atlasRegion not found: &quot; + regionName);</span>
+<span class="nc" id="L200">					addStaticTiledMapTile(tileSet, region, tileId, offsetX, offsetY);</span>
+				}
+			}
+<span class="nc" id="L203">		}</span>
+<span class="nc" id="L204">	}</span>
+
+	private FileHandle getAtlasFileHandle (FileHandle tmxFile) {
+<span class="nc" id="L207">		Element properties = root.getChildByName(&quot;properties&quot;);</span>
+
+<span class="nc" id="L209">		String atlasFilePath = null;</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">		if (properties != null) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">			for (Element property : properties.getChildrenByName(&quot;property&quot;)) {</span>
+<span class="nc" id="L212">				String name = property.getAttribute(&quot;name&quot;);</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">				if (name.startsWith(&quot;atlas&quot;)) {</span>
+<span class="nc" id="L214">					atlasFilePath = property.getAttribute(&quot;value&quot;);</span>
+<span class="nc" id="L215">					break;</span>
+				}
+<span class="nc" id="L217">			}</span>
+		}
+<span class="nc bnc" id="L219" title="All 2 branches missed.">		if (atlasFilePath == null) {</span>
+<span class="nc" id="L220">			throw new GdxRuntimeException(&quot;The map is missing the 'atlas' property&quot;);</span>
+		} else {
+<span class="nc" id="L222">			final FileHandle fileHandle = getRelativeFileHandle(tmxFile, atlasFilePath);</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">			if (!fileHandle.exists()) {</span>
+<span class="nc" id="L224">				throw new GdxRuntimeException(&quot;The 'atlas' file could not be found: '&quot; + atlasFilePath + &quot;'&quot;);</span>
+			}
+<span class="nc" id="L226">			return fileHandle;</span>
+		}
+	}
+
+	private void setTextureFilters (Texture.TextureFilter min, Texture.TextureFilter mag) {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">		for (Texture texture : trackedTextures) {</span>
+<span class="nc" id="L232">			texture.setFilter(min, mag);</span>
+<span class="nc" id="L233">		}</span>
+<span class="nc" id="L234">		trackedTextures.clear();</span>
+<span class="nc" id="L235">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

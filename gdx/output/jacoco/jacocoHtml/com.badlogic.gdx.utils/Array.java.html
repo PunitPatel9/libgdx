@@ -1,0 +1,698 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Array.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">Array.java</span></div><h1>Array.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.reflect.ArrayReflection;
+
+/** A resizable, ordered or unordered array of objects. If unordered, this class avoids a memory copy when removing elements (the
+ * last element is moved to the removed element's position).
+ * @author Nathan Sweet */
+public class Array&lt;T&gt; implements Iterable&lt;T&gt; {
+	/** Provides direct access to the underlying array. If the Array's generic type is not Object, this field may only be accessed
+	 * if the {@link Array#Array(boolean, int, Class)} constructor was used. */
+	public T[] items;
+
+	public int size;
+	public boolean ordered;
+
+	private ArrayIterable iterable;
+	private Predicate.PredicateIterable&lt;T&gt; predicateIterable;
+
+	/** Creates an ordered array with a capacity of 16. */
+	public Array () {
+<span class="fc" id="L42">		this(true, 16);</span>
+<span class="fc" id="L43">	}</span>
+
+	/** Creates an ordered array with the specified capacity. */
+	public Array (int capacity) {
+<span class="nc" id="L47">		this(true, capacity);</span>
+<span class="nc" id="L48">	}</span>
+
+	/** @param ordered If false, methods that remove elements may change the order of other elements in the array, which avoids a
+	 *           memory copy.
+	 * @param capacity Any elements added beyond this will cause the backing array to be grown. */
+<span class="fc" id="L53">	public Array (boolean ordered, int capacity) {</span>
+<span class="fc" id="L54">		this.ordered = ordered;</span>
+<span class="fc" id="L55">		items = (T[])new Object[capacity];</span>
+<span class="fc" id="L56">	}</span>
+
+	/** Creates a new array with {@link #items} of the specified type.
+	 * @param ordered If false, methods that remove elements may change the order of other elements in the array, which avoids a
+	 *           memory copy.
+	 * @param capacity Any elements added beyond this will cause the backing array to be grown. */
+<span class="fc" id="L62">	public Array (boolean ordered, int capacity, Class arrayType) {</span>
+<span class="fc" id="L63">		this.ordered = ordered;</span>
+<span class="fc" id="L64">		items = (T[])ArrayReflection.newInstance(arrayType, capacity);</span>
+<span class="fc" id="L65">	}</span>
+
+	/** Creates an ordered array with {@link #items} of the specified type and a capacity of 16. */
+	public Array (Class arrayType) {
+<span class="nc" id="L69">		this(true, 16, arrayType);</span>
+<span class="nc" id="L70">	}</span>
+
+	/** Creates a new array containing the elements in the specified array. The new array will have the same type of backing array
+	 * and will be ordered if the specified array is ordered. The capacity is set to the number of elements, so any subsequent
+	 * elements added will cause the backing array to be grown. */
+	public Array (Array&lt;? extends T&gt; array) {
+<span class="nc" id="L76">		this(array.ordered, array.size, array.items.getClass().getComponentType());</span>
+<span class="nc" id="L77">		size = array.size;</span>
+<span class="nc" id="L78">		System.arraycopy(array.items, 0, items, 0, size);</span>
+<span class="nc" id="L79">	}</span>
+
+	/** Creates a new ordered array containing the elements in the specified array. The new array will have the same type of
+	 * backing array. The capacity is set to the number of elements, so any subsequent elements added will cause the backing array
+	 * to be grown. */
+	public Array (T[] array) {
+<span class="fc" id="L85">		this(true, array, 0, array.length);</span>
+<span class="fc" id="L86">	}</span>
+
+	/** Creates a new array containing the elements in the specified array. The new array will have the same type of backing array.
+	 * The capacity is set to the number of elements, so any subsequent elements added will cause the backing array to be grown.
+	 * @param ordered If false, methods that remove elements may change the order of other elements in the array, which avoids a
+	 *           memory copy. */
+	public Array (boolean ordered, T[] array, int start, int count) {
+<span class="fc" id="L93">		this(ordered, count, (Class)array.getClass().getComponentType());</span>
+<span class="fc" id="L94">		size = count;</span>
+<span class="fc" id="L95">		System.arraycopy(array, start, items, 0, size);</span>
+<span class="fc" id="L96">	}</span>
+
+	public void add (T value) {
+<span class="fc" id="L99">		T[] items = this.items;</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">		if (size == items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="fc" id="L101">		items[size++] = value;</span>
+<span class="fc" id="L102">	}</span>
+
+	public void add (T value1, T value2) {
+<span class="nc" id="L105">		T[] items = this.items;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">		if (size + 1 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L107">		items[size] = value1;</span>
+<span class="nc" id="L108">		items[size + 1] = value2;</span>
+<span class="nc" id="L109">		size += 2;</span>
+<span class="nc" id="L110">	}</span>
+
+	public void add (T value1, T value2, T value3) {
+<span class="nc" id="L113">		T[] items = this.items;</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">		if (size + 2 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L115">		items[size] = value1;</span>
+<span class="nc" id="L116">		items[size + 1] = value2;</span>
+<span class="nc" id="L117">		items[size + 2] = value3;</span>
+<span class="nc" id="L118">		size += 3;</span>
+<span class="nc" id="L119">	}</span>
+
+	public void add (T value1, T value2, T value3, T value4) {
+<span class="nc" id="L122">		T[] items = this.items;</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">		if (size + 3 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.8f))); // 1.75 isn't enough when size=5.</span>
+<span class="nc" id="L124">		items[size] = value1;</span>
+<span class="nc" id="L125">		items[size + 1] = value2;</span>
+<span class="nc" id="L126">		items[size + 2] = value3;</span>
+<span class="nc" id="L127">		items[size + 3] = value4;</span>
+<span class="nc" id="L128">		size += 4;</span>
+<span class="nc" id="L129">	}</span>
+
+	public void addAll (Array&lt;? extends T&gt; array) {
+<span class="nc" id="L132">		addAll(array.items, 0, array.size);</span>
+<span class="nc" id="L133">	}</span>
+
+	public void addAll (Array&lt;? extends T&gt; array, int start, int count) {
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">		if (start + count &gt; array.size)</span>
+<span class="nc" id="L137">			throw new IllegalArgumentException(&quot;start + count must be &lt;= size: &quot; + start + &quot; + &quot; + count + &quot; &lt;= &quot; + array.size);</span>
+<span class="fc" id="L138">		addAll((T[])array.items, start, count);</span>
+<span class="fc" id="L139">	}</span>
+
+	public void addAll (T... array) {
+<span class="nc" id="L142">		addAll(array, 0, array.length);</span>
+<span class="nc" id="L143">	}</span>
+
+	public void addAll (T[] array, int start, int count) {
+<span class="fc" id="L146">		T[] items = this.items;</span>
+<span class="fc" id="L147">		int sizeNeeded = size + count;</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">		if (sizeNeeded &gt; items.length) items = resize(Math.max(8, (int)(sizeNeeded * 1.75f)));</span>
+<span class="fc" id="L149">		System.arraycopy(array, start, items, size, count);</span>
+<span class="fc" id="L150">		size += count;</span>
+<span class="fc" id="L151">	}</span>
+
+	public T get (int index) {
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="fc" id="L155">		return items[index];</span>
+	}
+
+	public void set (int index, T value) {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L160">		items[index] = value;</span>
+<span class="nc" id="L161">	}</span>
+
+	public void insert (int index, T value) {
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (index &gt; size) throw new IndexOutOfBoundsException(&quot;index can't be &gt; size: &quot; + index + &quot; &gt; &quot; + size);</span>
+<span class="nc" id="L165">		T[] items = this.items;</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">		if (size == items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L168">			System.arraycopy(items, index, items, index + 1, size - index);</span>
+		else
+<span class="nc" id="L170">			items[size] = items[index];</span>
+<span class="nc" id="L171">		size++;</span>
+<span class="nc" id="L172">		items[index] = value;</span>
+<span class="nc" id="L173">	}</span>
+
+	public void swap (int first, int second) {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">		if (first &gt;= size) throw new IndexOutOfBoundsException(&quot;first can't be &gt;= size: &quot; + first + &quot; &gt;= &quot; + size);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">		if (second &gt;= size) throw new IndexOutOfBoundsException(&quot;second can't be &gt;= size: &quot; + second + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L178">		T[] items = this.items;</span>
+<span class="nc" id="L179">		T firstValue = items[first];</span>
+<span class="nc" id="L180">		items[first] = items[second];</span>
+<span class="nc" id="L181">		items[second] = firstValue;</span>
+<span class="nc" id="L182">	}</span>
+
+	/** Returns true if this array contains the specified value.
+	 * @param value May be null.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean contains (T value, boolean identity) {
+<span class="nc" id="L188">		T[] items = this.items;</span>
+<span class="nc" id="L189">		int i = size - 1;</span>
+<span class="nc bnc" id="L190" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">				if (items[i--] == value) return true;</span>
+		} else {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">			while (i &gt;= 0)</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">				if (value.equals(items[i--])) return true;</span>
+		}
+<span class="nc" id="L197">		return false;</span>
+	}
+
+	/** Returns true if this array contains all the specified values.
+	 * @param values May contains nulls.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean containsAll (Array&lt;? extends T&gt; values, boolean identity) {
+<span class="nc" id="L204">		T[] items = values.items;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">		for (int i = 0, n = values.size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">			if (!contains(items[i], identity)) return false;</span>
+<span class="nc" id="L207">		return true;</span>
+	}
+
+	/** Returns true if this array contains any the specified values.
+	 * @param values May contains nulls.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used. */
+	public boolean containsAny (Array&lt;? extends T&gt; values, boolean identity) {
+<span class="nc" id="L214">		T[] items = values.items;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		for (int i = 0, n = values.size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">			if (contains(items[i], identity)) return true;</span>
+<span class="nc" id="L217">		return false;</span>
+	}
+
+	/** Returns the index of first occurrence of value in the array, or -1 if no such value exists.
+	 * @param value May be null.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
+	 * @return An index of first occurrence of value in array or -1 if no such value exists */
+	public int indexOf (T value, boolean identity) {
+<span class="nc" id="L225">		T[] items = this.items;</span>
+<span class="nc bnc" id="L226" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">				if (items[i] == value) return i;</span>
+		} else {
+<span class="nc bnc" id="L230" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">				if (value.equals(items[i])) return i;</span>
+		}
+<span class="nc" id="L233">		return -1;</span>
+	}
+
+	/** Returns an index of last occurrence of value in array or -1 if no such value exists. Search is started from the end of an
+	 * array.
+	 * @param value May be null.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
+	 * @return An index of last occurrence of value in array or -1 if no such value exists */
+	public int lastIndexOf (T value, boolean identity) {
+<span class="nc" id="L242">		T[] items = this.items;</span>
+<span class="nc bnc" id="L243" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">			for (int i = size - 1; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">				if (items[i] == value) return i;</span>
+		} else {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">			for (int i = size - 1; i &gt;= 0; i--)</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">				if (value.equals(items[i])) return i;</span>
+		}
+<span class="nc" id="L250">		return -1;</span>
+	}
+
+	/** Removes the first instance of the specified value in the array.
+	 * @param value May be null.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
+	 * @return true if value was found and removed, false otherwise */
+	public boolean removeValue (T value, boolean identity) {
+<span class="nc" id="L258">		T[] items = this.items;</span>
+<span class="nc bnc" id="L259" title="All 4 branches missed.">		if (identity || value == null) {</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">				if (items[i] == value) {</span>
+<span class="nc" id="L262">					removeIndex(i);</span>
+<span class="nc" id="L263">					return true;</span>
+				}
+			}
+		} else {
+<span class="nc bnc" id="L267" title="All 2 branches missed.">			for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">				if (value.equals(items[i])) {</span>
+<span class="nc" id="L269">					removeIndex(i);</span>
+<span class="nc" id="L270">					return true;</span>
+				}
+			}
+		}
+<span class="nc" id="L274">		return false;</span>
+	}
+
+	/** Removes and returns the item at the specified index. */
+	public T removeIndex (int index) {
+<span class="nc bnc" id="L279" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L280">		T[] items = this.items;</span>
+<span class="nc" id="L281">		T value = (T)items[index];</span>
+<span class="nc" id="L282">		size--;</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L284">			System.arraycopy(items, index + 1, items, index, size - index);</span>
+		else
+<span class="nc" id="L286">			items[index] = items[size];</span>
+<span class="nc" id="L287">		items[size] = null;</span>
+<span class="nc" id="L288">		return value;</span>
+	}
+
+	/** Removes the items between the specified indices, inclusive. */
+	public void removeRange (int start, int end) {
+<span class="nc" id="L293">		int n = size;</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">		if (end &gt;= n) throw new IndexOutOfBoundsException(&quot;end can't be &gt;= size: &quot; + end + &quot; &gt;= &quot; + size);</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">		if (start &gt; end) throw new IndexOutOfBoundsException(&quot;start can't be &gt; end: &quot; + start + &quot; &gt; &quot; + end);</span>
+<span class="nc" id="L296">		T[] items = this.items;</span>
+<span class="nc" id="L297">		int count = end - start + 1, lastIndex = n - count;</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L299">			System.arraycopy(items, start + count, items, start, n - (start + count));</span>
+		else {
+<span class="nc" id="L301">			int i = Math.max(lastIndex, end + 1);</span>
+<span class="nc" id="L302">			System.arraycopy(items, i, items, start, n - i);</span>
+		}
+<span class="nc bnc" id="L304" title="All 2 branches missed.">		for (int i = lastIndex; i &lt; n; i++)</span>
+<span class="nc" id="L305">			items[i] = null;</span>
+<span class="nc" id="L306">		size = n - count;</span>
+<span class="nc" id="L307">	}</span>
+
+	/** Removes from this array all of elements contained in the specified array.
+	 * @param identity True to use ==, false to use .equals().
+	 * @return true if this array was modified. */
+	public boolean removeAll (Array&lt;? extends T&gt; array, boolean identity) {
+<span class="nc" id="L313">		int size = this.size;</span>
+<span class="nc" id="L314">		int startSize = size;</span>
+<span class="nc" id="L315">		T[] items = this.items;</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">		if (identity) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">			for (int i = 0, n = array.size; i &lt; n; i++) {</span>
+<span class="nc" id="L318">				T item = array.get(i);</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">				for (int ii = 0; ii &lt; size; ii++) {</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">					if (item == items[ii]) {</span>
+<span class="nc" id="L321">						removeIndex(ii);</span>
+<span class="nc" id="L322">						size--;</span>
+<span class="nc" id="L323">						break;</span>
+					}
+				}
+			}
+		} else {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">			for (int i = 0, n = array.size; i &lt; n; i++) {</span>
+<span class="nc" id="L329">				T item = array.get(i);</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">				for (int ii = 0; ii &lt; size; ii++) {</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">					if (item.equals(items[ii])) {</span>
+<span class="nc" id="L332">						removeIndex(ii);</span>
+<span class="nc" id="L333">						size--;</span>
+<span class="nc" id="L334">						break;</span>
+					}
+				}
+			}
+		}
+<span class="nc bnc" id="L339" title="All 2 branches missed.">		return size != startSize;</span>
+	}
+
+	/** Removes and returns the last item. */
+	public T pop () {
+<span class="nc bnc" id="L344" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Array is empty.&quot;);</span>
+<span class="nc" id="L345">		--size;</span>
+<span class="nc" id="L346">		T item = items[size];</span>
+<span class="nc" id="L347">		items[size] = null;</span>
+<span class="nc" id="L348">		return item;</span>
+	}
+
+	/** Returns the last item. */
+	public T peek () {
+<span class="nc bnc" id="L353" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Array is empty.&quot;);</span>
+<span class="nc" id="L354">		return items[size - 1];</span>
+	}
+
+	/** Returns the first item. */
+	public T first () {
+<span class="nc bnc" id="L359" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Array is empty.&quot;);</span>
+<span class="nc" id="L360">		return items[0];</span>
+	}
+
+	/** Returns true if the array has one or more items. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if the array is empty. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L370" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	public void clear () {
+<span class="fc" id="L374">		T[] items = this.items;</span>
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc" id="L376">			items[i] = null;</span>
+<span class="fc" id="L377">		size = 0;</span>
+<span class="fc" id="L378">	}</span>
+
+	/** Reduces the size of the backing array to the size of the actual items. This is useful to release memory when many items
+	 * have been removed, or if it is known that more items will not be added.
+	 * @return {@link #items} */
+	public T[] shrink () {
+<span class="nc bnc" id="L384" title="All 2 branches missed.">		if (items.length != size) resize(size);</span>
+<span class="nc" id="L385">		return items;</span>
+	}
+
+	/** Increases the size of the backing array to accommodate the specified number of additional items. Useful before adding many
+	 * items to avoid multiple backing array resizes.
+	 * @return {@link #items} */
+	public T[] ensureCapacity (int additionalCapacity) {
+<span class="nc bnc" id="L392" title="All 2 branches missed.">		if (additionalCapacity &lt; 0) throw new IllegalArgumentException(&quot;additionalCapacity must be &gt;= 0: &quot; + additionalCapacity);</span>
+<span class="nc" id="L393">		int sizeNeeded = size + additionalCapacity;</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">		if (sizeNeeded &gt; items.length) resize(Math.max(8, sizeNeeded));</span>
+<span class="nc" id="L395">		return items;</span>
+	}
+
+	/** Sets the array size, leaving any values beyond the current size null.
+	 * @return {@link #items} */
+	public T[] setSize (int newSize) {
+<span class="nc" id="L401">		truncate(newSize);</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">		if (newSize &gt; items.length) resize(Math.max(8, newSize));</span>
+<span class="nc" id="L403">		size = newSize;</span>
+<span class="nc" id="L404">		return items;</span>
+	}
+
+	/** Creates a new backing array with the specified size containing the current items. */
+	protected T[] resize (int newSize) {
+<span class="nc" id="L409">		T[] items = this.items;</span>
+<span class="nc" id="L410">		T[] newItems = (T[])ArrayReflection.newInstance(items.getClass().getComponentType(), newSize);</span>
+<span class="nc" id="L411">		System.arraycopy(items, 0, newItems, 0, Math.min(size, newItems.length));</span>
+<span class="nc" id="L412">		this.items = newItems;</span>
+<span class="nc" id="L413">		return newItems;</span>
+	}
+
+	/** Sorts this array. The array elements must implement {@link Comparable}. This method is not thread safe (uses
+	 * {@link Sort#instance()}). */
+	public void sort () {
+<span class="nc" id="L419">		Sort.instance().sort(items, 0, size);</span>
+<span class="nc" id="L420">	}</span>
+
+	/** Sorts the array. This method is not thread safe (uses {@link Sort#instance()}). */
+	public void sort (Comparator&lt;? super T&gt; comparator) {
+<span class="nc" id="L424">		Sort.instance().sort(items, comparator, 0, size);</span>
+<span class="nc" id="L425">	}</span>
+
+	/** Selects the nth-lowest element from the Array according to Comparator ranking. This might partially sort the Array. The
+	 * array must have a size greater than 0, or a {@link com.badlogic.gdx.utils.GdxRuntimeException} will be thrown.
+	 * @see Select
+	 * @param comparator used for comparison
+	 * @param kthLowest rank of desired object according to comparison, n is based on ordinal numbers, not array indices. for min
+	 *           value use 1, for max value use size of array, using 0 results in runtime exception.
+	 * @return the value of the Nth lowest ranked object. */
+	public T selectRanked (Comparator&lt;T&gt; comparator, int kthLowest) {
+<span class="nc bnc" id="L435" title="All 2 branches missed.">		if (kthLowest &lt; 1) {</span>
+<span class="nc" id="L436">			throw new GdxRuntimeException(&quot;nth_lowest must be greater than 0, 1 = first, 2 = second...&quot;);</span>
+		}
+<span class="nc" id="L438">		return Select.instance().select(items, comparator, kthLowest, size);</span>
+	}
+
+	/** @see Array#selectRanked(java.util.Comparator, int)
+	 * @param comparator used for comparison
+	 * @param kthLowest rank of desired object according to comparison, n is based on ordinal numbers, not array indices. for min
+	 *           value use 1, for max value use size of array, using 0 results in runtime exception.
+	 * @return the index of the Nth lowest ranked object. */
+	public int selectRankedIndex (Comparator&lt;T&gt; comparator, int kthLowest) {
+<span class="nc bnc" id="L447" title="All 2 branches missed.">		if (kthLowest &lt; 1) {</span>
+<span class="nc" id="L448">			throw new GdxRuntimeException(&quot;nth_lowest must be greater than 0, 1 = first, 2 = second...&quot;);</span>
+		}
+<span class="nc" id="L450">		return Select.instance().selectIndex(items, comparator, kthLowest, size);</span>
+	}
+
+	public void reverse () {
+<span class="nc" id="L454">		T[] items = this.items;</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">		for (int i = 0, lastIndex = size - 1, n = size / 2; i &lt; n; i++) {</span>
+<span class="nc" id="L456">			int ii = lastIndex - i;</span>
+<span class="nc" id="L457">			T temp = items[i];</span>
+<span class="nc" id="L458">			items[i] = items[ii];</span>
+<span class="nc" id="L459">			items[ii] = temp;</span>
+		}
+<span class="nc" id="L461">	}</span>
+
+	public void shuffle () {
+<span class="nc" id="L464">		T[] items = this.items;</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">		for (int i = size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L466">			int ii = MathUtils.random(i);</span>
+<span class="nc" id="L467">			T temp = items[i];</span>
+<span class="nc" id="L468">			items[i] = items[ii];</span>
+<span class="nc" id="L469">			items[ii] = temp;</span>
+		}
+<span class="nc" id="L471">	}</span>
+
+	/** Returns an iterator for the items in the array. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called.
+	 * Use the {@link ArrayIterator} constructor for nested or multithreaded iteration. */
+	public Iterator&lt;T&gt; iterator () {
+<span class="nc bnc" id="L478" title="All 2 branches missed.">		if (Collections.allocateIterators) return new ArrayIterator(this, true);</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">		if (iterable == null) iterable = new ArrayIterable(this);</span>
+<span class="nc" id="L480">		return iterable.iterator();</span>
+	}
+
+	/** Returns an iterable for the selected items in the array. Remove is supported, but not between hasNext() and next().
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterable instance is returned each time this method is called.
+	 * Use the {@link Predicate.PredicateIterable} constructor for nested or multithreaded iteration. */
+	public Iterable&lt;T&gt; select (Predicate&lt;T&gt; predicate) {
+<span class="nc bnc" id="L488" title="All 2 branches missed.">		if (Collections.allocateIterators) new Predicate.PredicateIterable&lt;T&gt;(this, predicate);</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">		if (predicateIterable == null)</span>
+<span class="nc" id="L490">			predicateIterable = new Predicate.PredicateIterable&lt;T&gt;(this, predicate);</span>
+		else
+<span class="nc" id="L492">			predicateIterable.set(this, predicate);</span>
+<span class="nc" id="L493">		return predicateIterable;</span>
+	}
+
+	/** Reduces the size of the array to the specified size. If the array is already smaller than the specified size, no action is
+	 * taken. */
+	public void truncate (int newSize) {
+<span class="nc bnc" id="L499" title="All 2 branches missed.">		if (newSize &lt; 0) throw new IllegalArgumentException(&quot;newSize must be &gt;= 0: &quot; + newSize);</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">		if (size &lt;= newSize) return;</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">		for (int i = newSize; i &lt; size; i++)</span>
+<span class="nc" id="L502">			items[i] = null;</span>
+<span class="nc" id="L503">		size = newSize;</span>
+<span class="nc" id="L504">	}</span>
+
+	/** Returns a random item from the array, or null if the array is empty. */
+	public T random () {
+<span class="nc bnc" id="L508" title="All 2 branches missed.">		if (size == 0) return null;</span>
+<span class="nc" id="L509">		return items[MathUtils.random(0, size - 1)];</span>
+	}
+
+	/** Returns the items as an array. Note the array is typed, so the {@link #Array(Class)} constructor must have been used.
+	 * Otherwise use {@link #toArray(Class)} to specify the array type. */
+	public T[] toArray () {
+<span class="nc" id="L515">		return (T[])toArray(items.getClass().getComponentType());</span>
+	}
+
+	public &lt;V&gt; V[] toArray (Class&lt;V&gt; type) {
+<span class="nc" id="L519">		V[] result = (V[])ArrayReflection.newInstance(type, size);</span>
+<span class="nc" id="L520">		System.arraycopy(items, 0, result, 0, size);</span>
+<span class="nc" id="L521">		return result;</span>
+	}
+
+	public int hashCode () {
+<span class="nc bnc" id="L525" title="All 2 branches missed.">		if (!ordered) return super.hashCode();</span>
+<span class="nc" id="L526">		Object[] items = this.items;</span>
+<span class="nc" id="L527">		int h = 1;</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++) {</span>
+<span class="nc" id="L529">			h *= 31;</span>
+<span class="nc" id="L530">			Object item = items[i];</span>
+<span class="nc bnc" id="L531" title="All 2 branches missed.">			if (item != null) h += item.hashCode();</span>
+		}
+<span class="nc" id="L533">		return h;</span>
+	}
+
+	/** Returns false if either array is unordered. */
+	public boolean equals (Object object) {
+<span class="nc bnc" id="L538" title="All 2 branches missed.">		if (object == this) return true;</span>
+<span class="nc bnc" id="L539" title="All 2 branches missed.">		if (!ordered) return false;</span>
+<span class="nc bnc" id="L540" title="All 2 branches missed.">		if (!(object instanceof Array)) return false;</span>
+<span class="nc" id="L541">		Array array = (Array)object;</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">		if (!array.ordered) return false;</span>
+<span class="nc" id="L543">		int n = size;</span>
+<span class="nc bnc" id="L544" title="All 2 branches missed.">		if (n != array.size) return false;</span>
+<span class="nc" id="L545">		Object[] items1 = this.items, items2 = array.items;</span>
+<span class="nc bnc" id="L546" title="All 2 branches missed.">		for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L547">			Object o1 = items1[i], o2 = items2[i];</span>
+<span class="nc bnc" id="L548" title="All 6 branches missed.">			if (!(o1 == null ? o2 == null : o1.equals(o2))) return false;</span>
+		}
+<span class="nc" id="L550">		return true;</span>
+	}
+
+	/** Uses == for comparison of each item. Returns false if either array is unordered. */
+	public boolean equalsIdentity (Object object) {
+<span class="nc bnc" id="L555" title="All 2 branches missed.">		if (object == this) return true;</span>
+<span class="nc bnc" id="L556" title="All 2 branches missed.">		if (!ordered) return false;</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">		if (!(object instanceof Array)) return false;</span>
+<span class="nc" id="L558">		Array array = (Array)object;</span>
+<span class="nc bnc" id="L559" title="All 2 branches missed.">		if (!array.ordered) return false;</span>
+<span class="nc" id="L560">		int n = size;</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">		if (n != array.size) return false;</span>
+<span class="nc" id="L562">		Object[] items1 = this.items, items2 = array.items;</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">		for (int i = 0; i &lt; n; i++)</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">			if (items1[i] != items2[i]) return false;</span>
+<span class="nc" id="L565">		return true;</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L569" title="All 2 branches missed.">		if (size == 0) return &quot;[]&quot;;</span>
+<span class="nc" id="L570">		T[] items = this.items;</span>
+<span class="nc" id="L571">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L572">		buffer.append('[');</span>
+<span class="nc" id="L573">		buffer.append(items[0]);</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L575">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L576">			buffer.append(items[i]);</span>
+		}
+<span class="nc" id="L578">		buffer.append(']');</span>
+<span class="nc" id="L579">		return buffer.toString();</span>
+	}
+
+	public String toString (String separator) {
+<span class="nc bnc" id="L583" title="All 2 branches missed.">		if (size == 0) return &quot;&quot;;</span>
+<span class="nc" id="L584">		T[] items = this.items;</span>
+<span class="nc" id="L585">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L586">		buffer.append(items[0]);</span>
+<span class="nc bnc" id="L587" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L588">			buffer.append(separator);</span>
+<span class="nc" id="L589">			buffer.append(items[i]);</span>
+		}
+<span class="nc" id="L591">		return buffer.toString();</span>
+	}
+
+	/** @see #Array(Class) */
+	static public &lt;T&gt; Array&lt;T&gt; of (Class&lt;T&gt; arrayType) {
+<span class="nc" id="L596">		return new Array(arrayType);</span>
+	}
+
+	/** @see #Array(boolean, int, Class) */
+	static public &lt;T&gt; Array&lt;T&gt; of (boolean ordered, int capacity, Class&lt;T&gt; arrayType) {
+<span class="nc" id="L601">		return new Array(ordered, capacity, arrayType);</span>
+	}
+
+	/** @see #Array(Object[]) */
+	static public &lt;T&gt; Array&lt;T&gt; with (T... array) {
+<span class="nc" id="L606">		return new Array(array);</span>
+	}
+
+	static public class ArrayIterator&lt;T&gt; implements Iterator&lt;T&gt;, Iterable&lt;T&gt; {
+		private final Array&lt;T&gt; array;
+		private final boolean allowRemove;
+		int index;
+<span class="nc" id="L613">		boolean valid = true;</span>
+
+// ArrayIterable&lt;T&gt; iterable;
+
+		public ArrayIterator (Array&lt;T&gt; array) {
+<span class="nc" id="L618">			this(array, true);</span>
+<span class="nc" id="L619">		}</span>
+
+<span class="nc" id="L621">		public ArrayIterator (Array&lt;T&gt; array, boolean allowRemove) {</span>
+<span class="nc" id="L622">			this.array = array;</span>
+<span class="nc" id="L623">			this.allowRemove = allowRemove;</span>
+<span class="nc" id="L624">		}</span>
+
+		public boolean hasNext () {
+<span class="nc bnc" id="L627" title="All 2 branches missed.">			if (!valid) {</span>
+// System.out.println(iterable.lastAcquire);
+<span class="nc" id="L629">				throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+			}
+<span class="nc bnc" id="L631" title="All 2 branches missed.">			return index &lt; array.size;</span>
+		}
+
+		public T next () {
+<span class="nc bnc" id="L635" title="All 2 branches missed.">			if (index &gt;= array.size) throw new NoSuchElementException(String.valueOf(index));</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">			if (!valid) {</span>
+// System.out.println(iterable.lastAcquire);
+<span class="nc" id="L638">				throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+			}
+<span class="nc" id="L640">			return array.items[index++];</span>
+		}
+
+		public void remove () {
+<span class="nc bnc" id="L644" title="All 2 branches missed.">			if (!allowRemove) throw new GdxRuntimeException(&quot;Remove not allowed.&quot;);</span>
+<span class="nc" id="L645">			index--;</span>
+<span class="nc" id="L646">			array.removeIndex(index);</span>
+<span class="nc" id="L647">		}</span>
+
+		public void reset () {
+<span class="nc" id="L650">			index = 0;</span>
+<span class="nc" id="L651">		}</span>
+
+		public Iterator&lt;T&gt; iterator () {
+<span class="nc" id="L654">			return this;</span>
+		}
+	}
+
+	static public class ArrayIterable&lt;T&gt; implements Iterable&lt;T&gt; {
+		private final Array&lt;T&gt; array;
+		private final boolean allowRemove;
+		private ArrayIterator iterator1, iterator2;
+
+// java.io.StringWriter lastAcquire = new java.io.StringWriter();
+
+		public ArrayIterable (Array&lt;T&gt; array) {
+<span class="nc" id="L666">			this(array, true);</span>
+<span class="nc" id="L667">		}</span>
+
+<span class="nc" id="L669">		public ArrayIterable (Array&lt;T&gt; array, boolean allowRemove) {</span>
+<span class="nc" id="L670">			this.array = array;</span>
+<span class="nc" id="L671">			this.allowRemove = allowRemove;</span>
+<span class="nc" id="L672">		}</span>
+
+		/** @see Collections#allocateIterators */
+		public Iterator&lt;T&gt; iterator () {
+<span class="nc bnc" id="L676" title="All 2 branches missed.">			if (Collections.allocateIterators) return new ArrayIterator(array, allowRemove);</span>
+// lastAcquire.getBuffer().setLength(0);
+// new Throwable().printStackTrace(new java.io.PrintWriter(lastAcquire));
+<span class="nc bnc" id="L679" title="All 2 branches missed.">			if (iterator1 == null) {</span>
+<span class="nc" id="L680">				iterator1 = new ArrayIterator(array, allowRemove);</span>
+<span class="nc" id="L681">				iterator2 = new ArrayIterator(array, allowRemove);</span>
+// iterator1.iterable = this;
+// iterator2.iterable = this;
+			}
+<span class="nc bnc" id="L685" title="All 2 branches missed.">			if (!iterator1.valid) {</span>
+<span class="nc" id="L686">				iterator1.index = 0;</span>
+<span class="nc" id="L687">				iterator1.valid = true;</span>
+<span class="nc" id="L688">				iterator2.valid = false;</span>
+<span class="nc" id="L689">				return iterator1;</span>
+			}
+<span class="nc" id="L691">			iterator2.index = 0;</span>
+<span class="nc" id="L692">			iterator2.valid = true;</span>
+<span class="nc" id="L693">			iterator1.valid = false;</span>
+<span class="nc" id="L694">			return iterator2;</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

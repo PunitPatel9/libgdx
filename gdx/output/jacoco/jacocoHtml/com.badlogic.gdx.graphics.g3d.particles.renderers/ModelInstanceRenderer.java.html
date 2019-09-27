@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModelInstanceRenderer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.renderers</a> &gt; <span class="el_source">ModelInstanceRenderer.java</span></div><h1>ModelInstanceRenderer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.renderers;
+
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleControllerComponent;
+import com.badlogic.gdx.graphics.g3d.particles.batches.BillboardParticleBatch;
+import com.badlogic.gdx.graphics.g3d.particles.batches.ModelInstanceParticleBatch;
+import com.badlogic.gdx.graphics.g3d.particles.batches.ParticleBatch;
+
+/** A {@link ParticleControllerRenderer} which will render particles as {@link ModelInstance} to a
+ * {@link ModelInstanceParticleBatch}.
+ * @author Inferno */
+public class ModelInstanceRenderer extends
+	ParticleControllerRenderer&lt;ModelInstanceControllerRenderData, ModelInstanceParticleBatch&gt; {
+	private boolean hasColor, hasScale, hasRotation;
+
+	public ModelInstanceRenderer () {
+<span class="nc" id="L36">		super(new ModelInstanceControllerRenderData());</span>
+<span class="nc" id="L37">	}</span>
+
+	public ModelInstanceRenderer (ModelInstanceParticleBatch batch) {
+<span class="nc" id="L40">		this();</span>
+<span class="nc" id="L41">		setBatch(batch);</span>
+<span class="nc" id="L42">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L46">		renderData.positionChannel = controller.particles.addChannel(ParticleChannels.Position);</span>
+<span class="nc" id="L47">	}</span>
+
+	@Override
+	public void init () {
+<span class="nc" id="L51">		renderData.modelInstanceChannel = controller.particles.getChannel(ParticleChannels.ModelInstance);</span>
+<span class="nc" id="L52">		renderData.colorChannel = controller.particles.getChannel(ParticleChannels.Color);</span>
+<span class="nc" id="L53">		renderData.scaleChannel = controller.particles.getChannel(ParticleChannels.Scale);</span>
+<span class="nc" id="L54">		renderData.rotationChannel = controller.particles.getChannel(ParticleChannels.Rotation3D);</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		hasColor = renderData.colorChannel != null;</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">		hasScale = renderData.scaleChannel != null;</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">		hasRotation = renderData.rotationChannel != null;</span>
+<span class="nc" id="L58">	}</span>
+
+	@Override
+	public void update () {
+<span class="nc bnc" id="L62" title="All 2 branches missed.">		for (int i = 0, positionOffset = 0, c = controller.particles.size; i &lt; c; ++i, positionOffset += renderData.positionChannel.strideSize) {</span>
+<span class="nc" id="L63">			ModelInstance instance = renderData.modelInstanceChannel.data[i];</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">			float scale = hasScale ? renderData.scaleChannel.data[i] : 1;</span>
+<span class="nc" id="L65">			float qx = 0, qy = 0, qz = 0, qw = 1;</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">			if (hasRotation) {</span>
+<span class="nc" id="L67">				int rotationOffset = i * renderData.rotationChannel.strideSize;</span>
+<span class="nc" id="L68">				qx = renderData.rotationChannel.data[rotationOffset + ParticleChannels.XOffset];</span>
+<span class="nc" id="L69">				qy = renderData.rotationChannel.data[rotationOffset + ParticleChannels.YOffset];</span>
+<span class="nc" id="L70">				qz = renderData.rotationChannel.data[rotationOffset + ParticleChannels.ZOffset];</span>
+<span class="nc" id="L71">				qw = renderData.rotationChannel.data[rotationOffset + ParticleChannels.WOffset];</span>
+			}
+
+<span class="nc" id="L74">			instance.transform.set(renderData.positionChannel.data[positionOffset + ParticleChannels.XOffset],</span>
+				renderData.positionChannel.data[positionOffset + ParticleChannels.YOffset],
+				renderData.positionChannel.data[positionOffset + ParticleChannels.ZOffset], qx, qy, qz, qw, scale, scale, scale);
+<span class="nc bnc" id="L77" title="All 2 branches missed.">			if (hasColor) {</span>
+<span class="nc" id="L78">				int colorOffset = i * renderData.colorChannel.strideSize;</span>
+<span class="nc" id="L79">				ColorAttribute colorAttribute = (ColorAttribute)instance.materials.get(0).get(ColorAttribute.Diffuse);</span>
+<span class="nc" id="L80">				BlendingAttribute blendingAttribute = (BlendingAttribute)instance.materials.get(0).get(BlendingAttribute.Type);</span>
+<span class="nc" id="L81">				colorAttribute.color.r = renderData.colorChannel.data[colorOffset + ParticleChannels.RedOffset];</span>
+<span class="nc" id="L82">				colorAttribute.color.g = renderData.colorChannel.data[colorOffset + ParticleChannels.GreenOffset];</span>
+<span class="nc" id="L83">				colorAttribute.color.b = renderData.colorChannel.data[colorOffset + ParticleChannels.BlueOffset];</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">				if (blendingAttribute != null)</span>
+<span class="nc" id="L85">					blendingAttribute.opacity = renderData.colorChannel.data[colorOffset + ParticleChannels.AlphaOffset];</span>
+			}
+		}
+<span class="nc" id="L88">		super.update();</span>
+<span class="nc" id="L89">	}</span>
+
+	@Override
+	public ParticleControllerComponent copy () {
+<span class="nc" id="L93">		return new ModelInstanceRenderer(batch);</span>
+	}
+
+	@Override
+	public boolean isCompatible (ParticleBatch&lt;?&gt; batch) {
+<span class="nc" id="L98">		return batch instanceof ModelInstanceParticleBatch;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

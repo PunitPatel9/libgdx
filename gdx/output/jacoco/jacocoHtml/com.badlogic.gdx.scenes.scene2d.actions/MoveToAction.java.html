@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MoveToAction.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.actions</a> &gt; <span class="el_source">MoveToAction.java</span></div><h1>MoveToAction.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.actions;
+
+import com.badlogic.gdx.utils.Align;
+
+/** Moves an actor from its current position to a specific position.
+ * @author Nathan Sweet */
+<span class="nc" id="L23">public class MoveToAction extends TemporalAction {</span>
+	private float startX, startY;
+	private float endX, endY;
+<span class="nc" id="L26">	private int alignment = Align.bottomLeft;</span>
+
+	protected void begin () {
+<span class="nc" id="L29">		startX = target.getX(alignment);</span>
+<span class="nc" id="L30">		startY = target.getY(alignment);</span>
+<span class="nc" id="L31">	}</span>
+
+	protected void update (float percent) {
+		float x, y;
+<span class="nc bnc" id="L35" title="All 2 branches missed.">		if (percent == 0) {</span>
+<span class="nc" id="L36">			x = startX;</span>
+<span class="nc" id="L37">			y = startY;</span>
+<span class="nc bnc" id="L38" title="All 2 branches missed.">		} else if (percent == 1) {</span>
+<span class="nc" id="L39">			x = endX;</span>
+<span class="nc" id="L40">			y = endY;</span>
+		} else {
+<span class="nc" id="L42">			x = startX + (endX - startX) * percent;</span>
+<span class="nc" id="L43">			y = startY + (endY - startY) * percent;</span>
+		}
+<span class="nc" id="L45">		target.setPosition(x, y, alignment);</span>
+<span class="nc" id="L46">	}</span>
+
+	public void reset () {
+<span class="nc" id="L49">		super.reset();</span>
+<span class="nc" id="L50">		alignment = Align.bottomLeft;</span>
+<span class="nc" id="L51">	}</span>
+
+	public void setStartPosition (float x, float y) {
+<span class="nc" id="L54">		startX = x;</span>
+<span class="nc" id="L55">		startY = y;</span>
+<span class="nc" id="L56">	}</span>
+
+	public void setPosition (float x, float y) {
+<span class="nc" id="L59">		endX = x;</span>
+<span class="nc" id="L60">		endY = y;</span>
+<span class="nc" id="L61">	}</span>
+
+	public void setPosition (float x, float y, int alignment) {
+<span class="nc" id="L64">		endX = x;</span>
+<span class="nc" id="L65">		endY = y;</span>
+<span class="nc" id="L66">		this.alignment = alignment;</span>
+<span class="nc" id="L67">	}</span>
+
+	public float getX () {
+<span class="nc" id="L70">		return endX;</span>
+	}
+
+	public void setX (float x) {
+<span class="nc" id="L74">		endX = x;</span>
+<span class="nc" id="L75">	}</span>
+
+	public float getY () {
+<span class="nc" id="L78">		return endY;</span>
+	}
+
+	public void setY (float y) {
+<span class="nc" id="L82">		endY = y;</span>
+<span class="nc" id="L83">	}</span>
+
+	/** Gets the starting X value, set in {@link #begin()}. */
+	public float getStartX () {
+<span class="nc" id="L87">		return startX;</span>
+	}
+
+	/** Gets the starting Y value, set in {@link #begin()}. */
+	public float getStartY () {
+<span class="nc" id="L92">		return startY;</span>
+	}
+
+	public int getAlignment () {
+<span class="nc" id="L96">		return alignment;</span>
+	}
+
+	public void setAlignment (int alignment) {
+<span class="nc" id="L100">		this.alignment = alignment;</span>
+<span class="nc" id="L101">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

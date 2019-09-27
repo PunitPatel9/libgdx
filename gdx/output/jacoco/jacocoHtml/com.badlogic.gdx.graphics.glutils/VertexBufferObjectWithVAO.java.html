@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VertexBufferObjectWithVAO.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.glutils</a> &gt; <span class="el_source">VertexBufferObjectWithVAO.java</span></div><h1>VertexBufferObjectWithVAO.java</h1><pre class="source lang-java linenums">package com.badlogic.gdx.graphics.glutils;
+
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.GL30;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.utils.BufferUtils;
+import com.badlogic.gdx.utils.IntArray;
+
+/**
+ * &lt;p&gt;
+ * A {@link VertexData} implementation that uses vertex buffer objects and vertex array objects.
+ * (This is required for OpenGL 3.0+ core profiles. In particular, the default VAO has been
+ * deprecated, as has the use of client memory for passing vertex attributes.) Use of VAOs should
+ * give a slight performance benefit since you don't have to bind the attributes on every draw
+ * anymore.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * If the OpenGL ES context was lost you can call {@link #invalidate()} to recreate a new OpenGL vertex buffer object.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * VertexBufferObjectWithVAO objects must be disposed via the {@link #dispose()} method when no longer needed
+ * &lt;/p&gt;
+ *
+ * Code adapted from {@link VertexBufferObject}.
+ * @author mzechner, Dave Clayton &lt;contact@redskyforge.com&gt;, Nate Austin &lt;nate.austin gmail&gt;
+ */
+public class VertexBufferObjectWithVAO implements VertexData {
+<span class="nc" id="L36">	final static IntBuffer tmpHandle = BufferUtils.newIntBuffer(1);</span>
+
+	final VertexAttributes attributes;
+	final FloatBuffer buffer;
+	final ByteBuffer byteBuffer;
+	final boolean ownsBuffer;
+	int bufferHandle;
+	final boolean isStatic;
+	final int usage;
+<span class="nc" id="L45">	boolean isDirty = false;</span>
+<span class="nc" id="L46">	boolean isBound = false;</span>
+<span class="nc" id="L47">	int vaoHandle = -1;</span>
+<span class="nc" id="L48">	IntArray cachedLocations = new IntArray();</span>
+
+
+	/**
+	 * Constructs a new interleaved VertexBufferObjectWithVAO.
+	 *
+	 * @param isStatic    whether the vertex data is static.
+	 * @param numVertices the maximum number of vertices
+	 * @param attributes  the {@link com.badlogic.gdx.graphics.VertexAttribute}s.
+	 */
+	public VertexBufferObjectWithVAO (boolean isStatic, int numVertices, VertexAttribute... attributes) {
+<span class="nc" id="L59">		this(isStatic, numVertices, new VertexAttributes(attributes));</span>
+<span class="nc" id="L60">	}</span>
+
+	/**
+	 * Constructs a new interleaved VertexBufferObjectWithVAO.
+	 *
+	 * @param isStatic    whether the vertex data is static.
+	 * @param numVertices the maximum number of vertices
+	 * @param attributes  the {@link VertexAttributes}.
+	 */
+<span class="nc" id="L69">	public VertexBufferObjectWithVAO (boolean isStatic, int numVertices, VertexAttributes attributes) {</span>
+<span class="nc" id="L70">		this.isStatic = isStatic;</span>
+<span class="nc" id="L71">		this.attributes = attributes;</span>
+
+<span class="nc" id="L73">		byteBuffer = BufferUtils.newUnsafeByteBuffer(this.attributes.vertexSize * numVertices);</span>
+<span class="nc" id="L74">		buffer = byteBuffer.asFloatBuffer();</span>
+<span class="nc" id="L75">		ownsBuffer = true;</span>
+<span class="nc" id="L76">		buffer.flip();</span>
+<span class="nc" id="L77">		byteBuffer.flip();</span>
+<span class="nc" id="L78">		bufferHandle = Gdx.gl20.glGenBuffer();</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		usage = isStatic ? GL20.GL_STATIC_DRAW : GL20.GL_DYNAMIC_DRAW;</span>
+<span class="nc" id="L80">		createVAO();</span>
+<span class="nc" id="L81">	}</span>
+
+<span class="nc" id="L83">	public VertexBufferObjectWithVAO (boolean isStatic, ByteBuffer unmanagedBuffer, VertexAttributes attributes) {</span>
+<span class="nc" id="L84">		this.isStatic = isStatic;</span>
+<span class="nc" id="L85">		this.attributes = attributes;</span>
+
+<span class="nc" id="L87">		byteBuffer = unmanagedBuffer;</span>
+<span class="nc" id="L88">		ownsBuffer = false;</span>
+<span class="nc" id="L89">		buffer = byteBuffer.asFloatBuffer();</span>
+<span class="nc" id="L90">		buffer.flip();</span>
+<span class="nc" id="L91">		byteBuffer.flip();</span>
+<span class="nc" id="L92">		bufferHandle = Gdx.gl20.glGenBuffer();</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">		usage = isStatic ? GL20.GL_STATIC_DRAW : GL20.GL_DYNAMIC_DRAW;</span>
+<span class="nc" id="L94">		createVAO();</span>
+<span class="nc" id="L95">	}</span>
+
+	@Override
+	public VertexAttributes getAttributes () {
+<span class="nc" id="L99">		return attributes;</span>
+	}
+
+	@Override
+	public int getNumVertices () {
+<span class="nc" id="L104">		return buffer.limit() * 4 / attributes.vertexSize;</span>
+	}
+
+	@Override
+	public int getNumMaxVertices () {
+<span class="nc" id="L109">		return byteBuffer.capacity() / attributes.vertexSize;</span>
+	}
+
+	@Override
+	public FloatBuffer getBuffer () {
+<span class="nc" id="L114">		isDirty = true;</span>
+<span class="nc" id="L115">		return buffer;</span>
+	}
+
+	private void bufferChanged () {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">		if (isBound) {</span>
+<span class="nc" id="L120">			Gdx.gl20.glBufferData(GL20.GL_ARRAY_BUFFER, byteBuffer.limit(), byteBuffer, usage);</span>
+<span class="nc" id="L121">			isDirty = false;</span>
+		}
+<span class="nc" id="L123">	}</span>
+
+	@Override
+	public void setVertices (float[] vertices, int offset, int count) {
+<span class="nc" id="L127">		isDirty = true;</span>
+<span class="nc" id="L128">		BufferUtils.copy(vertices, byteBuffer, count, offset);</span>
+<span class="nc" id="L129">		buffer.position(0);</span>
+<span class="nc" id="L130">		buffer.limit(count);</span>
+<span class="nc" id="L131">		bufferChanged();</span>
+<span class="nc" id="L132">	}</span>
+
+	@Override
+	public void updateVertices (int targetOffset, float[] vertices, int sourceOffset, int count) {
+<span class="nc" id="L136">		isDirty = true;</span>
+<span class="nc" id="L137">		final int pos = byteBuffer.position();</span>
+<span class="nc" id="L138">		byteBuffer.position(targetOffset * 4);</span>
+<span class="nc" id="L139">		BufferUtils.copy(vertices, sourceOffset, count, byteBuffer);</span>
+<span class="nc" id="L140">		byteBuffer.position(pos);</span>
+<span class="nc" id="L141">		buffer.position(0);</span>
+<span class="nc" id="L142">		bufferChanged();</span>
+<span class="nc" id="L143">	}</span>
+
+	/**
+	 * Binds this VertexBufferObject for rendering via glDrawArrays or glDrawElements
+	 *
+	 * @param shader the shader
+	 */
+	@Override
+	public void bind (ShaderProgram shader) {
+<span class="nc" id="L152">		bind(shader, null);</span>
+<span class="nc" id="L153">	}</span>
+
+	@Override
+	public void bind (ShaderProgram shader, int[] locations) {
+<span class="nc" id="L157">		GL30 gl = Gdx.gl30;</span>
+
+<span class="nc" id="L159">		gl.glBindVertexArray(vaoHandle);</span>
+
+<span class="nc" id="L161">		bindAttributes(shader, locations);</span>
+
+		//if our data has changed upload it:
+<span class="nc" id="L164">		bindData(gl);</span>
+
+<span class="nc" id="L166">		isBound = true;</span>
+<span class="nc" id="L167">	}</span>
+
+	private void bindAttributes (ShaderProgram shader, int[] locations) {
+<span class="nc bnc" id="L170" title="All 2 branches missed.">		boolean stillValid = this.cachedLocations.size != 0;</span>
+<span class="nc" id="L171">		final int numAttributes = attributes.size();</span>
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">		if (stillValid) {</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">			if (locations == null) {</span>
+<span class="nc bnc" id="L175" title="All 4 branches missed.">				for (int i = 0; stillValid &amp;&amp; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L176">					VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc" id="L177">					int location = shader.getAttributeLocation(attribute.alias);</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">					stillValid = location == this.cachedLocations.get(i);</span>
+				}
+			} else {
+<span class="nc bnc" id="L181" title="All 2 branches missed.">				stillValid = locations.length == this.cachedLocations.size;</span>
+<span class="nc bnc" id="L182" title="All 4 branches missed.">				for (int i = 0; stillValid &amp;&amp; i &lt; numAttributes; i++) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">					stillValid = locations[i] == this.cachedLocations.get(i);</span>
+				}
+			}
+		}
+
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		if (!stillValid) {</span>
+<span class="nc" id="L189">			Gdx.gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, bufferHandle);</span>
+<span class="nc" id="L190">			unbindAttributes(shader);</span>
+<span class="nc" id="L191">			this.cachedLocations.clear();</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">			for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L194">				VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">				if (locations == null) {</span>
+<span class="nc" id="L196">					this.cachedLocations.add(shader.getAttributeLocation(attribute.alias));</span>
+				} else {
+<span class="nc" id="L198">					this.cachedLocations.add(locations[i]);</span>
+				}
+
+<span class="nc" id="L201">				int location = this.cachedLocations.get(i);</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">				if (location &lt; 0) {</span>
+<span class="nc" id="L203">					continue;</span>
+				}
+
+<span class="nc" id="L206">				shader.enableVertexAttribute(location);</span>
+<span class="nc" id="L207">				shader.setVertexAttribute(location, attribute.numComponents, attribute.type, attribute.normalized, attributes.vertexSize, attribute.offset);</span>
+			}
+		}
+<span class="nc" id="L210">	}</span>
+
+	private void unbindAttributes (ShaderProgram shaderProgram) {
+<span class="nc bnc" id="L213" title="All 2 branches missed.">		if (cachedLocations.size == 0) {</span>
+<span class="nc" id="L214">			return;</span>
+		}
+<span class="nc" id="L216">		int numAttributes = attributes.size();</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">		for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L218">			int location = cachedLocations.get(i);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">			if (location &lt; 0) {</span>
+<span class="nc" id="L220">				continue;</span>
+			}
+<span class="nc" id="L222">			shaderProgram.disableVertexAttribute(location);</span>
+		}
+<span class="nc" id="L224">	}</span>
+
+	private void bindData (GL20 gl) {
+<span class="nc bnc" id="L227" title="All 2 branches missed.">		if (isDirty) {</span>
+<span class="nc" id="L228">			gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, bufferHandle);</span>
+<span class="nc" id="L229">			byteBuffer.limit(buffer.limit() * 4);</span>
+<span class="nc" id="L230">			gl.glBufferData(GL20.GL_ARRAY_BUFFER, byteBuffer.limit(), byteBuffer, usage);</span>
+<span class="nc" id="L231">			isDirty = false;</span>
+		}
+<span class="nc" id="L233">	}</span>
+
+	/**
+	 * Unbinds this VertexBufferObject.
+	 *
+	 * @param shader the shader
+	 */
+	@Override
+	public void unbind (final ShaderProgram shader) {
+<span class="nc" id="L242">		unbind(shader, null);</span>
+<span class="nc" id="L243">	}</span>
+
+	@Override
+	public void unbind (final ShaderProgram shader, final int[] locations) {
+<span class="nc" id="L247">		GL30 gl = Gdx.gl30;</span>
+<span class="nc" id="L248">		gl.glBindVertexArray(0);</span>
+<span class="nc" id="L249">		isBound = false;</span>
+<span class="nc" id="L250">	}</span>
+
+	/**
+	 * Invalidates the VertexBufferObject so a new OpenGL buffer handle is created. Use this in case of a context loss.
+	 */
+	@Override
+	public void invalidate () {
+<span class="nc" id="L257">		bufferHandle = Gdx.gl30.glGenBuffer();</span>
+<span class="nc" id="L258">		createVAO();</span>
+<span class="nc" id="L259">		isDirty = true;</span>
+<span class="nc" id="L260">	}</span>
+
+	/**
+	 * Disposes of all resources this VertexBufferObject uses.
+	 */
+	@Override
+	public void dispose () {
+<span class="nc" id="L267">		GL30 gl = Gdx.gl30;</span>
+
+<span class="nc" id="L269">		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L270">		gl.glDeleteBuffer(bufferHandle);</span>
+<span class="nc" id="L271">		bufferHandle = 0;</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">		if (ownsBuffer) {</span>
+<span class="nc" id="L273">			BufferUtils.disposeUnsafeByteBuffer(byteBuffer);</span>
+		}
+<span class="nc" id="L275">		deleteVAO();</span>
+<span class="nc" id="L276">	}</span>
+
+	private void createVAO () {
+<span class="nc" id="L279">		tmpHandle.clear();</span>
+<span class="nc" id="L280">		Gdx.gl30.glGenVertexArrays(1, tmpHandle);</span>
+<span class="nc" id="L281">		vaoHandle = tmpHandle.get();</span>
+<span class="nc" id="L282">	}</span>
+
+	private void deleteVAO () {
+<span class="nc bnc" id="L285" title="All 2 branches missed.">		if (vaoHandle != -1) {</span>
+<span class="nc" id="L286">			tmpHandle.clear();</span>
+<span class="nc" id="L287">			tmpHandle.put(vaoHandle);</span>
+<span class="nc" id="L288">			tmpHandle.flip();</span>
+<span class="nc" id="L289">			Gdx.gl30.glDeleteVertexArrays(1, tmpHandle);</span>
+<span class="nc" id="L290">			vaoHandle = -1;</span>
+		}
+<span class="nc" id="L292">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Cell.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Cell.java</span></div><h1>Cell.java</h1><pre class="source lang-java linenums">
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Files;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.Value.Fixed;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Pool.Poolable;
+
+/** A cell for a {@link Table}.
+ * @author Nathan Sweet */
+public class Cell&lt;T extends Actor&gt; implements Poolable {
+<span class="nc" id="L14">	static private final Float zerof = 0f, onef = 1f;</span>
+<span class="nc" id="L15">	static private final Integer zeroi = 0, onei = 1;</span>
+<span class="nc" id="L16">	static private final Integer centeri = onei, topi = Align.top, bottomi = Align.bottom, lefti = Align.left,</span>
+<span class="nc" id="L17">		righti = Align.right;</span>
+
+	static private Files files;
+	static private Cell defaults;
+
+	Value minWidth, minHeight;
+	Value prefWidth, prefHeight;
+	Value maxWidth, maxHeight;
+	Value spaceTop, spaceLeft, spaceBottom, spaceRight;
+	Value padTop, padLeft, padBottom, padRight;
+	Float fillX, fillY;
+	Integer align;
+	Integer expandX, expandY;
+	Integer colspan;
+	Boolean uniformX, uniformY;
+
+	Actor actor;
+	float actorX, actorY;
+	float actorWidth, actorHeight;
+
+	private Table table;
+	boolean endRow;
+	int column, row;
+	int cellAboveIndex;
+	float computedPadTop, computedPadLeft, computedPadBottom, computedPadRight;
+
+<span class="nc" id="L43">	public Cell () {</span>
+<span class="nc" id="L44">		cellAboveIndex = -1;</span>
+<span class="nc" id="L45">		Cell defaults = defaults();</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">		if (defaults != null) set(defaults);</span>
+<span class="nc" id="L47">	}</span>
+
+	public void setTable (Table table) {
+<span class="nc" id="L50">		this.table = table;</span>
+<span class="nc" id="L51">	}</span>
+
+	/** Sets the actor in this cell and adds the actor to the cell's table. If null, removes any current actor. */
+	public &lt;A extends Actor&gt; Cell&lt;A&gt; setActor (A newActor) {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">		if (actor != newActor) {</span>
+<span class="nc bnc" id="L56" title="All 4 branches missed.">			if (actor != null &amp;&amp; actor.getParent() == table) actor.remove();</span>
+<span class="nc" id="L57">			actor = newActor;</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">			if (newActor != null) table.addActor(newActor);</span>
+		}
+<span class="nc" id="L60">		return (Cell&lt;A&gt;)this;</span>
+	}
+
+	/** Removes the current actor for the cell, if any. */
+	public Cell&lt;T&gt; clearActor () {
+<span class="nc" id="L65">		setActor(null);</span>
+<span class="nc" id="L66">		return this;</span>
+	}
+
+	/** Returns the actor for this cell, or null. */
+	public T getActor () {
+<span class="nc" id="L71">		return (T)actor;</span>
+	}
+
+	/** Returns true if the cell's actor is not null. */
+	public boolean hasActor () {
+<span class="nc bnc" id="L76" title="All 2 branches missed.">		return actor != null;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified value. */
+	public Cell&lt;T&gt; size (Value size) {
+<span class="nc bnc" id="L81" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L82">		minWidth = size;</span>
+<span class="nc" id="L83">		minHeight = size;</span>
+<span class="nc" id="L84">		prefWidth = size;</span>
+<span class="nc" id="L85">		prefHeight = size;</span>
+<span class="nc" id="L86">		maxWidth = size;</span>
+<span class="nc" id="L87">		maxHeight = size;</span>
+<span class="nc" id="L88">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified values. */
+	public Cell&lt;T&gt; size (Value width, Value height) {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L95">		minWidth = width;</span>
+<span class="nc" id="L96">		minHeight = height;</span>
+<span class="nc" id="L97">		prefWidth = width;</span>
+<span class="nc" id="L98">		prefHeight = height;</span>
+<span class="nc" id="L99">		maxWidth = width;</span>
+<span class="nc" id="L100">		maxHeight = height;</span>
+<span class="nc" id="L101">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified value. */
+	public Cell&lt;T&gt; size (float size) {
+<span class="nc" id="L106">		size(Fixed.valueOf(size));</span>
+<span class="nc" id="L107">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, maxWidth, minHeight, prefHeight, and maxHeight to the specified values. */
+	public Cell&lt;T&gt; size (float width, float height) {
+<span class="nc" id="L112">		size(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L113">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, and maxWidth to the specified value. */
+	public Cell&lt;T&gt; width (Value width) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc" id="L119">		minWidth = width;</span>
+<span class="nc" id="L120">		prefWidth = width;</span>
+<span class="nc" id="L121">		maxWidth = width;</span>
+<span class="nc" id="L122">		return this;</span>
+	}
+
+	/** Sets the minWidth, prefWidth, and maxWidth to the specified value. */
+	public Cell&lt;T&gt; width (float width) {
+<span class="nc" id="L127">		width(Fixed.valueOf(width));</span>
+<span class="nc" id="L128">		return this;</span>
+	}
+
+	/** Sets the minHeight, prefHeight, and maxHeight to the specified value. */
+	public Cell&lt;T&gt; height (Value height) {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L134">		minHeight = height;</span>
+<span class="nc" id="L135">		prefHeight = height;</span>
+<span class="nc" id="L136">		maxHeight = height;</span>
+<span class="nc" id="L137">		return this;</span>
+	}
+
+	/** Sets the minHeight, prefHeight, and maxHeight to the specified value. */
+	public Cell&lt;T&gt; height (float height) {
+<span class="nc" id="L142">		height(Fixed.valueOf(height));</span>
+<span class="nc" id="L143">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified value. */
+	public Cell&lt;T&gt; minSize (Value size) {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L149">		minWidth = size;</span>
+<span class="nc" id="L150">		minHeight = size;</span>
+<span class="nc" id="L151">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified values. */
+	public Cell&lt;T&gt; minSize (Value width, Value height) {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L158">		minWidth = width;</span>
+<span class="nc" id="L159">		minHeight = height;</span>
+<span class="nc" id="L160">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; minWidth (Value minWidth) {
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (minWidth == null) throw new IllegalArgumentException(&quot;minWidth cannot be null.&quot;);</span>
+<span class="nc" id="L165">		this.minWidth = minWidth;</span>
+<span class="nc" id="L166">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; minHeight (Value minHeight) {
+<span class="nc bnc" id="L170" title="All 2 branches missed.">		if (minHeight == null) throw new IllegalArgumentException(&quot;minHeight cannot be null.&quot;);</span>
+<span class="nc" id="L171">		this.minHeight = minHeight;</span>
+<span class="nc" id="L172">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified value. */
+	public Cell&lt;T&gt; minSize (float size) {
+<span class="nc" id="L177">		minSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L178">		return this;</span>
+	}
+
+	/** Sets the minWidth and minHeight to the specified values. */
+	public Cell&lt;T&gt; minSize (float width, float height) {
+<span class="nc" id="L183">		minSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L184">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; minWidth (float minWidth) {
+<span class="nc" id="L188">		this.minWidth = Fixed.valueOf(minWidth);</span>
+<span class="nc" id="L189">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; minHeight (float minHeight) {
+<span class="nc" id="L193">		this.minHeight = Fixed.valueOf(minHeight);</span>
+<span class="nc" id="L194">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified value. */
+	public Cell&lt;T&gt; prefSize (Value size) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L200">		prefWidth = size;</span>
+<span class="nc" id="L201">		prefHeight = size;</span>
+<span class="nc" id="L202">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified values. */
+	public Cell&lt;T&gt; prefSize (Value width, Value height) {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L209">		prefWidth = width;</span>
+<span class="nc" id="L210">		prefHeight = height;</span>
+<span class="nc" id="L211">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; prefWidth (Value prefWidth) {
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (prefWidth == null) throw new IllegalArgumentException(&quot;prefWidth cannot be null.&quot;);</span>
+<span class="nc" id="L216">		this.prefWidth = prefWidth;</span>
+<span class="nc" id="L217">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; prefHeight (Value prefHeight) {
+<span class="nc bnc" id="L221" title="All 2 branches missed.">		if (prefHeight == null) throw new IllegalArgumentException(&quot;prefHeight cannot be null.&quot;);</span>
+<span class="nc" id="L222">		this.prefHeight = prefHeight;</span>
+<span class="nc" id="L223">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified value. */
+	public Cell&lt;T&gt; prefSize (float width, float height) {
+<span class="nc" id="L228">		prefSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L229">		return this;</span>
+	}
+
+	/** Sets the prefWidth and prefHeight to the specified values. */
+	public Cell&lt;T&gt; prefSize (float size) {
+<span class="nc" id="L234">		prefSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L235">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; prefWidth (float prefWidth) {
+<span class="nc" id="L239">		this.prefWidth = Fixed.valueOf(prefWidth);</span>
+<span class="nc" id="L240">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; prefHeight (float prefHeight) {
+<span class="nc" id="L244">		this.prefHeight = Fixed.valueOf(prefHeight);</span>
+<span class="nc" id="L245">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified value. */
+	public Cell&lt;T&gt; maxSize (Value size) {
+<span class="nc bnc" id="L250" title="All 2 branches missed.">		if (size == null) throw new IllegalArgumentException(&quot;size cannot be null.&quot;);</span>
+<span class="nc" id="L251">		maxWidth = size;</span>
+<span class="nc" id="L252">		maxHeight = size;</span>
+<span class="nc" id="L253">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified values. */
+	public Cell&lt;T&gt; maxSize (Value width, Value height) {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">		if (width == null) throw new IllegalArgumentException(&quot;width cannot be null.&quot;);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		if (height == null) throw new IllegalArgumentException(&quot;height cannot be null.&quot;);</span>
+<span class="nc" id="L260">		maxWidth = width;</span>
+<span class="nc" id="L261">		maxHeight = height;</span>
+<span class="nc" id="L262">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; maxWidth (Value maxWidth) {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">		if (maxWidth == null) throw new IllegalArgumentException(&quot;maxWidth cannot be null.&quot;);</span>
+<span class="nc" id="L267">		this.maxWidth = maxWidth;</span>
+<span class="nc" id="L268">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; maxHeight (Value maxHeight) {
+<span class="nc bnc" id="L272" title="All 2 branches missed.">		if (maxHeight == null) throw new IllegalArgumentException(&quot;maxHeight cannot be null.&quot;);</span>
+<span class="nc" id="L273">		this.maxHeight = maxHeight;</span>
+<span class="nc" id="L274">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified value. */
+	public Cell&lt;T&gt; maxSize (float size) {
+<span class="nc" id="L279">		maxSize(Fixed.valueOf(size));</span>
+<span class="nc" id="L280">		return this;</span>
+	}
+
+	/** Sets the maxWidth and maxHeight to the specified values. */
+	public Cell&lt;T&gt; maxSize (float width, float height) {
+<span class="nc" id="L285">		maxSize(Fixed.valueOf(width), Fixed.valueOf(height));</span>
+<span class="nc" id="L286">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; maxWidth (float maxWidth) {
+<span class="nc" id="L290">		this.maxWidth = Fixed.valueOf(maxWidth);</span>
+<span class="nc" id="L291">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; maxHeight (float maxHeight) {
+<span class="nc" id="L295">		this.maxHeight = Fixed.valueOf(maxHeight);</span>
+<span class="nc" id="L296">		return this;</span>
+	}
+
+	/** Sets the spaceTop, spaceLeft, spaceBottom, and spaceRight to the specified value. */
+	public Cell&lt;T&gt; space (Value space) {
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		if (space == null) throw new IllegalArgumentException(&quot;space cannot be null.&quot;);</span>
+<span class="nc" id="L302">		spaceTop = space;</span>
+<span class="nc" id="L303">		spaceLeft = space;</span>
+<span class="nc" id="L304">		spaceBottom = space;</span>
+<span class="nc" id="L305">		spaceRight = space;</span>
+<span class="nc" id="L306">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; space (Value top, Value left, Value bottom, Value right) {
+<span class="nc bnc" id="L310" title="All 2 branches missed.">		if (top == null) throw new IllegalArgumentException(&quot;top cannot be null.&quot;);</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">		if (left == null) throw new IllegalArgumentException(&quot;left cannot be null.&quot;);</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">		if (bottom == null) throw new IllegalArgumentException(&quot;bottom cannot be null.&quot;);</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">		if (right == null) throw new IllegalArgumentException(&quot;right cannot be null.&quot;);</span>
+<span class="nc" id="L314">		spaceTop = top;</span>
+<span class="nc" id="L315">		spaceLeft = left;</span>
+<span class="nc" id="L316">		spaceBottom = bottom;</span>
+<span class="nc" id="L317">		spaceRight = right;</span>
+<span class="nc" id="L318">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceTop (Value spaceTop) {
+<span class="nc bnc" id="L322" title="All 2 branches missed.">		if (spaceTop == null) throw new IllegalArgumentException(&quot;spaceTop cannot be null.&quot;);</span>
+<span class="nc" id="L323">		this.spaceTop = spaceTop;</span>
+<span class="nc" id="L324">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceLeft (Value spaceLeft) {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (spaceLeft == null) throw new IllegalArgumentException(&quot;spaceLeft cannot be null.&quot;);</span>
+<span class="nc" id="L329">		this.spaceLeft = spaceLeft;</span>
+<span class="nc" id="L330">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceBottom (Value spaceBottom) {
+<span class="nc bnc" id="L334" title="All 2 branches missed.">		if (spaceBottom == null) throw new IllegalArgumentException(&quot;spaceBottom cannot be null.&quot;);</span>
+<span class="nc" id="L335">		this.spaceBottom = spaceBottom;</span>
+<span class="nc" id="L336">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceRight (Value spaceRight) {
+<span class="nc bnc" id="L340" title="All 2 branches missed.">		if (spaceRight == null) throw new IllegalArgumentException(&quot;spaceRight cannot be null.&quot;);</span>
+<span class="nc" id="L341">		this.spaceRight = spaceRight;</span>
+<span class="nc" id="L342">		return this;</span>
+	}
+
+	/** Sets the spaceTop, spaceLeft, spaceBottom, and spaceRight to the specified value. */
+	public Cell&lt;T&gt; space (float space) {
+<span class="nc bnc" id="L347" title="All 2 branches missed.">		if (space &lt; 0) throw new IllegalArgumentException(&quot;space cannot be &lt; 0: &quot; + space);</span>
+<span class="nc" id="L348">		space(Fixed.valueOf(space));</span>
+<span class="nc" id="L349">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; space (float top, float left, float bottom, float right) {
+<span class="nc bnc" id="L353" title="All 2 branches missed.">		if (top &lt; 0) throw new IllegalArgumentException(&quot;top cannot be &lt; 0: &quot; + top);</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		if (left &lt; 0) throw new IllegalArgumentException(&quot;left cannot be &lt; 0: &quot; + left);</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">		if (bottom &lt; 0) throw new IllegalArgumentException(&quot;bottom cannot be &lt; 0: &quot; + bottom);</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">		if (right &lt; 0) throw new IllegalArgumentException(&quot;right cannot be &lt; 0: &quot; + right);</span>
+<span class="nc" id="L357">		space(Fixed.valueOf(top), Fixed.valueOf(left), Fixed.valueOf(bottom), Fixed.valueOf(right));</span>
+<span class="nc" id="L358">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceTop (float spaceTop) {
+<span class="nc bnc" id="L362" title="All 2 branches missed.">		if (spaceTop &lt; 0) throw new IllegalArgumentException(&quot;spaceTop cannot be &lt; 0: &quot; + spaceTop);</span>
+<span class="nc" id="L363">		this.spaceTop = Fixed.valueOf(spaceTop);</span>
+<span class="nc" id="L364">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceLeft (float spaceLeft) {
+<span class="nc bnc" id="L368" title="All 2 branches missed.">		if (spaceLeft &lt; 0) throw new IllegalArgumentException(&quot;spaceLeft cannot be &lt; 0: &quot; + spaceLeft);</span>
+<span class="nc" id="L369">		this.spaceLeft = Fixed.valueOf(spaceLeft);</span>
+<span class="nc" id="L370">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceBottom (float spaceBottom) {
+<span class="nc bnc" id="L374" title="All 2 branches missed.">		if (spaceBottom &lt; 0) throw new IllegalArgumentException(&quot;spaceBottom cannot be &lt; 0: &quot; + spaceBottom);</span>
+<span class="nc" id="L375">		this.spaceBottom = Fixed.valueOf(spaceBottom);</span>
+<span class="nc" id="L376">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; spaceRight (float spaceRight) {
+<span class="nc bnc" id="L380" title="All 2 branches missed.">		if (spaceRight &lt; 0) throw new IllegalArgumentException(&quot;spaceRight cannot be &lt; 0: &quot; + spaceRight);</span>
+<span class="nc" id="L381">		this.spaceRight = Fixed.valueOf(spaceRight);</span>
+<span class="nc" id="L382">		return this;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight to the specified value. */
+	public Cell&lt;T&gt; pad (Value pad) {
+<span class="nc bnc" id="L387" title="All 2 branches missed.">		if (pad == null) throw new IllegalArgumentException(&quot;pad cannot be null.&quot;);</span>
+<span class="nc" id="L388">		padTop = pad;</span>
+<span class="nc" id="L389">		padLeft = pad;</span>
+<span class="nc" id="L390">		padBottom = pad;</span>
+<span class="nc" id="L391">		padRight = pad;</span>
+<span class="nc" id="L392">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; pad (Value top, Value left, Value bottom, Value right) {
+<span class="nc bnc" id="L396" title="All 2 branches missed.">		if (top == null) throw new IllegalArgumentException(&quot;top cannot be null.&quot;);</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">		if (left == null) throw new IllegalArgumentException(&quot;left cannot be null.&quot;);</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">		if (bottom == null) throw new IllegalArgumentException(&quot;bottom cannot be null.&quot;);</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">		if (right == null) throw new IllegalArgumentException(&quot;right cannot be null.&quot;);</span>
+<span class="nc" id="L400">		padTop = top;</span>
+<span class="nc" id="L401">		padLeft = left;</span>
+<span class="nc" id="L402">		padBottom = bottom;</span>
+<span class="nc" id="L403">		padRight = right;</span>
+<span class="nc" id="L404">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padTop (Value padTop) {
+<span class="nc bnc" id="L408" title="All 2 branches missed.">		if (padTop == null) throw new IllegalArgumentException(&quot;padTop cannot be null.&quot;);</span>
+<span class="nc" id="L409">		this.padTop = padTop;</span>
+<span class="nc" id="L410">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padLeft (Value padLeft) {
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		if (padLeft == null) throw new IllegalArgumentException(&quot;padLeft cannot be null.&quot;);</span>
+<span class="nc" id="L415">		this.padLeft = padLeft;</span>
+<span class="nc" id="L416">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padBottom (Value padBottom) {
+<span class="nc bnc" id="L420" title="All 2 branches missed.">		if (padBottom == null) throw new IllegalArgumentException(&quot;padBottom cannot be null.&quot;);</span>
+<span class="nc" id="L421">		this.padBottom = padBottom;</span>
+<span class="nc" id="L422">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padRight (Value padRight) {
+<span class="nc bnc" id="L426" title="All 2 branches missed.">		if (padRight == null) throw new IllegalArgumentException(&quot;padRight cannot be null.&quot;);</span>
+<span class="nc" id="L427">		this.padRight = padRight;</span>
+<span class="nc" id="L428">		return this;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight to the specified value. */
+	public Cell&lt;T&gt; pad (float pad) {
+<span class="nc" id="L433">		pad(Fixed.valueOf(pad));</span>
+<span class="nc" id="L434">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; pad (float top, float left, float bottom, float right) {
+<span class="nc" id="L438">		pad(Fixed.valueOf(top), Fixed.valueOf(left), Fixed.valueOf(bottom), Fixed.valueOf(right));</span>
+<span class="nc" id="L439">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padTop (float padTop) {
+<span class="nc" id="L443">		this.padTop = Fixed.valueOf(padTop);</span>
+<span class="nc" id="L444">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padLeft (float padLeft) {
+<span class="nc" id="L448">		this.padLeft = Fixed.valueOf(padLeft);</span>
+<span class="nc" id="L449">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padBottom (float padBottom) {
+<span class="nc" id="L453">		this.padBottom = Fixed.valueOf(padBottom);</span>
+<span class="nc" id="L454">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; padRight (float padRight) {
+<span class="nc" id="L458">		this.padRight = Fixed.valueOf(padRight);</span>
+<span class="nc" id="L459">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1. */
+	public Cell&lt;T&gt; fill () {
+<span class="nc" id="L464">		fillX = onef;</span>
+<span class="nc" id="L465">		fillY = onef;</span>
+<span class="nc" id="L466">		return this;</span>
+	}
+
+	/** Sets fillX to 1. */
+	public Cell&lt;T&gt; fillX () {
+<span class="nc" id="L471">		fillX = onef;</span>
+<span class="nc" id="L472">		return this;</span>
+	}
+
+	/** Sets fillY to 1. */
+	public Cell&lt;T&gt; fillY () {
+<span class="nc" id="L477">		fillY = onef;</span>
+<span class="nc" id="L478">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; fill (float x, float y) {
+<span class="nc" id="L482">		fillX = x;</span>
+<span class="nc" id="L483">		fillY = y;</span>
+<span class="nc" id="L484">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1 if true, 0 if false. */
+	public Cell&lt;T&gt; fill (boolean x, boolean y) {
+<span class="nc bnc" id="L489" title="All 2 branches missed.">		fillX = x ? onef : zerof;</span>
+<span class="nc bnc" id="L490" title="All 2 branches missed.">		fillY = y ? onef : zerof;</span>
+<span class="nc" id="L491">		return this;</span>
+	}
+
+	/** Sets fillX and fillY to 1 if true, 0 if false. */
+	public Cell&lt;T&gt; fill (boolean fill) {
+<span class="nc bnc" id="L496" title="All 2 branches missed.">		fillX = fill ? onef : zerof;</span>
+<span class="nc bnc" id="L497" title="All 2 branches missed.">		fillY = fill ? onef : zerof;</span>
+<span class="nc" id="L498">		return this;</span>
+	}
+
+	/** Sets the alignment of the actor within the cell. Set to {@link Align#center}, {@link Align#top}, {@link Align#bottom},
+	 * {@link Align#left}, {@link Align#right}, or any combination of those. */
+	public Cell&lt;T&gt; align (int align) {
+<span class="nc" id="L504">		this.align = align;</span>
+<span class="nc" id="L505">		return this;</span>
+	}
+
+	/** Sets the alignment of the actor within the cell to {@link Align#center}. This clears any other alignment. */
+	public Cell&lt;T&gt; center () {
+<span class="nc" id="L510">		align = centeri;</span>
+<span class="nc" id="L511">		return this;</span>
+	}
+
+	/** Adds {@link Align#top} and clears {@link Align#bottom} for the alignment of the actor within the cell. */
+	public Cell&lt;T&gt; top () {
+<span class="nc bnc" id="L516" title="All 2 branches missed.">		if (align == null)</span>
+<span class="nc" id="L517">			align = topi;</span>
+		else
+<span class="nc" id="L519">			align = (align | Align.top) &amp; ~Align.bottom;</span>
+<span class="nc" id="L520">		return this;</span>
+	}
+
+	/** Adds {@link Align#left} and clears {@link Align#right} for the alignment of the actor within the cell. */
+	public Cell&lt;T&gt; left () {
+<span class="nc bnc" id="L525" title="All 2 branches missed.">		if (align == null)</span>
+<span class="nc" id="L526">			align = lefti;</span>
+		else
+<span class="nc" id="L528">			align = (align | Align.left) &amp; ~Align.right;</span>
+<span class="nc" id="L529">		return this;</span>
+	}
+
+	/** Adds {@link Align#bottom} and clears {@link Align#top} for the alignment of the actor within the cell. */
+	public Cell&lt;T&gt; bottom () {
+<span class="nc bnc" id="L534" title="All 2 branches missed.">		if (align == null)</span>
+<span class="nc" id="L535">			align = bottomi;</span>
+		else
+<span class="nc" id="L537">			align = (align | Align.bottom) &amp; ~Align.top;</span>
+<span class="nc" id="L538">		return this;</span>
+	}
+
+	/** Adds {@link Align#right} and clears {@link Align#left} for the alignment of the actor within the cell. */
+	public Cell&lt;T&gt; right () {
+<span class="nc bnc" id="L543" title="All 2 branches missed.">		if (align == null)</span>
+<span class="nc" id="L544">			align = righti;</span>
+		else
+<span class="nc" id="L546">			align = (align | Align.right) &amp; ~Align.left;</span>
+<span class="nc" id="L547">		return this;</span>
+	}
+
+	/** Sets expandX, expandY, fillX, and fillY to 1. */
+	public Cell&lt;T&gt; grow () {
+<span class="nc" id="L552">		expandX = onei;</span>
+<span class="nc" id="L553">		expandY = onei;</span>
+<span class="nc" id="L554">		fillX = onef;</span>
+<span class="nc" id="L555">		fillY = onef;</span>
+<span class="nc" id="L556">		return this;</span>
+	}
+
+	/** Sets expandX and fillX to 1. */
+	public Cell&lt;T&gt; growX () {
+<span class="nc" id="L561">		expandX = onei;</span>
+<span class="nc" id="L562">		fillX = onef;</span>
+<span class="nc" id="L563">		return this;</span>
+	}
+
+	/** Sets expandY and fillY to 1. */
+	public Cell&lt;T&gt; growY () {
+<span class="nc" id="L568">		expandY = onei;</span>
+<span class="nc" id="L569">		fillY = onef;</span>
+<span class="nc" id="L570">		return this;</span>
+	}
+
+	/** Sets expandX and expandY to 1. */
+	public Cell&lt;T&gt; expand () {
+<span class="nc" id="L575">		expandX = onei;</span>
+<span class="nc" id="L576">		expandY = onei;</span>
+<span class="nc" id="L577">		return this;</span>
+	}
+
+	/** Sets expandX to 1. */
+	public Cell&lt;T&gt; expandX () {
+<span class="nc" id="L582">		expandX = onei;</span>
+<span class="nc" id="L583">		return this;</span>
+	}
+
+	/** Sets expandY to 1. */
+	public Cell&lt;T&gt; expandY () {
+<span class="nc" id="L588">		expandY = onei;</span>
+<span class="nc" id="L589">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; expand (int x, int y) {
+<span class="nc" id="L593">		expandX = x;</span>
+<span class="nc" id="L594">		expandY = y;</span>
+<span class="nc" id="L595">		return this;</span>
+	}
+
+	/** Sets expandX and expandY to 1 if true, 0 if false. */
+	public Cell&lt;T&gt; expand (boolean x, boolean y) {
+<span class="nc bnc" id="L600" title="All 2 branches missed.">		expandX = x ? onei : zeroi;</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">		expandY = y ? onei : zeroi;</span>
+<span class="nc" id="L602">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; colspan (int colspan) {
+<span class="nc" id="L606">		this.colspan = colspan;</span>
+<span class="nc" id="L607">		return this;</span>
+	}
+
+	/** Sets uniformX and uniformY to true. */
+	public Cell&lt;T&gt; uniform () {
+<span class="nc" id="L612">		uniformX = Boolean.TRUE;</span>
+<span class="nc" id="L613">		uniformY = Boolean.TRUE;</span>
+<span class="nc" id="L614">		return this;</span>
+	}
+
+	/** Sets uniformX to true. */
+	public Cell&lt;T&gt; uniformX () {
+<span class="nc" id="L619">		uniformX = Boolean.TRUE;</span>
+<span class="nc" id="L620">		return this;</span>
+	}
+
+	/** Sets uniformY to true. */
+	public Cell&lt;T&gt; uniformY () {
+<span class="nc" id="L625">		uniformY = Boolean.TRUE;</span>
+<span class="nc" id="L626">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; uniform (boolean uniform) {
+<span class="nc" id="L630">		uniformX = uniform;</span>
+<span class="nc" id="L631">		uniformY = uniform;</span>
+<span class="nc" id="L632">		return this;</span>
+	}
+
+	public Cell&lt;T&gt; uniform (boolean x, boolean y) {
+<span class="nc" id="L636">		uniformX = x;</span>
+<span class="nc" id="L637">		uniformY = y;</span>
+<span class="nc" id="L638">		return this;</span>
+	}
+
+	public void setActorBounds (float x, float y, float width, float height) {
+<span class="nc" id="L642">		actorX = x;</span>
+<span class="nc" id="L643">		actorY = y;</span>
+<span class="nc" id="L644">		actorWidth = width;</span>
+<span class="nc" id="L645">		actorHeight = height;</span>
+<span class="nc" id="L646">	}</span>
+
+	public float getActorX () {
+<span class="nc" id="L649">		return actorX;</span>
+	}
+
+	public void setActorX (float actorX) {
+<span class="nc" id="L653">		this.actorX = actorX;</span>
+<span class="nc" id="L654">	}</span>
+
+	public float getActorY () {
+<span class="nc" id="L657">		return actorY;</span>
+	}
+
+	public void setActorY (float actorY) {
+<span class="nc" id="L661">		this.actorY = actorY;</span>
+<span class="nc" id="L662">	}</span>
+
+	public float getActorWidth () {
+<span class="nc" id="L665">		return actorWidth;</span>
+	}
+
+	public void setActorWidth (float actorWidth) {
+<span class="nc" id="L669">		this.actorWidth = actorWidth;</span>
+<span class="nc" id="L670">	}</span>
+
+	public float getActorHeight () {
+<span class="nc" id="L673">		return actorHeight;</span>
+	}
+
+	public void setActorHeight (float actorHeight) {
+<span class="nc" id="L677">		this.actorHeight = actorHeight;</span>
+<span class="nc" id="L678">	}</span>
+
+	public int getColumn () {
+<span class="nc" id="L681">		return column;</span>
+	}
+
+	public int getRow () {
+<span class="nc" id="L685">		return row;</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getMinWidthValue () {
+<span class="nc" id="L690">		return minWidth;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc" id="L694">		return minWidth.get(actor);</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getMinHeightValue () {
+<span class="nc" id="L699">		return minHeight;</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc" id="L703">		return minHeight.get(actor);</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getPrefWidthValue () {
+<span class="nc" id="L708">		return prefWidth;</span>
+	}
+
+	public float getPrefWidth () {
+<span class="nc" id="L712">		return prefWidth.get(actor);</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getPrefHeightValue () {
+<span class="nc" id="L717">		return prefHeight;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc" id="L721">		return prefHeight.get(actor);</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getMaxWidthValue () {
+<span class="nc" id="L726">		return maxWidth;</span>
+	}
+
+	public float getMaxWidth () {
+<span class="nc" id="L730">		return maxWidth.get(actor);</span>
+	}
+
+	/** @return May be null if this cell is row defaults. */
+	public Value getMaxHeightValue () {
+<span class="nc" id="L735">		return maxHeight;</span>
+	}
+
+	public float getMaxHeight () {
+<span class="nc" id="L739">		return maxHeight.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getSpaceTopValue () {
+<span class="nc" id="L744">		return spaceTop;</span>
+	}
+
+	public float getSpaceTop () {
+<span class="nc" id="L748">		return spaceTop.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getSpaceLeftValue () {
+<span class="nc" id="L753">		return spaceLeft;</span>
+	}
+
+	public float getSpaceLeft () {
+<span class="nc" id="L757">		return spaceLeft.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getSpaceBottomValue () {
+<span class="nc" id="L762">		return spaceBottom;</span>
+	}
+
+	public float getSpaceBottom () {
+<span class="nc" id="L766">		return spaceBottom.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getSpaceRightValue () {
+<span class="nc" id="L771">		return spaceRight;</span>
+	}
+
+	public float getSpaceRight () {
+<span class="nc" id="L775">		return spaceRight.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadTopValue () {
+<span class="nc" id="L780">		return padTop;</span>
+	}
+
+	public float getPadTop () {
+<span class="nc" id="L784">		return padTop.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadLeftValue () {
+<span class="nc" id="L789">		return padLeft;</span>
+	}
+
+	public float getPadLeft () {
+<span class="nc" id="L793">		return padLeft.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadBottomValue () {
+<span class="nc" id="L798">		return padBottom;</span>
+	}
+
+	public float getPadBottom () {
+<span class="nc" id="L802">		return padBottom.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public Value getPadRightValue () {
+<span class="nc" id="L807">		return padRight;</span>
+	}
+
+	public float getPadRight () {
+<span class="nc" id="L811">		return padRight.get(actor);</span>
+	}
+
+	/** Returns {@link #getPadLeft()} plus {@link #getPadRight()}. */
+	public float getPadX () {
+<span class="nc" id="L816">		return padLeft.get(actor) + padRight.get(actor);</span>
+	}
+
+	/** Returns {@link #getPadTop()} plus {@link #getPadBottom()}. */
+	public float getPadY () {
+<span class="nc" id="L821">		return padTop.get(actor) + padBottom.get(actor);</span>
+	}
+
+	/** @return May be null if this value is not set. */
+	public float getFillX () {
+<span class="nc" id="L826">		return fillX;</span>
+	}
+
+	/** @return May be null. */
+	public float getFillY () {
+<span class="nc" id="L831">		return fillY;</span>
+	}
+
+	/** @return May be null. */
+	public int getAlign () {
+<span class="nc" id="L836">		return align;</span>
+	}
+
+	/** @return May be null. */
+	public int getExpandX () {
+<span class="nc" id="L841">		return expandX;</span>
+	}
+
+	/** @return May be null. */
+	public int getExpandY () {
+<span class="nc" id="L846">		return expandY;</span>
+	}
+
+	/** @return May be null. */
+	public int getColspan () {
+<span class="nc" id="L851">		return colspan;</span>
+	}
+
+	/** @return May be null. */
+	public boolean getUniformX () {
+<span class="nc" id="L856">		return uniformX;</span>
+	}
+
+	/** @return May be null. */
+	public boolean getUniformY () {
+<span class="nc" id="L861">		return uniformY;</span>
+	}
+
+	/** Returns true if this cell is the last cell in the row. */
+	public boolean isEndRow () {
+<span class="nc" id="L866">		return endRow;</span>
+	}
+
+	/** The actual amount of combined padding and spacing from the last layout. */
+	public float getComputedPadTop () {
+<span class="nc" id="L871">		return computedPadTop;</span>
+	}
+
+	/** The actual amount of combined padding and spacing from the last layout. */
+	public float getComputedPadLeft () {
+<span class="nc" id="L876">		return computedPadLeft;</span>
+	}
+
+	/** The actual amount of combined padding and spacing from the last layout. */
+	public float getComputedPadBottom () {
+<span class="nc" id="L881">		return computedPadBottom;</span>
+	}
+
+	/** The actual amount of combined padding and spacing from the last layout. */
+	public float getComputedPadRight () {
+<span class="nc" id="L886">		return computedPadRight;</span>
+	}
+
+	public void row () {
+<span class="nc" id="L890">		table.row();</span>
+<span class="nc" id="L891">	}</span>
+
+	public Table getTable () {
+<span class="nc" id="L894">		return table;</span>
+	}
+
+	/** Sets all constraint fields to null. */
+	void clear () {
+<span class="nc" id="L899">		minWidth = null;</span>
+<span class="nc" id="L900">		minHeight = null;</span>
+<span class="nc" id="L901">		prefWidth = null;</span>
+<span class="nc" id="L902">		prefHeight = null;</span>
+<span class="nc" id="L903">		maxWidth = null;</span>
+<span class="nc" id="L904">		maxHeight = null;</span>
+<span class="nc" id="L905">		spaceTop = null;</span>
+<span class="nc" id="L906">		spaceLeft = null;</span>
+<span class="nc" id="L907">		spaceBottom = null;</span>
+<span class="nc" id="L908">		spaceRight = null;</span>
+<span class="nc" id="L909">		padTop = null;</span>
+<span class="nc" id="L910">		padLeft = null;</span>
+<span class="nc" id="L911">		padBottom = null;</span>
+<span class="nc" id="L912">		padRight = null;</span>
+<span class="nc" id="L913">		fillX = null;</span>
+<span class="nc" id="L914">		fillY = null;</span>
+<span class="nc" id="L915">		align = null;</span>
+<span class="nc" id="L916">		expandX = null;</span>
+<span class="nc" id="L917">		expandY = null;</span>
+<span class="nc" id="L918">		colspan = null;</span>
+<span class="nc" id="L919">		uniformX = null;</span>
+<span class="nc" id="L920">		uniformY = null;</span>
+<span class="nc" id="L921">	}</span>
+
+	/** Reset state so the cell can be reused, setting all constraints to their {@link #defaults() default} values. */
+	public void reset () {
+<span class="nc" id="L925">		actor = null;</span>
+<span class="nc" id="L926">		table = null;</span>
+<span class="nc" id="L927">		endRow = false;</span>
+<span class="nc" id="L928">		cellAboveIndex = -1;</span>
+<span class="nc" id="L929">		set(defaults());</span>
+<span class="nc" id="L930">	}</span>
+
+	void set (Cell cell) {
+<span class="nc" id="L933">		minWidth = cell.minWidth;</span>
+<span class="nc" id="L934">		minHeight = cell.minHeight;</span>
+<span class="nc" id="L935">		prefWidth = cell.prefWidth;</span>
+<span class="nc" id="L936">		prefHeight = cell.prefHeight;</span>
+<span class="nc" id="L937">		maxWidth = cell.maxWidth;</span>
+<span class="nc" id="L938">		maxHeight = cell.maxHeight;</span>
+<span class="nc" id="L939">		spaceTop = cell.spaceTop;</span>
+<span class="nc" id="L940">		spaceLeft = cell.spaceLeft;</span>
+<span class="nc" id="L941">		spaceBottom = cell.spaceBottom;</span>
+<span class="nc" id="L942">		spaceRight = cell.spaceRight;</span>
+<span class="nc" id="L943">		padTop = cell.padTop;</span>
+<span class="nc" id="L944">		padLeft = cell.padLeft;</span>
+<span class="nc" id="L945">		padBottom = cell.padBottom;</span>
+<span class="nc" id="L946">		padRight = cell.padRight;</span>
+<span class="nc" id="L947">		fillX = cell.fillX;</span>
+<span class="nc" id="L948">		fillY = cell.fillY;</span>
+<span class="nc" id="L949">		align = cell.align;</span>
+<span class="nc" id="L950">		expandX = cell.expandX;</span>
+<span class="nc" id="L951">		expandY = cell.expandY;</span>
+<span class="nc" id="L952">		colspan = cell.colspan;</span>
+<span class="nc" id="L953">		uniformX = cell.uniformX;</span>
+<span class="nc" id="L954">		uniformY = cell.uniformY;</span>
+<span class="nc" id="L955">	}</span>
+
+	/** @param cell May be null. */
+	void merge (Cell cell) {
+<span class="nc bnc" id="L959" title="All 2 branches missed.">		if (cell == null) return;</span>
+<span class="nc bnc" id="L960" title="All 2 branches missed.">		if (cell.minWidth != null) minWidth = cell.minWidth;</span>
+<span class="nc bnc" id="L961" title="All 2 branches missed.">		if (cell.minHeight != null) minHeight = cell.minHeight;</span>
+<span class="nc bnc" id="L962" title="All 2 branches missed.">		if (cell.prefWidth != null) prefWidth = cell.prefWidth;</span>
+<span class="nc bnc" id="L963" title="All 2 branches missed.">		if (cell.prefHeight != null) prefHeight = cell.prefHeight;</span>
+<span class="nc bnc" id="L964" title="All 2 branches missed.">		if (cell.maxWidth != null) maxWidth = cell.maxWidth;</span>
+<span class="nc bnc" id="L965" title="All 2 branches missed.">		if (cell.maxHeight != null) maxHeight = cell.maxHeight;</span>
+<span class="nc bnc" id="L966" title="All 2 branches missed.">		if (cell.spaceTop != null) spaceTop = cell.spaceTop;</span>
+<span class="nc bnc" id="L967" title="All 2 branches missed.">		if (cell.spaceLeft != null) spaceLeft = cell.spaceLeft;</span>
+<span class="nc bnc" id="L968" title="All 2 branches missed.">		if (cell.spaceBottom != null) spaceBottom = cell.spaceBottom;</span>
+<span class="nc bnc" id="L969" title="All 2 branches missed.">		if (cell.spaceRight != null) spaceRight = cell.spaceRight;</span>
+<span class="nc bnc" id="L970" title="All 2 branches missed.">		if (cell.padTop != null) padTop = cell.padTop;</span>
+<span class="nc bnc" id="L971" title="All 2 branches missed.">		if (cell.padLeft != null) padLeft = cell.padLeft;</span>
+<span class="nc bnc" id="L972" title="All 2 branches missed.">		if (cell.padBottom != null) padBottom = cell.padBottom;</span>
+<span class="nc bnc" id="L973" title="All 2 branches missed.">		if (cell.padRight != null) padRight = cell.padRight;</span>
+<span class="nc bnc" id="L974" title="All 2 branches missed.">		if (cell.fillX != null) fillX = cell.fillX;</span>
+<span class="nc bnc" id="L975" title="All 2 branches missed.">		if (cell.fillY != null) fillY = cell.fillY;</span>
+<span class="nc bnc" id="L976" title="All 2 branches missed.">		if (cell.align != null) align = cell.align;</span>
+<span class="nc bnc" id="L977" title="All 2 branches missed.">		if (cell.expandX != null) expandX = cell.expandX;</span>
+<span class="nc bnc" id="L978" title="All 2 branches missed.">		if (cell.expandY != null) expandY = cell.expandY;</span>
+<span class="nc bnc" id="L979" title="All 2 branches missed.">		if (cell.colspan != null) colspan = cell.colspan;</span>
+<span class="nc bnc" id="L980" title="All 2 branches missed.">		if (cell.uniformX != null) uniformX = cell.uniformX;</span>
+<span class="nc bnc" id="L981" title="All 2 branches missed.">		if (cell.uniformY != null) uniformY = cell.uniformY;</span>
+<span class="nc" id="L982">	}</span>
+
+	public String toString () {
+<span class="nc bnc" id="L985" title="All 2 branches missed.">		return actor != null ? actor.toString() : super.toString();</span>
+	}
+
+	/** Returns the defaults to use for all cells. This can be used to avoid needing to set the same defaults for every table (eg,
+	 * for spacing). */
+	static public Cell defaults () {
+<span class="nc bnc" id="L991" title="All 4 branches missed.">		if (files == null || files != Gdx.files) {</span>
+<span class="nc" id="L992">			files = Gdx.files;</span>
+<span class="nc" id="L993">			defaults = new Cell();</span>
+<span class="nc" id="L994">			defaults.minWidth = Value.minWidth;</span>
+<span class="nc" id="L995">			defaults.minHeight = Value.minHeight;</span>
+<span class="nc" id="L996">			defaults.prefWidth = Value.prefWidth;</span>
+<span class="nc" id="L997">			defaults.prefHeight = Value.prefHeight;</span>
+<span class="nc" id="L998">			defaults.maxWidth = Value.maxWidth;</span>
+<span class="nc" id="L999">			defaults.maxHeight = Value.maxHeight;</span>
+<span class="nc" id="L1000">			defaults.spaceTop = Value.zero;</span>
+<span class="nc" id="L1001">			defaults.spaceLeft = Value.zero;</span>
+<span class="nc" id="L1002">			defaults.spaceBottom = Value.zero;</span>
+<span class="nc" id="L1003">			defaults.spaceRight = Value.zero;</span>
+<span class="nc" id="L1004">			defaults.padTop = Value.zero;</span>
+<span class="nc" id="L1005">			defaults.padLeft = Value.zero;</span>
+<span class="nc" id="L1006">			defaults.padBottom = Value.zero;</span>
+<span class="nc" id="L1007">			defaults.padRight = Value.zero;</span>
+<span class="nc" id="L1008">			defaults.fillX = zerof;</span>
+<span class="nc" id="L1009">			defaults.fillY = zerof;</span>
+<span class="nc" id="L1010">			defaults.align = centeri;</span>
+<span class="nc" id="L1011">			defaults.expandX = zeroi;</span>
+<span class="nc" id="L1012">			defaults.expandY = zeroi;</span>
+<span class="nc" id="L1013">			defaults.colspan = onei;</span>
+<span class="nc" id="L1014">			defaults.uniformX = null;</span>
+<span class="nc" id="L1015">			defaults.uniformY = null;</span>
+		}
+<span class="nc" id="L1017">		return defaults;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

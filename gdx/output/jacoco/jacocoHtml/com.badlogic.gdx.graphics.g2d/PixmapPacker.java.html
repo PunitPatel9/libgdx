@@ -1,0 +1,875 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PixmapPacker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">PixmapPacker.java</span></div><h1>PixmapPacker.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Pixmap.Blending;
+import com.badlogic.gdx.graphics.Pixmap.Filter;
+import com.badlogic.gdx.graphics.Pixmap.Format;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.PixmapPacker.SkylineStrategy.SkylinePage.Row;
+import com.badlogic.gdx.graphics.glutils.PixmapTextureData;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.OrderedMap;
+
+/** Packs {@link Pixmap pixmaps} into one or more {@link Page pages} to generate an atlas of pixmap instances. Provides means to
+ * directly convert the pixmap atlas to a {@link TextureAtlas}. The packer supports padding and border pixel duplication,
+ * specified during construction. The packer supports incremental inserts and updates of TextureAtlases generated with this class.
+ * How bin packing is performed can be customized via {@link PackStrategy}.
+ * &lt;p&gt;
+ * All methods can be called from any thread unless otherwise noted.
+ * &lt;p&gt;
+ * One-off usage:
+ * 
+ * &lt;pre&gt;
+ * // 512x512 pixel pages, RGB565 format, 2 pixels of padding, border duplication
+ * PixmapPacker packer = new PixmapPacker(512, 512, Format.RGB565, 2, true);
+ * packer.pack(&amp;quot;First Pixmap&amp;quot;, pixmap1);
+ * packer.pack(&amp;quot;Second Pixmap&amp;quot;, pixmap2);
+ * TextureAtlas atlas = packer.generateTextureAtlas(TextureFilter.Nearest, TextureFilter.Nearest, false);
+ * packer.dispose();
+ * // ...
+ * atlas.dispose();
+ * &lt;/pre&gt;
+ * 
+ * With this usage pattern, disposing the packer will not dispose any pixmaps used by the texture atlas. The texture atlas must
+ * also be disposed when no longer needed.
+ * 
+ * Incremental texture atlas usage:
+ * 
+ * &lt;pre&gt;
+ * // 512x512 pixel pages, RGB565 format, 2 pixels of padding, no border duplication
+ * PixmapPacker packer = new PixmapPacker(512, 512, Format.RGB565, 2, false);
+ * TextureAtlas atlas = new TextureAtlas();
+ * 
+ * // potentially on a separate thread, e.g. downloading thumbnails
+ * packer.pack(&amp;quot;thumbnail&amp;quot;, thumbnail);
+ * 
+ * // on the rendering thread, every frame
+ * packer.updateTextureAtlas(atlas, TextureFilter.Linear, TextureFilter.Linear, false);
+ * 
+ * // once the atlas is no longer needed, make sure you get the final additions. This might
+ * // be more elaborate depending on your threading model.
+ * packer.updateTextureAtlas(atlas, TextureFilter.Linear, TextureFilter.Linear, false);
+ * // ...
+ * atlas.dispose();
+ * &lt;/pre&gt;
+ * 
+ * Pixmap-only usage:
+ * 
+ * &lt;pre&gt;
+ * PixmapPacker packer = new PixmapPacker(512, 512, Format.RGB565, 2, true);
+ * packer.pack(&amp;quot;First Pixmap&amp;quot;, pixmap1);
+ * packer.pack(&amp;quot;Second Pixmap&amp;quot;, pixmap2);
+ * 
+ * // do something interesting with the resulting pages
+ * for (Page page : packer.getPages()) {
+ * 	// ...
+ * }
+ * 
+ * packer.dispose();
+ * &lt;/pre&gt;
+ * 
+ * @author mzechner
+ * @author Nathan Sweet
+ * @author Rob Rendell */
+public class PixmapPacker implements Disposable {
+	boolean packToTexture;
+	boolean disposed;
+	int pageWidth, pageHeight;
+	Format pageFormat;
+	int padding;
+	boolean duplicateBorder;
+	boolean stripWhitespaceX, stripWhitespaceY;
+	int alphaThreshold;
+<span class="nc" id="L110">	Color transparentColor = new Color(0f, 0f, 0f, 0f);</span>
+<span class="nc" id="L111">	final Array&lt;Page&gt; pages = new Array();</span>
+	PackStrategy packStrategy;
+
+<span class="nc" id="L114">	static Pattern indexPattern = Pattern.compile(&quot;(.+)_(\\d+)$&quot;);</span>
+
+	/** Uses {@link GuillotineStrategy}.
+	 * @see PixmapPacker#PixmapPacker(int, int, Format, int, boolean, boolean, boolean, PackStrategy) */
+	public PixmapPacker (int pageWidth, int pageHeight, Format pageFormat, int padding, boolean duplicateBorder) {
+<span class="nc" id="L119">		this(pageWidth, pageHeight, pageFormat, padding, duplicateBorder, false, false, new GuillotineStrategy());</span>
+<span class="nc" id="L120">	}</span>
+
+	/** Uses {@link GuillotineStrategy}.
+	 * @see PixmapPacker#PixmapPacker(int, int, Format, int, boolean, boolean, boolean, PackStrategy) */
+	public PixmapPacker (int pageWidth, int pageHeight, Format pageFormat, int padding, boolean duplicateBorder, PackStrategy packStrategy) {
+<span class="nc" id="L125">		this(pageWidth, pageHeight, pageFormat, padding, duplicateBorder, false, false, packStrategy);</span>
+<span class="nc" id="L126">	}</span>
+
+	/** Creates a new ImagePacker which will insert all supplied pixmaps into one or more &lt;code&gt;pageWidth&lt;/code&gt; by
+	 * &lt;code&gt;pageHeight&lt;/code&gt; pixmaps using the specified strategy.
+	 * @param padding the number of blank pixels to insert between pixmaps.
+	 * @param duplicateBorder duplicate the border pixels of the inserted images to avoid seams when rendering with bi-linear
+	 *           filtering on.
+	 * @param stripWhitespaceX strip whitespace in x axis
+	 * @param stripWhitespaceY strip whitespace in y axis
+	 *           */
+	public PixmapPacker (int pageWidth, int pageHeight, Format pageFormat, int padding, boolean duplicateBorder, boolean stripWhitespaceX,
+<span class="nc" id="L137">		boolean stripWhitespaceY, PackStrategy packStrategy) {</span>
+<span class="nc" id="L138">		this.pageWidth = pageWidth;</span>
+<span class="nc" id="L139">		this.pageHeight = pageHeight;</span>
+<span class="nc" id="L140">		this.pageFormat = pageFormat;</span>
+<span class="nc" id="L141">		this.padding = padding;</span>
+<span class="nc" id="L142">		this.duplicateBorder = duplicateBorder;</span>
+<span class="nc" id="L143">		this.stripWhitespaceX = stripWhitespaceX;</span>
+<span class="nc" id="L144">		this.stripWhitespaceY = stripWhitespaceY;</span>
+<span class="nc" id="L145">		this.packStrategy = packStrategy;</span>
+<span class="nc" id="L146">	}</span>
+
+	/** Sorts the images to the optimzal order they should be packed. Some packing strategies rely heavily on the images being
+	 * sorted. */
+	public void sort (Array&lt;Pixmap&gt; images) {
+<span class="nc" id="L151">		packStrategy.sort(images);</span>
+<span class="nc" id="L152">	}</span>
+
+	/** Inserts the pixmap without a name. It cannot be looked up by name.
+	 * @see #pack(String, Pixmap) */
+	public synchronized Rectangle pack (Pixmap image) {
+<span class="nc" id="L157">		return pack(null, image);</span>
+	}
+
+	/** Inserts the pixmap. If name was not null, you can later retrieve the image's position in the output image via
+	 * {@link #getRect(String)}.
+	 * @param name If null, the image cannot be looked up by name.
+	 * @return Rectangle describing the area the pixmap was rendered to.
+	 * @throws GdxRuntimeException in case the image did not fit due to the page size being too small or providing a duplicate
+	 *            name. */
+	public synchronized Rectangle pack (String name, Pixmap image) {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">		if (disposed) return null;</span>
+<span class="nc bnc" id="L168" title="All 4 branches missed.">		if (name != null &amp;&amp; getRect(name) != null)</span>
+<span class="nc" id="L169">			throw new GdxRuntimeException(&quot;Pixmap has already been packed with name: &quot; + name);</span>
+
+<span class="nc bnc" id="L171" title="All 4 branches missed.">		boolean isPatch = name != null &amp;&amp; name.endsWith(&quot;.9&quot;);</span>
+
+		PixmapPackerRectangle rect;
+<span class="nc" id="L174">		Pixmap pixmapToDispose = null;</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		if (isPatch) {</span>
+<span class="nc" id="L176">			rect = new PixmapPackerRectangle(0, 0, image.getWidth() - 2, image.getHeight() - 2);</span>
+<span class="nc" id="L177">			pixmapToDispose = new Pixmap(image.getWidth() - 2, image.getHeight() - 2, image.getFormat());</span>
+<span class="nc" id="L178">			pixmapToDispose.setBlending(Blending.None);</span>
+<span class="nc" id="L179">			rect.splits = getSplits(image);</span>
+<span class="nc" id="L180">			rect.pads = getPads(image, rect.splits);</span>
+<span class="nc" id="L181">			pixmapToDispose.drawPixmap(image, 0, 0, 1, 1, image.getWidth() - 1, image.getHeight() - 1);</span>
+<span class="nc" id="L182">			image = pixmapToDispose;</span>
+<span class="nc" id="L183">			name = name.split(&quot;\\.&quot;)[0];</span>
+		} else {
+<span class="nc bnc" id="L185" title="All 4 branches missed.">			if (stripWhitespaceX || stripWhitespaceY) {</span>
+<span class="nc" id="L186">				int originalWidth = image.getWidth();</span>
+<span class="nc" id="L187">				int originalHeight = image.getHeight();</span>
+				//Strip whitespace, manipulate the pixmap and return corrected Rect
+<span class="nc" id="L189">				int top = 0;</span>
+<span class="nc" id="L190">				int bottom = image.getHeight();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">				if (stripWhitespaceY) {</span>
+					outer:
+<span class="nc bnc" id="L193" title="All 2 branches missed.">					for (int y = 0; y &lt; image.getHeight(); y++) {</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">						for (int x = 0; x &lt; image.getWidth(); x++) {</span>
+<span class="nc" id="L195">							int pixel = image.getPixel(x, y);</span>
+<span class="nc" id="L196">							int alpha = ((pixel &amp; 0x000000ff));</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">							if (alpha &gt; alphaThreshold) break outer;</span>
+						}
+<span class="nc" id="L199">						top++;</span>
+					}
+					outer:
+<span class="nc bnc" id="L202" title="All 2 branches missed.">					for (int y = image.getHeight(); --y &gt;= top;) {</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">						for (int x = 0; x &lt; image.getWidth(); x++) {</span>
+<span class="nc" id="L204">							int pixel = image.getPixel(x, y);</span>
+<span class="nc" id="L205">							int alpha = ((pixel &amp; 0x000000ff));</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">							if (alpha &gt; alphaThreshold) break outer;</span>
+						}
+<span class="nc" id="L208">						bottom--;</span>
+					}
+				}
+<span class="nc" id="L211">				int left = 0;</span>
+<span class="nc" id="L212">				int right = image.getWidth();</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">				if (stripWhitespaceX) {</span>
+					outer:
+<span class="nc bnc" id="L215" title="All 2 branches missed.">					for (int x = 0; x &lt; image.getWidth(); x++) {</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">						for (int y = top; y &lt; bottom; y++) {</span>
+<span class="nc" id="L217">							int pixel = image.getPixel(x, y);</span>
+<span class="nc" id="L218">							int alpha = ((pixel &amp; 0x000000ff));</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">							if (alpha &gt; alphaThreshold) break outer;</span>
+						}
+<span class="nc" id="L221">						left++;</span>
+					}
+					outer:
+<span class="nc bnc" id="L224" title="All 2 branches missed.">					for (int x = image.getWidth(); --x &gt;= left;) {</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">						for (int y = top; y &lt; bottom; y++) {</span>
+<span class="nc" id="L226">							int pixel = image.getPixel(x, y);</span>
+<span class="nc" id="L227">							int alpha = ((pixel &amp; 0x000000ff));</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">							if (alpha &gt; alphaThreshold) break outer;</span>
+						}
+<span class="nc" id="L230">						right--;</span>
+					}
+				}
+
+<span class="nc" id="L234">				int newWidth = right - left;</span>
+<span class="nc" id="L235">				int newHeight = bottom - top;</span>
+
+<span class="nc" id="L237">				pixmapToDispose = new Pixmap(newWidth, newHeight, image.getFormat());</span>
+<span class="nc" id="L238">				pixmapToDispose.setBlending(Blending.None);</span>
+<span class="nc" id="L239">				pixmapToDispose.drawPixmap(image, 0, 0, left, top, newWidth, newHeight);</span>
+<span class="nc" id="L240">				image = pixmapToDispose;</span>
+
+<span class="nc" id="L242">				rect = new PixmapPackerRectangle(0, 0, newWidth, newHeight, left, top, originalWidth, originalHeight);</span>
+<span class="nc" id="L243">			} else {</span>
+<span class="nc" id="L244">				rect = new PixmapPackerRectangle(0, 0, image.getWidth(), image.getHeight());</span>
+			}
+		}
+
+<span class="nc bnc" id="L248" title="All 4 branches missed.">		if (rect.getWidth() &gt; pageWidth || rect.getHeight() &gt; pageHeight) {</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">			if (name == null) throw new GdxRuntimeException(&quot;Page size too small for pixmap.&quot;);</span>
+<span class="nc" id="L250">			throw new GdxRuntimeException(&quot;Page size too small for pixmap: &quot; + name);</span>
+		}
+
+<span class="nc" id="L253">		Page page = packStrategy.pack(this, name, rect);</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">		if (name != null) {</span>
+<span class="nc" id="L255">			page.rects.put(name, rect);</span>
+<span class="nc" id="L256">			page.addedRects.add(name);</span>
+		}
+
+<span class="nc" id="L259">		int rectX = (int)rect.x, rectY = (int)rect.y, rectWidth = (int)rect.width, rectHeight = (int)rect.height;</span>
+
+<span class="nc bnc" id="L261" title="All 8 branches missed.">		if (packToTexture &amp;&amp; !duplicateBorder &amp;&amp; page.texture != null &amp;&amp; !page.dirty) {</span>
+<span class="nc" id="L262">			page.texture.bind();</span>
+<span class="nc" id="L263">			Gdx.gl.glTexSubImage2D(page.texture.glTarget, 0, rectX, rectY, rectWidth, rectHeight, image.getGLFormat(),</span>
+<span class="nc" id="L264">				image.getGLType(), image.getPixels());</span>
+		} else
+<span class="nc" id="L266">			page.dirty = true;</span>
+
+<span class="nc" id="L268">		page.image.drawPixmap(image, rectX, rectY);</span>
+
+<span class="nc bnc" id="L270" title="All 2 branches missed.">		if (duplicateBorder) {</span>
+<span class="nc" id="L271">			int imageWidth = image.getWidth(), imageHeight = image.getHeight();</span>
+			// Copy corner pixels to fill corners of the padding.
+<span class="nc" id="L273">			page.image.drawPixmap(image, 0, 0, 1, 1, rectX - 1, rectY - 1, 1, 1);</span>
+<span class="nc" id="L274">			page.image.drawPixmap(image, imageWidth - 1, 0, 1, 1, rectX + rectWidth, rectY - 1, 1, 1);</span>
+<span class="nc" id="L275">			page.image.drawPixmap(image, 0, imageHeight - 1, 1, 1, rectX - 1, rectY + rectHeight, 1, 1);</span>
+<span class="nc" id="L276">			page.image.drawPixmap(image, imageWidth - 1, imageHeight - 1, 1, 1, rectX + rectWidth, rectY + rectHeight, 1, 1);</span>
+			// Copy edge pixels into padding.
+<span class="nc" id="L278">			page.image.drawPixmap(image, 0, 0, imageWidth, 1, rectX, rectY - 1, rectWidth, 1);</span>
+<span class="nc" id="L279">			page.image.drawPixmap(image, 0, imageHeight - 1, imageWidth, 1, rectX, rectY + rectHeight, rectWidth, 1);</span>
+<span class="nc" id="L280">			page.image.drawPixmap(image, 0, 0, 1, imageHeight, rectX - 1, rectY, 1, rectHeight);</span>
+<span class="nc" id="L281">			page.image.drawPixmap(image, imageWidth - 1, 0, 1, imageHeight, rectX + rectWidth, rectY, 1, rectHeight);</span>
+		}
+
+<span class="nc bnc" id="L284" title="All 2 branches missed.">		if (pixmapToDispose != null) {</span>
+<span class="nc" id="L285">			pixmapToDispose.dispose();</span>
+		}
+
+<span class="nc" id="L288">		return rect;</span>
+	}
+
+	/** @return the {@link Page} instances created so far. If multiple threads are accessing the packer, iterating over the pages
+	 *         must be done only after synchronizing on the packer. */
+	public Array&lt;Page&gt; getPages () {
+<span class="nc" id="L294">		return pages;</span>
+	}
+
+	/** @param name the name of the image
+	 * @return the rectangle for the image in the page it's stored in or null */
+	public synchronized Rectangle getRect (String name) {
+<span class="nc bnc" id="L300" title="All 2 branches missed.">		for (Page page : pages) {</span>
+<span class="nc" id="L301">			Rectangle rect = page.rects.get(name);</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">			if (rect != null) return rect;</span>
+<span class="nc" id="L303">		}</span>
+<span class="nc" id="L304">		return null;</span>
+	}
+
+	/** @param name the name of the image
+	 * @return the page the image is stored in or null */
+	public synchronized Page getPage (String name) {
+<span class="nc bnc" id="L310" title="All 2 branches missed.">		for (Page page : pages) {</span>
+<span class="nc" id="L311">			Rectangle rect = page.rects.get(name);</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">			if (rect != null) return page;</span>
+<span class="nc" id="L313">		}</span>
+<span class="nc" id="L314">		return null;</span>
+	}
+
+	/** Returns the index of the page containing the given packed rectangle.
+	 * @param name the name of the image
+	 * @return the index of the page the image is stored in or -1 */
+	public synchronized int getPageIndex (String name) {
+<span class="nc bnc" id="L321" title="All 2 branches missed.">		for (int i = 0; i &lt; pages.size; i++) {</span>
+<span class="nc" id="L322">			Rectangle rect = pages.get(i).rects.get(name);</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">			if (rect != null) return i;</span>
+		}
+<span class="nc" id="L325">		return -1;</span>
+	}
+
+	/** Disposes any pixmap pages which don't have a texture. Page pixmaps that have a texture will not be disposed until their
+	 * texture is disposed. */
+	public synchronized void dispose () {
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		for (Page page : pages) {</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">			if (page.texture == null) {</span>
+<span class="nc" id="L333">				page.image.dispose();</span>
+			}
+<span class="nc" id="L335">		}</span>
+<span class="nc" id="L336">		disposed = true;</span>
+<span class="nc" id="L337">	}</span>
+
+	/** Generates a new {@link TextureAtlas} from the pixmaps inserted so far. After calling this method, disposing the packer will
+	 * no longer dispose the page pixmaps. */
+	public synchronized TextureAtlas generateTextureAtlas (TextureFilter minFilter, TextureFilter magFilter, boolean useMipMaps) {
+<span class="nc" id="L342">		TextureAtlas atlas = new TextureAtlas();</span>
+<span class="nc" id="L343">		updateTextureAtlas(atlas, minFilter, magFilter, useMipMaps);</span>
+<span class="nc" id="L344">		return atlas;</span>
+	}
+
+	/** Updates the {@link TextureAtlas}, adding any new {@link Pixmap} instances packed since the last call to this method. This
+	 * can be used to insert Pixmap instances on a separate thread via {@link #pack(String, Pixmap)} and update the TextureAtlas on
+	 * the rendering thread. This method must be called on the rendering thread. After calling this method, disposing the packer
+	 * will no longer dispose the page pixmaps. Has useIndexes on by default so as to keep backwards compatibility*/
+	public synchronized void updateTextureAtlas (TextureAtlas atlas, TextureFilter minFilter, TextureFilter magFilter,
+		boolean useMipMaps) {
+<span class="nc" id="L353">		updateTextureAtlas(atlas, minFilter, magFilter, useMipMaps, true);</span>
+<span class="nc" id="L354">	}</span>
+
+	/** Updates the {@link TextureAtlas}, adding any new {@link Pixmap} instances packed since the last call to this method. This
+	 * can be used to insert Pixmap instances on a separate thread via {@link #pack(String, Pixmap)} and update the TextureAtlas on
+	 * the rendering thread. This method must be called on the rendering thread. After calling this method, disposing the packer
+	 * will no longer dispose the page pixmaps. */
+	public synchronized void updateTextureAtlas (TextureAtlas atlas, TextureFilter minFilter, TextureFilter magFilter,
+		boolean useMipMaps, boolean useIndexes) {
+<span class="nc" id="L362">		updatePageTextures(minFilter, magFilter, useMipMaps);</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		for (Page page : pages) {</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">			if (page.addedRects.size &gt; 0) {</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">				for (String name : page.addedRects) {</span>
+<span class="nc" id="L366">					PixmapPackerRectangle rect = page.rects.get(name);</span>
+<span class="nc" id="L367">					TextureAtlas.AtlasRegion region = new TextureAtlas.AtlasRegion(page.texture, (int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height);</span>
+
+<span class="nc bnc" id="L369" title="All 2 branches missed.">					if (rect.splits != null) {</span>
+<span class="nc" id="L370">						region.splits = rect.splits;</span>
+<span class="nc" id="L371">						region.pads = rect.pads;</span>
+					}
+
+<span class="nc" id="L374">					int imageIndex = -1;</span>
+<span class="nc" id="L375">					String imageName = name;</span>
+
+<span class="nc bnc" id="L377" title="All 2 branches missed.">					if(useIndexes) {</span>
+<span class="nc" id="L378">						Matcher matcher = indexPattern.matcher(imageName);</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">						if (matcher.matches()) {</span>
+<span class="nc" id="L380">							imageName = matcher.group(1);</span>
+<span class="nc" id="L381">							imageIndex = Integer.parseInt(matcher.group(2));</span>
+						}
+					}
+
+<span class="nc" id="L385">					region.name = imageName;</span>
+<span class="nc" id="L386">					region.index = imageIndex;</span>
+<span class="nc" id="L387">					region.offsetX = rect.offsetX;</span>
+<span class="nc" id="L388">					region.offsetY = (int)(rect.originalHeight - rect.height - rect.offsetY);</span>
+<span class="nc" id="L389">					region.originalWidth = rect.originalWidth;</span>
+<span class="nc" id="L390">					region.originalHeight = rect.originalHeight;</span>
+
+<span class="nc" id="L392">					atlas.getRegions().add(region);</span>
+<span class="nc" id="L393">				}</span>
+<span class="nc" id="L394">				page.addedRects.clear();</span>
+<span class="nc" id="L395">				atlas.getTextures().add(page.texture);</span>
+			}
+<span class="nc" id="L397">		}</span>
+<span class="nc" id="L398">	}</span>
+
+	/** Calls {@link Page#updateTexture(TextureFilter, TextureFilter, boolean) updateTexture} for each page and adds a region to
+	 * the specified array for each page texture. */
+	public synchronized void updateTextureRegions (Array&lt;TextureRegion&gt; regions, TextureFilter minFilter, TextureFilter magFilter,
+		boolean useMipMaps) {
+<span class="nc" id="L404">		updatePageTextures(minFilter, magFilter, useMipMaps);</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">		while (regions.size &lt; pages.size)</span>
+<span class="nc" id="L406">			regions.add(new TextureRegion(pages.get(regions.size).texture));</span>
+<span class="nc" id="L407">	}</span>
+
+	/** Calls {@link Page#updateTexture(TextureFilter, TextureFilter, boolean) updateTexture} for each page. */
+	public synchronized void updatePageTextures (TextureFilter minFilter, TextureFilter magFilter, boolean useMipMaps) {
+<span class="nc bnc" id="L411" title="All 2 branches missed.">		for (Page page : pages)</span>
+<span class="nc" id="L412">			page.updateTexture(minFilter, magFilter, useMipMaps);</span>
+<span class="nc" id="L413">	}</span>
+
+	public int getPageWidth () {
+<span class="nc" id="L416">		return pageWidth;</span>
+	}
+
+	public void setPageWidth (int pageWidth) {
+<span class="nc" id="L420">		this.pageWidth = pageWidth;</span>
+<span class="nc" id="L421">	}</span>
+
+	public int getPageHeight () {
+<span class="nc" id="L424">		return pageHeight;</span>
+	}
+
+	public void setPageHeight (int pageHeight) {
+<span class="nc" id="L428">		this.pageHeight = pageHeight;</span>
+<span class="nc" id="L429">	}</span>
+
+	public Format getPageFormat () {
+<span class="nc" id="L432">		return pageFormat;</span>
+	}
+
+	public void setPageFormat (Format pageFormat) {
+<span class="nc" id="L436">		this.pageFormat = pageFormat;</span>
+<span class="nc" id="L437">	}</span>
+
+	public int getPadding () {
+<span class="nc" id="L440">		return padding;</span>
+	}
+
+	public void setPadding (int padding) {
+<span class="nc" id="L444">		this.padding = padding;</span>
+<span class="nc" id="L445">	}</span>
+
+	public boolean getDuplicateBorder () {
+<span class="nc" id="L448">		return duplicateBorder;</span>
+	}
+
+	public void setDuplicateBorder (boolean duplicateBorder) {
+<span class="nc" id="L452">		this.duplicateBorder = duplicateBorder;</span>
+<span class="nc" id="L453">	}</span>
+
+	public boolean getPackToTexture () {
+<span class="nc" id="L456">		return packToTexture;</span>
+	}
+
+	/** If true, when a pixmap is packed to a page that has a texture, the portion of the texture where the pixmap was packed is
+	 * updated using glTexSubImage2D. Note if packing many pixmaps, this may be slower than reuploading the whole texture. This
+	 * setting is ignored if {@link #getDuplicateBorder()} is true. */
+	public void setPackToTexture (boolean packToTexture) {
+<span class="nc" id="L463">		this.packToTexture = packToTexture;</span>
+<span class="nc" id="L464">	}</span>
+
+	/** @author mzechner
+	 * @author Nathan Sweet
+	 * @author Rob Rendell */
+	static public class Page {
+<span class="nc" id="L470">		OrderedMap&lt;String, PixmapPackerRectangle&gt; rects = new OrderedMap();</span>
+		Pixmap image;
+		Texture texture;
+<span class="nc" id="L473">		final Array&lt;String&gt; addedRects = new Array();</span>
+		boolean dirty;
+
+		/** Creates a new page filled with the color provided by the {@link PixmapPacker#getTransparentColor()} */
+<span class="nc" id="L477">		public Page (PixmapPacker packer) {</span>
+<span class="nc" id="L478">			image = new Pixmap(packer.pageWidth, packer.pageHeight, packer.pageFormat);</span>
+<span class="nc" id="L479">			image.setBlending(Blending.None);</span>
+<span class="nc" id="L480">			image.setColor(packer.getTransparentColor());</span>
+<span class="nc" id="L481">			image.fill();</span>
+<span class="nc" id="L482">		}</span>
+
+		public Pixmap getPixmap () {
+<span class="nc" id="L485">			return image;</span>
+		}
+
+		public OrderedMap&lt;String, PixmapPackerRectangle&gt; getRects () {
+<span class="nc" id="L489">			return rects;</span>
+		}
+
+		/** Returns the texture for this page, or null if the texture has not been created.
+		 * @see #updateTexture(TextureFilter, TextureFilter, boolean) */
+		public Texture getTexture () {
+<span class="nc" id="L495">			return texture;</span>
+		}
+
+		/** Creates the texture if it has not been created, else reuploads the entire page pixmap to the texture if the pixmap has
+		 * changed since this method was last called.
+		 * @return true if the texture was created or reuploaded. */
+		public boolean updateTexture (TextureFilter minFilter, TextureFilter magFilter, boolean useMipMaps) {
+<span class="nc bnc" id="L502" title="All 2 branches missed.">			if (texture != null) {</span>
+<span class="nc bnc" id="L503" title="All 2 branches missed.">				if (!dirty) return false;</span>
+<span class="nc" id="L504">				texture.load(texture.getTextureData());</span>
+			} else {
+<span class="nc" id="L506">				texture = new Texture(new PixmapTextureData(image, image.getFormat(), useMipMaps, false, true)) {</span>
+					@Override
+					public void dispose () {
+<span class="nc" id="L509">						super.dispose();</span>
+<span class="nc" id="L510">						image.dispose();</span>
+<span class="nc" id="L511">					}</span>
+				};
+<span class="nc" id="L513">				texture.setFilter(minFilter, magFilter);</span>
+			}
+<span class="nc" id="L515">			dirty = false;</span>
+<span class="nc" id="L516">			return true;</span>
+		}
+	}
+
+	/** Choose the page and location for each rectangle.
+	 * @author Nathan Sweet */
+	static public interface PackStrategy {
+		public void sort (Array&lt;Pixmap&gt; images);
+
+		/** Returns the page the rectangle should be placed in and modifies the specified rectangle position. */
+		public Page pack (PixmapPacker packer, String name, Rectangle rect);
+	}
+
+	/** Does bin packing by inserting to the right or below previously packed rectangles. This is good at packing arbitrarily sized
+	 * images.
+	 * @author mzechner
+	 * @author Nathan Sweet
+	 * @author Rob Rendell */
+<span class="nc" id="L534">	static public class GuillotineStrategy implements PackStrategy {</span>
+		Comparator&lt;Pixmap&gt; comparator;
+
+		public void sort (Array&lt;Pixmap&gt; pixmaps) {
+<span class="nc bnc" id="L538" title="All 2 branches missed.">			if (comparator == null) {</span>
+<span class="nc" id="L539">				comparator = new Comparator&lt;Pixmap&gt;() {</span>
+					public int compare (Pixmap o1, Pixmap o2) {
+<span class="nc" id="L541">						return Math.max(o1.getWidth(), o1.getHeight()) - Math.max(o2.getWidth(), o2.getHeight());</span>
+					}
+				};
+			}
+<span class="nc" id="L545">			pixmaps.sort(comparator);</span>
+<span class="nc" id="L546">		}</span>
+
+		public Page pack (PixmapPacker packer, String name, Rectangle rect) {
+			GuillotinePage page;
+<span class="nc bnc" id="L550" title="All 2 branches missed.">			if (packer.pages.size == 0) {</span>
+				// Add a page if empty.
+<span class="nc" id="L552">				page = new GuillotinePage(packer);</span>
+<span class="nc" id="L553">				packer.pages.add(page);</span>
+			} else {
+				// Always try to pack into the last page.
+<span class="nc" id="L556">				page = (GuillotinePage)packer.pages.peek();</span>
+			}
+
+<span class="nc" id="L559">			int padding = packer.padding;</span>
+<span class="nc" id="L560">			rect.width += padding;</span>
+<span class="nc" id="L561">			rect.height += padding;</span>
+<span class="nc" id="L562">			Node node = insert(page.root, rect);</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">			if (node == null) {</span>
+				// Didn't fit, pack into a new page.
+<span class="nc" id="L565">				page = new GuillotinePage(packer);</span>
+<span class="nc" id="L566">				packer.pages.add(page);</span>
+<span class="nc" id="L567">				node = insert(page.root, rect);</span>
+			}
+<span class="nc" id="L569">			node.full = true;</span>
+<span class="nc" id="L570">			rect.set(node.rect.x, node.rect.y, node.rect.width - padding, node.rect.height - padding);</span>
+<span class="nc" id="L571">			return page;</span>
+		}
+
+		private Node insert (Node node, Rectangle rect) {
+<span class="nc bnc" id="L575" title="All 6 branches missed.">			if (!node.full &amp;&amp; node.leftChild != null &amp;&amp; node.rightChild != null) {</span>
+<span class="nc" id="L576">				Node newNode = insert(node.leftChild, rect);</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">				if (newNode == null) newNode = insert(node.rightChild, rect);</span>
+<span class="nc" id="L578">				return newNode;</span>
+			} else {
+<span class="nc bnc" id="L580" title="All 2 branches missed.">				if (node.full) return null;</span>
+<span class="nc bnc" id="L581" title="All 4 branches missed.">				if (node.rect.width == rect.width &amp;&amp; node.rect.height == rect.height) return node;</span>
+<span class="nc bnc" id="L582" title="All 4 branches missed.">				if (node.rect.width &lt; rect.width || node.rect.height &lt; rect.height) return null;</span>
+
+<span class="nc" id="L584">				node.leftChild = new Node();</span>
+<span class="nc" id="L585">				node.rightChild = new Node();</span>
+
+<span class="nc" id="L587">				int deltaWidth = (int)node.rect.width - (int)rect.width;</span>
+<span class="nc" id="L588">				int deltaHeight = (int)node.rect.height - (int)rect.height;</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">				if (deltaWidth &gt; deltaHeight) {</span>
+<span class="nc" id="L590">					node.leftChild.rect.x = node.rect.x;</span>
+<span class="nc" id="L591">					node.leftChild.rect.y = node.rect.y;</span>
+<span class="nc" id="L592">					node.leftChild.rect.width = rect.width;</span>
+<span class="nc" id="L593">					node.leftChild.rect.height = node.rect.height;</span>
+
+<span class="nc" id="L595">					node.rightChild.rect.x = node.rect.x + rect.width;</span>
+<span class="nc" id="L596">					node.rightChild.rect.y = node.rect.y;</span>
+<span class="nc" id="L597">					node.rightChild.rect.width = node.rect.width - rect.width;</span>
+<span class="nc" id="L598">					node.rightChild.rect.height = node.rect.height;</span>
+				} else {
+<span class="nc" id="L600">					node.leftChild.rect.x = node.rect.x;</span>
+<span class="nc" id="L601">					node.leftChild.rect.y = node.rect.y;</span>
+<span class="nc" id="L602">					node.leftChild.rect.width = node.rect.width;</span>
+<span class="nc" id="L603">					node.leftChild.rect.height = rect.height;</span>
+
+<span class="nc" id="L605">					node.rightChild.rect.x = node.rect.x;</span>
+<span class="nc" id="L606">					node.rightChild.rect.y = node.rect.y + rect.height;</span>
+<span class="nc" id="L607">					node.rightChild.rect.width = node.rect.width;</span>
+<span class="nc" id="L608">					node.rightChild.rect.height = node.rect.height - rect.height;</span>
+				}
+
+<span class="nc" id="L611">				return insert(node.leftChild, rect);</span>
+			}
+		}
+
+<span class="nc" id="L615">		static final class Node {</span>
+			public Node leftChild;
+			public Node rightChild;
+<span class="nc" id="L618">			public final Rectangle rect = new Rectangle();</span>
+			public boolean full;
+		}
+
+		static class GuillotinePage extends Page {
+			Node root;
+
+			public GuillotinePage (PixmapPacker packer) {
+<span class="nc" id="L626">				super(packer);</span>
+<span class="nc" id="L627">				root = new Node();</span>
+<span class="nc" id="L628">				root.rect.x = packer.padding;</span>
+<span class="nc" id="L629">				root.rect.y = packer.padding;</span>
+<span class="nc" id="L630">				root.rect.width = packer.pageWidth - packer.padding * 2;</span>
+<span class="nc" id="L631">				root.rect.height = packer.pageHeight - packer.padding * 2;</span>
+<span class="nc" id="L632">			}</span>
+		}
+	}
+
+	/** Does bin packing by inserting in rows. This is good at packing images that have similar heights.
+	 * @author Nathan Sweet */
+<span class="nc" id="L638">	static public class SkylineStrategy implements PackStrategy {</span>
+		Comparator&lt;Pixmap&gt; comparator;
+
+		public void sort (Array&lt;Pixmap&gt; images) {
+<span class="nc bnc" id="L642" title="All 2 branches missed.">			if (comparator == null) {</span>
+<span class="nc" id="L643">				comparator = new Comparator&lt;Pixmap&gt;() {</span>
+					public int compare (Pixmap o1, Pixmap o2) {
+<span class="nc" id="L645">						return o1.getHeight() - o2.getHeight();</span>
+					}
+				};
+			}
+<span class="nc" id="L649">			images.sort(comparator);</span>
+<span class="nc" id="L650">		}</span>
+
+		public Page pack (PixmapPacker packer, String name, Rectangle rect) {
+<span class="nc" id="L653">			int padding = packer.padding;</span>
+<span class="nc" id="L654">			int pageWidth = packer.pageWidth - padding * 2, pageHeight = packer.pageHeight - padding * 2;</span>
+<span class="nc" id="L655">			int rectWidth = (int)rect.width + padding, rectHeight = (int)rect.height + padding;</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">			for (int i = 0, n = packer.pages.size; i &lt; n; i++) {</span>
+<span class="nc" id="L657">				SkylinePage page = (SkylinePage)packer.pages.get(i);</span>
+<span class="nc" id="L658">				Row bestRow = null;</span>
+				// Fit in any row before the last.
+<span class="nc bnc" id="L660" title="All 2 branches missed.">				for (int ii = 0, nn = page.rows.size - 1; ii &lt; nn; ii++) {</span>
+<span class="nc" id="L661">					Row row = page.rows.get(ii);</span>
+<span class="nc bnc" id="L662" title="All 2 branches missed.">					if (row.x + rectWidth &gt;= pageWidth) continue;</span>
+<span class="nc bnc" id="L663" title="All 2 branches missed.">					if (row.y + rectHeight &gt;= pageHeight) continue;</span>
+<span class="nc bnc" id="L664" title="All 2 branches missed.">					if (rectHeight &gt; row.height) continue;</span>
+<span class="nc bnc" id="L665" title="All 4 branches missed.">					if (bestRow == null || row.height &lt; bestRow.height) bestRow = row;</span>
+				}
+<span class="nc bnc" id="L667" title="All 2 branches missed.">				if (bestRow == null) {</span>
+					// Fit in last row, increasing height.
+<span class="nc" id="L669">					Row row = page.rows.peek();</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">					if (row.y + rectHeight &gt;= pageHeight) continue;</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">					if (row.x + rectWidth &lt; pageWidth) {</span>
+<span class="nc" id="L672">						row.height = Math.max(row.height, rectHeight);</span>
+<span class="nc" id="L673">						bestRow = row;</span>
+<span class="nc bnc" id="L674" title="All 2 branches missed.">					} else if (row.y + row.height + rectHeight &lt; pageHeight) {</span>
+						// Fit in new row.
+<span class="nc" id="L676">						bestRow = new Row();</span>
+<span class="nc" id="L677">						bestRow.y = row.y + row.height;</span>
+<span class="nc" id="L678">						bestRow.height = rectHeight;</span>
+<span class="nc" id="L679">						page.rows.add(bestRow);</span>
+					}
+				}
+<span class="nc bnc" id="L682" title="All 2 branches missed.">				if (bestRow != null) {</span>
+<span class="nc" id="L683">					rect.x = bestRow.x;</span>
+<span class="nc" id="L684">					rect.y = bestRow.y;</span>
+<span class="nc" id="L685">					bestRow.x += rectWidth;</span>
+<span class="nc" id="L686">					return page;</span>
+				}
+			}
+			// Fit in new page.
+<span class="nc" id="L690">			SkylinePage page = new SkylinePage(packer);</span>
+<span class="nc" id="L691">			packer.pages.add(page);</span>
+<span class="nc" id="L692">			Row row = new Row();</span>
+<span class="nc" id="L693">			row.x = padding + rectWidth;</span>
+<span class="nc" id="L694">			row.y = padding;</span>
+<span class="nc" id="L695">			row.height = rectHeight;</span>
+<span class="nc" id="L696">			page.rows.add(row);</span>
+<span class="nc" id="L697">			rect.x = padding;</span>
+<span class="nc" id="L698">			rect.y = padding;</span>
+<span class="nc" id="L699">			return page;</span>
+		}
+
+		static class SkylinePage extends Page {
+<span class="nc" id="L703">			Array&lt;Row&gt; rows = new Array();</span>
+
+			public SkylinePage (PixmapPacker packer) {
+<span class="nc" id="L706">				super(packer);</span>
+
+<span class="nc" id="L708">			}</span>
+
+<span class="nc" id="L710">			static class Row {</span>
+				int x, y, height;
+			}
+		}
+	}
+
+	/** @see PixmapPacker#setTransparentColor(Color color) */
+	public Color getTransparentColor () {
+<span class="nc" id="L718">		return this.transparentColor;</span>
+	}
+
+	/** Sets the default &lt;code&gt;color&lt;/code&gt; of the whole {@link PixmapPacker.Page} when a new one created. Helps to avoid texture
+	 * bleeding or to highlight the page for debugging.
+	 * @see Page#Page(PixmapPacker packer) */
+	public void setTransparentColor (Color color) {
+<span class="nc" id="L725">		this.transparentColor.set(color);</span>
+<span class="nc" id="L726">	}</span>
+
+	private int[] getSplits (Pixmap raster) {
+
+<span class="nc" id="L730">		int startX = getSplitPoint(raster, 1, 0, true, true);</span>
+<span class="nc" id="L731">		int endX = getSplitPoint(raster, startX, 0, false, true);</span>
+<span class="nc" id="L732">		int startY = getSplitPoint(raster, 0, 1, true, false);</span>
+<span class="nc" id="L733">		int endY = getSplitPoint(raster, 0, startY, false, false);</span>
+
+		// Ensure pixels after the end are not invalid.
+<span class="nc" id="L736">		getSplitPoint(raster, endX + 1, 0, true, true);</span>
+<span class="nc" id="L737">		getSplitPoint(raster, 0, endY + 1, true, false);</span>
+
+		// No splits, or all splits.
+<span class="nc bnc" id="L740" title="All 8 branches missed.">		if (startX == 0 &amp;&amp; endX == 0 &amp;&amp; startY == 0 &amp;&amp; endY == 0) return null;</span>
+
+		// Subtraction here is because the coordinates were computed before the 1px border was stripped.
+<span class="nc bnc" id="L743" title="All 2 branches missed.">		if (startX != 0) {</span>
+<span class="nc" id="L744">			startX--;</span>
+<span class="nc" id="L745">			endX = raster.getWidth() - 2 - (endX - 1);</span>
+		} else {
+			// If no start point was ever found, we assume full stretch.
+<span class="nc" id="L748">			endX = raster.getWidth() - 2;</span>
+		}
+<span class="nc bnc" id="L750" title="All 2 branches missed.">		if (startY != 0) {</span>
+<span class="nc" id="L751">			startY--;</span>
+<span class="nc" id="L752">			endY = raster.getHeight() - 2 - (endY - 1);</span>
+		} else {
+			// If no start point was ever found, we assume full stretch.
+<span class="nc" id="L755">			endY = raster.getHeight() - 2;</span>
+		}
+
+<span class="nc" id="L758">		return new int[] {startX, endX, startY, endY};</span>
+	}
+
+	private int[] getPads (Pixmap raster, int[] splits) {
+
+<span class="nc" id="L763">		int bottom = raster.getHeight() - 1;</span>
+<span class="nc" id="L764">		int right = raster.getWidth() - 1;</span>
+
+<span class="nc" id="L766">		int startX = getSplitPoint(raster, 1, bottom, true, true);</span>
+<span class="nc" id="L767">		int startY = getSplitPoint(raster, right, 1, true, false);</span>
+
+		// No need to hunt for the end if a start was never found.
+<span class="nc" id="L770">		int endX = 0;</span>
+<span class="nc" id="L771">		int endY = 0;</span>
+<span class="nc bnc" id="L772" title="All 2 branches missed.">		if (startX != 0) endX = getSplitPoint(raster, startX + 1, bottom, false, true);</span>
+<span class="nc bnc" id="L773" title="All 2 branches missed.">		if (startY != 0) endY = getSplitPoint(raster, right, startY + 1, false, false);</span>
+
+		// Ensure pixels after the end are not invalid.
+<span class="nc" id="L776">		getSplitPoint(raster, endX + 1, bottom, true, true);</span>
+<span class="nc" id="L777">		getSplitPoint(raster, right, endY + 1, true, false);</span>
+
+		// No pads.
+<span class="nc bnc" id="L780" title="All 8 branches missed.">		if (startX == 0 &amp;&amp; endX == 0 &amp;&amp; startY == 0 &amp;&amp; endY == 0) {</span>
+<span class="nc" id="L781">			return null;</span>
+		}
+
+		// -2 here is because the coordinates were computed before the 1px border was stripped.
+<span class="nc bnc" id="L785" title="All 4 branches missed.">		if (startX == 0 &amp;&amp; endX == 0) {</span>
+<span class="nc" id="L786">			startX = -1;</span>
+<span class="nc" id="L787">			endX = -1;</span>
+		} else {
+<span class="nc bnc" id="L789" title="All 2 branches missed.">			if (startX &gt; 0) {</span>
+<span class="nc" id="L790">				startX--;</span>
+<span class="nc" id="L791">				endX = raster.getWidth() - 2 - (endX - 1);</span>
+			} else {
+				// If no start point was ever found, we assume full stretch.
+<span class="nc" id="L794">				endX = raster.getWidth() - 2;</span>
+			}
+		}
+<span class="nc bnc" id="L797" title="All 4 branches missed.">		if (startY == 0 &amp;&amp; endY == 0) {</span>
+<span class="nc" id="L798">			startY = -1;</span>
+<span class="nc" id="L799">			endY = -1;</span>
+		} else {
+<span class="nc bnc" id="L801" title="All 2 branches missed.">			if (startY &gt; 0) {</span>
+<span class="nc" id="L802">				startY--;</span>
+<span class="nc" id="L803">				endY = raster.getHeight() - 2 - (endY - 1);</span>
+			} else {
+				// If no start point was ever found, we assume full stretch.
+<span class="nc" id="L806">				endY = raster.getHeight() - 2;</span>
+			}
+		}
+
+<span class="nc" id="L810">		int[] pads = new int[] {startX, endX, startY, endY};</span>
+
+<span class="nc bnc" id="L812" title="All 4 branches missed.">		if (splits != null &amp;&amp; Arrays.equals(pads, splits)) {</span>
+<span class="nc" id="L813">			return null;</span>
+		}
+
+<span class="nc" id="L816">		return pads;</span>
+	}
+
+<span class="nc" id="L819">	private Color c = new Color();</span>
+	private int getSplitPoint (Pixmap raster, int startX, int startY, boolean startPoint, boolean xAxis) {
+<span class="nc" id="L821">		int[] rgba = new int[4];</span>
+
+<span class="nc bnc" id="L823" title="All 2 branches missed.">		int next = xAxis ? startX : startY;</span>
+<span class="nc bnc" id="L824" title="All 2 branches missed.">		int end = xAxis ? raster.getWidth() : raster.getHeight();</span>
+<span class="nc bnc" id="L825" title="All 2 branches missed.">		int breakA = startPoint ? 255 : 0;</span>
+
+<span class="nc" id="L827">		int x = startX;</span>
+<span class="nc" id="L828">		int y = startY;</span>
+<span class="nc bnc" id="L829" title="All 2 branches missed.">		while (next != end) {</span>
+<span class="nc bnc" id="L830" title="All 2 branches missed.">			if (xAxis)</span>
+<span class="nc" id="L831">				x = next;</span>
+			else
+<span class="nc" id="L833">				y = next;</span>
+
+<span class="nc" id="L835">			int colint = raster.getPixel(x, y);</span>
+<span class="nc" id="L836">			c.set(colint);</span>
+<span class="nc" id="L837">			rgba[0] = (int)(c.r * 255);</span>
+<span class="nc" id="L838">			rgba[1] = (int)(c.g * 255);</span>
+<span class="nc" id="L839">			rgba[2] = (int)(c.b * 255);</span>
+<span class="nc" id="L840">			rgba[3] = (int)(c.a * 255);</span>
+<span class="nc bnc" id="L841" title="All 2 branches missed.">			if (rgba[3] == breakA) return next;</span>
+
+<span class="nc bnc" id="L843" title="All 10 branches missed.">			if (!startPoint &amp;&amp; (rgba[0] != 0 || rgba[1] != 0 || rgba[2] != 0 || rgba[3] != 255)) System.out.println(x +&quot;  &quot; +  y + &quot; &quot; + rgba + &quot; &quot;);</span>
+
+<span class="nc" id="L845">			next++;</span>
+<span class="nc" id="L846">		}</span>
+
+<span class="nc" id="L848">		return 0;</span>
+	}
+
+	public static class PixmapPackerRectangle extends Rectangle {
+		int[] splits;
+		int[] pads;
+		int offsetX, offsetY;
+		int originalWidth, originalHeight;
+
+		PixmapPackerRectangle (int x, int y, int width, int height) {
+<span class="nc" id="L858">			super(x, y, width, height);</span>
+<span class="nc" id="L859">			this.offsetX = 0;</span>
+<span class="nc" id="L860">			this.offsetY = 0;</span>
+<span class="nc" id="L861">			this.originalWidth = width;</span>
+<span class="nc" id="L862">			this.originalHeight = height;</span>
+<span class="nc" id="L863">		}</span>
+
+		PixmapPackerRectangle (int x, int y, int width, int height, int left, int top, int originalWidth, int originalHeight) {
+<span class="nc" id="L866">			super(x, y, width, height);</span>
+<span class="nc" id="L867">			this.offsetX = left;</span>
+<span class="nc" id="L868">			this.offsetY = top;</span>
+<span class="nc" id="L869">			this.originalWidth = originalWidth;</span>
+<span class="nc" id="L870">			this.originalHeight = originalHeight;</span>
+<span class="nc" id="L871">		}</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

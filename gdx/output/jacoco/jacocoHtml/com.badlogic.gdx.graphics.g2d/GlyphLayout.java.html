@@ -1,0 +1,536 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlyphLayout.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">GlyphLayout.java</span></div><h1>GlyphLayout.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Colors;
+import com.badlogic.gdx.graphics.g2d.BitmapFont.BitmapFontData;
+import com.badlogic.gdx.graphics.g2d.BitmapFont.Glyph;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.FloatArray;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pool.Poolable;
+import com.badlogic.gdx.utils.Pools;
+
+/** Stores {@link GlyphRun runs} of glyphs for a piece of text. The text may contain newlines and color markup tags.
+ * @author Nathan Sweet
+ * @author davebaol
+ * @author Alexander Dorokhov */
+public class GlyphLayout implements Poolable {
+<span class="nc" id="L35">	public final Array&lt;GlyphRun&gt; runs = new Array();</span>
+	public float width, height;
+
+<span class="nc" id="L38">	private final Array&lt;Color&gt; colorStack = new Array(4);</span>
+
+	/** Creates an empty GlyphLayout. */
+<span class="nc" id="L41">	public GlyphLayout () {</span>
+<span class="nc" id="L42">	}</span>
+
+	/** @see #setText(BitmapFont, CharSequence) */
+<span class="nc" id="L45">	public GlyphLayout (BitmapFont font, CharSequence str) {</span>
+<span class="nc" id="L46">		setText(font, str);</span>
+<span class="nc" id="L47">	}</span>
+
+	/** @see #setText(BitmapFont, CharSequence) */
+<span class="nc" id="L50">	public GlyphLayout (BitmapFont font, CharSequence str, Color color, float targetWidth, int halign, boolean wrap) {</span>
+<span class="nc" id="L51">		setText(font, str, color, targetWidth, halign, wrap);</span>
+<span class="nc" id="L52">	}</span>
+
+	/** @see #setText(BitmapFont, CharSequence) */
+	public GlyphLayout (BitmapFont font, CharSequence str, int start, int end, Color color, float targetWidth, int halign,
+<span class="nc" id="L56">		boolean wrap, String truncate) {</span>
+<span class="nc" id="L57">		setText(font, str, start, end, color, targetWidth, halign, wrap, truncate);</span>
+<span class="nc" id="L58">	}</span>
+
+	/** Calls {@link #setText(BitmapFont, CharSequence, int, int, Color, float, int, boolean, String) setText} with the whole
+	 * string, the font's current color, and no alignment or wrapping. */
+	public void setText (BitmapFont font, CharSequence str) {
+<span class="nc" id="L63">		setText(font, str, 0, str.length(), font.getColor(), 0, Align.left, false, null);</span>
+<span class="nc" id="L64">	}</span>
+
+	/** Calls {@link #setText(BitmapFont, CharSequence, int, int, Color, float, int, boolean, String) setText} with the whole
+	 * string and no truncation. */
+	public void setText (BitmapFont font, CharSequence str, Color color, float targetWidth, int halign, boolean wrap) {
+<span class="nc" id="L69">		setText(font, str, 0, str.length(), color, targetWidth, halign, wrap, null);</span>
+<span class="nc" id="L70">	}</span>
+
+	/** @param color The default color to use for the text (the BitmapFont {@link BitmapFont#getColor() color} is not used). If
+	 *           {@link BitmapFontData#markupEnabled} is true, color markup tags in the specified string may change the color for
+	 *           portions of the text.
+	 * @param halign Horizontal alignment of the text, see {@link Align}.
+	 * @param targetWidth The width used for alignment, line wrapping, and truncation. May be zero if those features are not used.
+	 * @param truncate If not null and the width of the glyphs exceed targetWidth, the glyphs are truncated and the glyphs for the
+	 *           specified truncate string are placed at the end. Empty string can be used to truncate without adding glyphs.
+	 *           Truncate should not be used with text that contains multiple lines. Wrap is ignored if truncate is not null. */
+	public void setText (BitmapFont font, CharSequence str, int start, int end, Color color, float targetWidth, int halign,
+		boolean wrap, String truncate) {
+
+<span class="nc" id="L83">		BitmapFontData fontData = font.data;</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">		if (truncate != null)</span>
+<span class="nc" id="L86">			wrap = true; // Causes truncate code to run, doesn't actually cause wrapping.</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">		else if (targetWidth &lt;= fontData.spaceXadvance * 3) //</span>
+<span class="nc" id="L88">			wrap = false; // Avoid one line per character, which is very inefficient.</span>
+
+<span class="nc" id="L90">		boolean markupEnabled = fontData.markupEnabled;</span>
+
+<span class="nc" id="L92">		Pool&lt;GlyphRun&gt; glyphRunPool = Pools.get(GlyphRun.class);</span>
+<span class="nc" id="L93">		Array&lt;GlyphRun&gt; runs = this.runs;</span>
+<span class="nc" id="L94">		glyphRunPool.freeAll(runs);</span>
+<span class="nc" id="L95">		runs.clear();</span>
+
+<span class="nc" id="L97">		float x = 0, y = 0, width = 0;</span>
+<span class="nc" id="L98">		int lines = 0, blankLines = 0;</span>
+<span class="nc" id="L99">		Glyph lastGlyph = null;</span>
+
+<span class="nc" id="L101">		Array&lt;Color&gt; colorStack = this.colorStack;</span>
+<span class="nc" id="L102">		Color nextColor = color;</span>
+<span class="nc" id="L103">		colorStack.add(color);</span>
+<span class="nc" id="L104">		Pool&lt;Color&gt; colorPool = Pools.get(Color.class);</span>
+
+<span class="nc" id="L106">		int runStart = start;</span>
+		outer:
+		while (true) {
+			// Each run is delimited by newline or left square bracket.
+<span class="nc" id="L110">			int runEnd = -1;</span>
+<span class="nc" id="L111">			boolean newline = false;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">			if (start == end) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">				if (runStart == end) break; // End of string with no run to process, we're done.</span>
+<span class="nc" id="L114">				runEnd = end; // End of string, process last run.</span>
+			} else {
+<span class="nc bnc" id="L116" title="All 3 branches missed.">				switch (str.charAt(start++)) {</span>
+				case '\n':
+					// End of line.
+<span class="nc" id="L119">					runEnd = start - 1;</span>
+<span class="nc" id="L120">					newline = true;</span>
+<span class="nc" id="L121">					break;</span>
+				case '[':
+					// Possible color tag.
+<span class="nc bnc" id="L124" title="All 2 branches missed.">					if (markupEnabled) {</span>
+<span class="nc" id="L125">						int length = parseColorMarkup(str, start, end, colorPool);</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">						if (length &gt;= 0) {</span>
+<span class="nc" id="L127">							runEnd = start - 1;</span>
+<span class="nc" id="L128">							start += length + 1;</span>
+<span class="nc" id="L129">							nextColor = colorStack.peek();</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">						} else if (length == -2) {</span>
+<span class="nc" id="L131">							start++; // Skip first of &quot;[[&quot; escape sequence.</span>
+<span class="nc" id="L132">							continue outer;</span>
+						}
+					}
+					break;
+				}
+			}
+
+<span class="nc bnc" id="L139" title="All 2 branches missed.">			if (runEnd != -1) {</span>
+				runEnded:
+<span class="nc bnc" id="L141" title="All 2 branches missed.">				if (runEnd != runStart) { // Eg, when a color tag is at text start or a line is &quot;\n&quot;.</span>
+					// Store the run that has ended.
+<span class="nc" id="L143">					GlyphRun run = glyphRunPool.obtain();</span>
+<span class="nc" id="L144">					run.color.set(color);</span>
+<span class="nc" id="L145">					fontData.getGlyphs(run, str, runStart, runEnd, lastGlyph);</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">					if (run.glyphs.size == 0) {</span>
+<span class="nc" id="L147">						glyphRunPool.free(run);</span>
+<span class="nc" id="L148">						break runEnded;</span>
+					}
+<span class="nc bnc" id="L150" title="All 2 branches missed.">					if (lastGlyph != null) { // Move back the width of the last glyph from the previous run.</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">						x -= lastGlyph.fixedWidth ? lastGlyph.xadvance * fontData.scaleX</span>
+<span class="nc" id="L152">							: (lastGlyph.width + lastGlyph.xoffset) * fontData.scaleX - fontData.padRight;</span>
+					}
+<span class="nc" id="L154">					lastGlyph = run.glyphs.peek();</span>
+<span class="nc" id="L155">					run.x = x;</span>
+<span class="nc" id="L156">					run.y = y;</span>
+<span class="nc bnc" id="L157" title="All 4 branches missed.">					if (newline || runEnd == end) adjustLastGlyph(fontData, run);</span>
+<span class="nc" id="L158">					runs.add(run);</span>
+
+<span class="nc" id="L160">					float[] xAdvances = run.xAdvances.items;</span>
+<span class="nc" id="L161">					int n = run.xAdvances.size;</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">					if (!wrap) { // No wrap or truncate.</span>
+<span class="nc" id="L163">						float runWidth = 0;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">						for (int i = 0; i &lt; n; i++)</span>
+<span class="nc" id="L165">							runWidth += xAdvances[i];</span>
+<span class="nc" id="L166">						x += runWidth;</span>
+<span class="nc" id="L167">						run.width = runWidth;</span>
+<span class="nc" id="L168">						break runEnded;</span>
+					}
+
+					// Wrap or truncate.
+<span class="nc" id="L172">					x += xAdvances[0];</span>
+<span class="nc" id="L173">					run.width = xAdvances[0];</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">					if (n &lt; 1) break runEnded;</span>
+<span class="nc" id="L175">					x += xAdvances[1];</span>
+<span class="nc" id="L176">					run.width += xAdvances[1];</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">					for (int i = 2; i &lt; n; i++) {</span>
+<span class="nc" id="L178">						Glyph glyph = run.glyphs.get(i - 1);</span>
+<span class="nc" id="L179">						float glyphWidth = (glyph.width + glyph.xoffset) * fontData.scaleX - fontData.padRight;</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">						if (x + glyphWidth &lt;= targetWidth) {</span>
+							// Glyph fits.
+<span class="nc" id="L182">							x += xAdvances[i];</span>
+<span class="nc" id="L183">							run.width += xAdvances[i];</span>
+<span class="nc" id="L184">							continue;</span>
+						}
+
+<span class="nc bnc" id="L187" title="All 2 branches missed.">						if (truncate != null) {</span>
+							// Truncate.
+<span class="nc" id="L189">							truncate(fontData, run, targetWidth, truncate, i, glyphRunPool);</span>
+<span class="nc" id="L190">							x = run.x + run.width;</span>
+<span class="nc" id="L191">							break outer;</span>
+						}
+
+						// Wrap.
+<span class="nc" id="L195">						int wrapIndex = fontData.getWrapIndex(run.glyphs, i);</span>
+<span class="nc bnc" id="L196" title="All 6 branches missed.">						if ((run.x == 0 &amp;&amp; wrapIndex == 0) // Require at least one glyph per line.</span>
+							|| wrapIndex &gt;= run.glyphs.size) { // Wrap at least the glyph that didn't fit.
+<span class="nc" id="L198">							wrapIndex = i - 1;</span>
+						}
+						GlyphRun next;
+<span class="nc bnc" id="L201" title="All 2 branches missed.">						if (wrapIndex == 0) { // Move entire run to next line.</span>
+<span class="nc" id="L202">							next = run;</span>
+<span class="nc" id="L203">							run.width = 0;</span>
+
+							// Remove leading whitespace.
+<span class="nc bnc" id="L206" title="All 2 branches missed.">							for (int glyphCount = run.glyphs.size; wrapIndex &lt; glyphCount; wrapIndex++)</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">								if (!fontData.isWhitespace((char)run.glyphs.get(wrapIndex).id)) break;</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">							if (wrapIndex &gt; 0) {</span>
+<span class="nc" id="L209">								run.glyphs.removeRange(0, wrapIndex - 1);</span>
+<span class="nc" id="L210">								run.xAdvances.removeRange(1, wrapIndex);</span>
+							}
+<span class="nc" id="L212">							run.xAdvances.set(0, -run.glyphs.first().xoffset * fontData.scaleX - fontData.padLeft);</span>
+
+<span class="nc bnc" id="L214" title="All 2 branches missed.">							if (runs.size &gt; 1) { // Previous run is now at the end of a line.</span>
+								// Remove trailing whitespace and adjust last glyph.
+<span class="nc" id="L216">								GlyphRun previous = runs.get(runs.size - 2);</span>
+<span class="nc" id="L217">								int lastIndex = previous.glyphs.size - 1;</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">								for (; lastIndex &gt; 0; lastIndex--) {</span>
+<span class="nc" id="L219">									Glyph g = previous.glyphs.get(lastIndex);</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">									if (!fontData.isWhitespace((char)g.id)) break;</span>
+<span class="nc" id="L221">									previous.width -= previous.xAdvances.get(lastIndex + 1);</span>
+								}
+<span class="nc" id="L223">								previous.glyphs.truncate(lastIndex + 1);</span>
+<span class="nc" id="L224">								previous.xAdvances.truncate(lastIndex + 2);</span>
+<span class="nc" id="L225">								adjustLastGlyph(fontData, previous);</span>
+<span class="nc" id="L226">								width = Math.max(width, previous.x + previous.width);</span>
+<span class="nc" id="L227">							}</span>
+						} else {
+<span class="nc" id="L229">							next = wrap(fontData, run, glyphRunPool, wrapIndex, i);</span>
+<span class="nc" id="L230">							width = Math.max(width, run.x + run.width);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">							if (next == null) { // All wrapped glyphs were whitespace.</span>
+<span class="nc" id="L232">								x = 0;</span>
+<span class="nc" id="L233">								y += fontData.down;</span>
+<span class="nc" id="L234">								lines++;</span>
+<span class="nc" id="L235">								lastGlyph = null;</span>
+<span class="nc" id="L236">								break;</span>
+							}
+<span class="nc" id="L238">							runs.add(next);</span>
+						}
+
+						// Start the loop over with the new run on the next line.
+<span class="nc" id="L242">						n = next.xAdvances.size;</span>
+<span class="nc" id="L243">						xAdvances = next.xAdvances.items;</span>
+<span class="nc" id="L244">						x = xAdvances[0];</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">						if (n &gt; 1) x += xAdvances[1];</span>
+<span class="nc" id="L246">						next.width += x;</span>
+<span class="nc" id="L247">						y += fontData.down;</span>
+<span class="nc" id="L248">						lines++;</span>
+<span class="nc" id="L249">						next.x = 0;</span>
+<span class="nc" id="L250">						next.y = y;</span>
+<span class="nc" id="L251">						i = 1;</span>
+<span class="nc" id="L252">						run = next;</span>
+<span class="nc" id="L253">						lastGlyph = null;</span>
+					}
+				}
+
+<span class="nc bnc" id="L257" title="All 2 branches missed.">				if (newline) {</span>
+					// Next run will be on the next line.
+<span class="nc" id="L259">					width = Math.max(width, x);</span>
+<span class="nc" id="L260">					x = 0;</span>
+<span class="nc" id="L261">					float down = fontData.down;</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">					if (runEnd == runStart) { // Blank line.</span>
+<span class="nc" id="L263">						down *= fontData.blankLineScale;</span>
+<span class="nc" id="L264">						blankLines++;</span>
+					} else
+<span class="nc" id="L266">						lines++;</span>
+<span class="nc" id="L267">					y += down;</span>
+<span class="nc" id="L268">					lastGlyph = null;</span>
+				}
+
+<span class="nc" id="L271">				runStart = start;</span>
+<span class="nc" id="L272">				color = nextColor;</span>
+			}
+<span class="nc" id="L274">		}</span>
+<span class="nc" id="L275">		width = Math.max(width, x);</span>
+
+<span class="nc bnc" id="L277" title="All 2 branches missed.">		for (int i = 1, n = colorStack.size; i &lt; n; i++)</span>
+<span class="nc" id="L278">			colorPool.free(colorStack.get(i));</span>
+<span class="nc" id="L279">		colorStack.clear();</span>
+
+		// Align runs to center or right of targetWidth.
+<span class="nc bnc" id="L282" title="All 2 branches missed.">		if ((halign &amp; Align.left) == 0) { // Not left aligned, so must be center or right aligned.</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">			boolean center = (halign &amp; Align.center) != 0;</span>
+<span class="nc" id="L284">			float lineWidth = 0, lineY = Integer.MIN_VALUE;</span>
+<span class="nc" id="L285">			int lineStart = 0, n = runs.size;</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">			for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L287">				GlyphRun run = runs.get(i);</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">				if (run.y != lineY) {</span>
+<span class="nc" id="L289">					lineY = run.y;</span>
+<span class="nc" id="L290">					float shift = targetWidth - lineWidth;</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">					if (center) shift /= 2;</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">					while (lineStart &lt; i)</span>
+<span class="nc" id="L293">						runs.get(lineStart++).x += shift;</span>
+<span class="nc" id="L294">					lineWidth = 0;</span>
+				}
+<span class="nc" id="L296">				lineWidth = Math.max(lineWidth, run.x + run.width);</span>
+			}
+<span class="nc" id="L298">			float shift = targetWidth - lineWidth;</span>
+<span class="nc bnc" id="L299" title="All 2 branches missed.">			if (center) shift /= 2;</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">			while (lineStart &lt; n)</span>
+<span class="nc" id="L301">				runs.get(lineStart++).x += shift;</span>
+		}
+
+<span class="nc" id="L304">		this.width = width;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">		if (fontData.flipped)</span>
+<span class="nc" id="L306">			this.height = fontData.capHeight + lines * fontData.down + blankLines * fontData.down * fontData.blankLineScale;</span>
+		else
+<span class="nc" id="L308">			this.height = fontData.capHeight + lines * -fontData.down + blankLines * -fontData.down * fontData.blankLineScale;</span>
+<span class="nc" id="L309">	}</span>
+
+	/** @param truncate May be empty string. */
+	private void truncate (BitmapFontData fontData, GlyphRun run, float targetWidth, String truncate, int widthIndex,
+		Pool&lt;GlyphRun&gt; glyphRunPool) {
+
+		// Determine truncate string size.
+<span class="nc" id="L316">		GlyphRun truncateRun = glyphRunPool.obtain();</span>
+<span class="nc" id="L317">		fontData.getGlyphs(truncateRun, truncate, 0, truncate.length(), null);</span>
+<span class="nc" id="L318">		float truncateWidth = 0;</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">		if (truncateRun.xAdvances.size &gt; 0) {</span>
+<span class="nc" id="L320">			adjustLastGlyph(fontData, truncateRun);</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">			for (int i = 1, n = truncateRun.xAdvances.size; i &lt; n; i++) // Skip first for tight bounds.</span>
+<span class="nc" id="L322">				truncateWidth += truncateRun.xAdvances.get(i);</span>
+		}
+<span class="nc" id="L324">		targetWidth -= truncateWidth;</span>
+
+		// Determine visible glyphs.
+<span class="nc" id="L327">		int count = 0;</span>
+<span class="nc" id="L328">		float width = run.x;</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">		while (count &lt; run.xAdvances.size) {</span>
+<span class="nc" id="L330">			float xAdvance = run.xAdvances.get(count);</span>
+<span class="nc" id="L331">			width += xAdvance;</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">			if (width &gt; targetWidth) {</span>
+<span class="nc" id="L333">				run.width = width - run.x - xAdvance;</span>
+<span class="nc" id="L334">				break;</span>
+			}
+<span class="nc" id="L336">			count++;</span>
+<span class="nc" id="L337">		}</span>
+
+<span class="nc bnc" id="L339" title="All 2 branches missed.">		if (count &gt; 1) {</span>
+			// Some run glyphs fit, append truncate glyphs.
+<span class="nc" id="L341">			run.glyphs.truncate(count - 1);</span>
+<span class="nc" id="L342">			run.xAdvances.truncate(count);</span>
+<span class="nc" id="L343">			adjustLastGlyph(fontData, run);</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">			if (truncateRun.xAdvances.size &gt; 0) run.xAdvances.addAll(truncateRun.xAdvances, 1, truncateRun.xAdvances.size - 1);</span>
+		} else {
+			// No run glyphs fit, use only truncate glyphs.
+<span class="nc" id="L347">			run.glyphs.clear();</span>
+<span class="nc" id="L348">			run.xAdvances.clear();</span>
+<span class="nc" id="L349">			run.xAdvances.addAll(truncateRun.xAdvances);</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">			if (truncateRun.xAdvances.size &gt; 0) run.width += truncateRun.xAdvances.get(0);</span>
+		}
+<span class="nc" id="L352">		run.glyphs.addAll(truncateRun.glyphs);</span>
+<span class="nc" id="L353">		run.width += truncateWidth;</span>
+
+<span class="nc" id="L355">		glyphRunPool.free(truncateRun);</span>
+<span class="nc" id="L356">	}</span>
+
+	/** Breaks a run into two runs at the specified wrapIndex.
+	 * @return May be null if second run is all whitespace. */
+	private GlyphRun wrap (BitmapFontData fontData, GlyphRun first, Pool&lt;GlyphRun&gt; glyphRunPool, int wrapIndex, int widthIndex) {
+<span class="nc" id="L361">		Array&lt;Glyph&gt; glyphs2 = first.glyphs; // Starts with all the glyphs.</span>
+<span class="nc" id="L362">		int glyphCount = first.glyphs.size;</span>
+<span class="nc" id="L363">		FloatArray xAdvances2 = first.xAdvances; // Starts with all the xAdvances.</span>
+
+		// Skip whitespace before the wrap index.
+<span class="nc" id="L366">		int firstEnd = wrapIndex;</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">		for (; firstEnd &gt; 0; firstEnd--)</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">			if (!fontData.isWhitespace((char)glyphs2.get(firstEnd - 1).id)) break;</span>
+
+		// Skip whitespace after the wrap index.
+<span class="nc" id="L371">		int secondStart = wrapIndex;</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">		for (; secondStart &lt; glyphCount; secondStart++)</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">			if (!fontData.isWhitespace((char)glyphs2.get(secondStart).id)) break;</span>
+
+		// Increase first run width up to the end index.
+<span class="nc bnc" id="L376" title="All 2 branches missed.">		while (widthIndex &lt; firstEnd)</span>
+<span class="nc" id="L377">			first.width += xAdvances2.get(widthIndex++);</span>
+
+		// Reduce first run width by the wrapped glyphs that have contributed to the width.
+<span class="nc bnc" id="L380" title="All 2 branches missed.">		for (int n = firstEnd + 1; widthIndex &gt; n;)</span>
+<span class="nc" id="L381">			first.width -= xAdvances2.get(--widthIndex);</span>
+
+		// Copy wrapped glyphs and xAdvances to second run.
+		// The second run will contain the remaining glyph data, so swap instances rather than copying.
+<span class="nc" id="L385">		GlyphRun second = null;</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">		if (secondStart &lt; glyphCount) {</span>
+<span class="nc" id="L387">			second = glyphRunPool.obtain();</span>
+<span class="nc" id="L388">			second.color.set(first.color);</span>
+
+<span class="nc" id="L390">			Array&lt;Glyph&gt; glyphs1 = second.glyphs; // Starts empty.</span>
+<span class="nc" id="L391">			glyphs1.addAll(glyphs2, 0, firstEnd);</span>
+<span class="nc" id="L392">			glyphs2.removeRange(0, secondStart - 1);</span>
+<span class="nc" id="L393">			first.glyphs = glyphs1;</span>
+<span class="nc" id="L394">			second.glyphs = glyphs2;</span>
+
+<span class="nc" id="L396">			FloatArray xAdvances1 = second.xAdvances; // Starts empty.</span>
+<span class="nc" id="L397">			xAdvances1.addAll(xAdvances2, 0, firstEnd + 1);</span>
+<span class="nc" id="L398">			xAdvances2.removeRange(1, secondStart); // Leave first entry to be overwritten by next line.</span>
+<span class="nc" id="L399">			xAdvances2.set(0, -glyphs2.first().xoffset * fontData.scaleX - fontData.padLeft);</span>
+<span class="nc" id="L400">			first.xAdvances = xAdvances1;</span>
+<span class="nc" id="L401">			second.xAdvances = xAdvances2;</span>
+<span class="nc" id="L402">		} else {</span>
+			// Second run is empty, just trim whitespace glyphs from end of first run.
+<span class="nc" id="L404">			glyphs2.truncate(firstEnd);</span>
+<span class="nc" id="L405">			xAdvances2.truncate(firstEnd + 1);</span>
+		}
+
+<span class="nc bnc" id="L408" title="All 2 branches missed.">		if (firstEnd == 0) {</span>
+			// If the first run is now empty, remove it.
+<span class="nc" id="L410">			glyphRunPool.free(first);</span>
+<span class="nc" id="L411">			runs.pop();</span>
+		} else
+<span class="nc" id="L413">			adjustLastGlyph(fontData, first);</span>
+
+<span class="nc" id="L415">		return second;</span>
+	}
+
+	/** Adjusts the xadvance of the last glyph to use its width instead of xadvance. */
+	private void adjustLastGlyph (BitmapFontData fontData, GlyphRun run) {
+<span class="nc" id="L420">		Glyph last = run.glyphs.peek();</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">		if (last.fixedWidth) return;</span>
+<span class="nc" id="L422">		float width = (last.width + last.xoffset) * fontData.scaleX - fontData.padRight;</span>
+<span class="nc" id="L423">		run.width += width - run.xAdvances.peek(); // Can cause the run width to be &gt; targetWidth, but the problem is minimal.</span>
+<span class="nc" id="L424">		run.xAdvances.set(run.xAdvances.size - 1, width);</span>
+<span class="nc" id="L425">	}</span>
+
+	private int parseColorMarkup (CharSequence str, int start, int end, Pool&lt;Color&gt; colorPool) {
+<span class="nc bnc" id="L428" title="All 2 branches missed.">		if (start == end) return -1; // String ended with &quot;[&quot;.</span>
+<span class="nc bnc" id="L429" title="All 4 branches missed.">		switch (str.charAt(start)) {</span>
+		case '#':
+			// Parse hex color RRGGBBAA where AA is optional and defaults to 0xFF if less than 6 chars are used.
+<span class="nc" id="L432">			int colorInt = 0;</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">			for (int i = start + 1; i &lt; end; i++) {</span>
+<span class="nc" id="L434">				char ch = str.charAt(i);</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">				if (ch == ']') {</span>
+<span class="nc bnc" id="L436" title="All 4 branches missed.">					if (i &lt; start + 2 || i &gt; start + 9) break; // Illegal number of hex digits.</span>
+<span class="nc bnc" id="L437" title="All 2 branches missed.">					if (i - start &lt;= 7) { // RRGGBB or fewer chars.</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">						for (int ii = 0, nn = 9 - (i - start); ii &lt; nn; ii++)</span>
+<span class="nc" id="L439">							colorInt = colorInt &lt;&lt; 4;</span>
+<span class="nc" id="L440">						colorInt |= 0xff;</span>
+					}
+<span class="nc" id="L442">					Color color = colorPool.obtain();</span>
+<span class="nc" id="L443">					colorStack.add(color);</span>
+<span class="nc" id="L444">					Color.rgba8888ToColor(color, colorInt);</span>
+<span class="nc" id="L445">					return i - start;</span>
+				}
+<span class="nc bnc" id="L447" title="All 4 branches missed.">				if (ch &gt;= '0' &amp;&amp; ch &lt;= '9')</span>
+<span class="nc" id="L448">					colorInt = colorInt * 16 + (ch - '0');</span>
+<span class="nc bnc" id="L449" title="All 4 branches missed.">				else if (ch &gt;= 'a' &amp;&amp; ch &lt;= 'f')</span>
+<span class="nc" id="L450">					colorInt = colorInt * 16 + (ch - ('a' - 10));</span>
+<span class="nc bnc" id="L451" title="All 4 branches missed.">				else if (ch &gt;= 'A' &amp;&amp; ch &lt;= 'F')</span>
+<span class="nc" id="L452">					colorInt = colorInt * 16 + (ch - ('A' - 10));</span>
+				else
+					break; // Unexpected character in hex color.
+			}
+<span class="nc" id="L456">			return -1;</span>
+		case '[': // &quot;[[&quot; is an escaped left square bracket.
+<span class="nc" id="L458">			return -2;</span>
+		case ']': // &quot;[]&quot; is a &quot;pop&quot; color tag.
+<span class="nc bnc" id="L460" title="All 2 branches missed.">			if (colorStack.size &gt; 1) colorPool.free(colorStack.pop());</span>
+<span class="nc" id="L461">			return 0;</span>
+		}
+		// Parse named color.
+<span class="nc" id="L464">		int colorStart = start;</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">		for (int i = start + 1; i &lt; end; i++) {</span>
+<span class="nc" id="L466">			char ch = str.charAt(i);</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">			if (ch != ']') continue;</span>
+<span class="nc" id="L468">			Color namedColor = Colors.get(str.subSequence(colorStart, i).toString());</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">			if (namedColor == null) return -1; // Unknown color name.</span>
+<span class="nc" id="L470">			Color color = colorPool.obtain();</span>
+<span class="nc" id="L471">			colorStack.add(color);</span>
+<span class="nc" id="L472">			color.set(namedColor);</span>
+<span class="nc" id="L473">			return i - start;</span>
+		}
+<span class="nc" id="L475">		return -1; // Unclosed color tag.</span>
+	}
+
+	public void reset () {
+<span class="nc" id="L479">		Pools.get(GlyphRun.class).freeAll(runs);</span>
+<span class="nc" id="L480">		runs.clear();</span>
+
+<span class="nc" id="L482">		width = 0;</span>
+<span class="nc" id="L483">		height = 0;</span>
+<span class="nc" id="L484">	}</span>
+
+	public String toString () {
+<span class="nc bnc" id="L487" title="All 2 branches missed.">		if (runs.size == 0) return &quot;&quot;;</span>
+<span class="nc" id="L488">		StringBuilder buffer = new StringBuilder(128);</span>
+<span class="nc" id="L489">		buffer.append(width);</span>
+<span class="nc" id="L490">		buffer.append('x');</span>
+<span class="nc" id="L491">		buffer.append(height);</span>
+<span class="nc" id="L492">		buffer.append('\n');</span>
+<span class="nc bnc" id="L493" title="All 2 branches missed.">		for (int i = 0, n = runs.size; i &lt; n; i++) {</span>
+<span class="nc" id="L494">			buffer.append(runs.get(i).toString());</span>
+<span class="nc" id="L495">			buffer.append('\n');</span>
+		}
+<span class="nc" id="L497">		buffer.setLength(buffer.length() - 1);</span>
+<span class="nc" id="L498">		return buffer.toString();</span>
+	}
+
+	/** Stores glyphs and positions for a piece of text which is a single color and does not span multiple lines.
+	 * @author Nathan Sweet */
+<span class="nc" id="L503">	static public class GlyphRun implements Poolable {</span>
+<span class="nc" id="L504">		public Array&lt;Glyph&gt; glyphs = new Array();</span>
+		/** Contains glyphs.size+1 entries: First entry is X offset relative to the drawing position. Subsequent entries are the X
+		 * advance relative to previous glyph position. Last entry is the width of the last glyph. */
+<span class="nc" id="L507">		public FloatArray xAdvances = new FloatArray();</span>
+		public float x, y, width;
+<span class="nc" id="L509">		public final Color color = new Color();</span>
+
+		public void reset () {
+<span class="nc" id="L512">			glyphs.clear();</span>
+<span class="nc" id="L513">			xAdvances.clear();</span>
+<span class="nc" id="L514">			width = 0;</span>
+<span class="nc" id="L515">		}</span>
+
+		public String toString () {
+<span class="nc" id="L518">			StringBuilder buffer = new StringBuilder(glyphs.size);</span>
+<span class="nc" id="L519">			Array&lt;Glyph&gt; glyphs = this.glyphs;</span>
+<span class="nc bnc" id="L520" title="All 2 branches missed.">			for (int i = 0, n = glyphs.size; i &lt; n; i++) {</span>
+<span class="nc" id="L521">				Glyph g = glyphs.get(i);</span>
+<span class="nc" id="L522">				buffer.append((char)g.id);</span>
+			}
+<span class="nc" id="L524">			buffer.append(&quot;, #&quot;);</span>
+<span class="nc" id="L525">			buffer.append(color);</span>
+<span class="nc" id="L526">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L527">			buffer.append(x);</span>
+<span class="nc" id="L528">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L529">			buffer.append(y);</span>
+<span class="nc" id="L530">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L531">			buffer.append(width);</span>
+<span class="nc" id="L532">			return buffer.toString();</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

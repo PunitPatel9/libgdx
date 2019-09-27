@@ -1,0 +1,450 @@
+  Fetch URL: https://github.com/PunitPatel9/libgdx.git
+SHA: da16f9c929c36bc5cc5540bec49277fbc058cf03
+
+> Configure project :tests:gdx-tests-android
+WARNING: Configuration 'compile' is obsolete and has been replaced with 'implementation'.
+It will be removed at the end of 2018
+
+> Task :backends:compileJava NO-SOURCE
+> Task :backends:processResources NO-SOURCE
+> Task :backends:classes UP-TO-DATE
+> Task :backends:compileTestJava NO-SOURCE
+> Task :backends:processTestResources NO-SOURCE
+> Task :backends:testClasses UP-TO-DATE
+> Task :backends:test NO-SOURCE
+> Task :extensions:compileJava NO-SOURCE
+> Task :extensions:processResources NO-SOURCE
+> Task :extensions:classes UP-TO-DATE
+> Task :extensions:compileTestJava NO-SOURCE
+> Task :extensions:processTestResources NO-SOURCE
+> Task :extensions:testClasses UP-TO-DATE
+> Task :extensions:test NO-SOURCE
+
+> Task :extensions:gdx-jnigen:compileJava
+
+> Task :extensions:gdx-jnigen:processResources
+> Task :extensions:gdx-jnigen:classes
+> Task :extensions:gdx-jnigen:jar
+
+> Task :gdx:compileJava
+
+> Task :gdx:processResources
+> Task :gdx:classes
+
+> Task :gdx:compileTestJava
+
+> Task :gdx:processTestResources NO-SOURCE
+> Task :gdx:testClasses
+
+> Task :gdx:test
+
+com.badlogic.gdx.utils.QueueTest > removeFirstTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > hashEqualsTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > resizableQueueTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > iteratorRemoveEdgeCaseTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > getTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > iteratorTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > toStringTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > resizableDequeTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > removeTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > indexOfTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > removeLastTest PASSED
+
+com.badlogic.gdx.utils.QueueTest > addFirstAndLastTest PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > iteration PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > remove PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > reverseIteration PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > size PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > clear PASSED
+
+com.badlogic.gdx.utils.PooledLinkedListTest > removeLast PASSED
+
+com.badlogic.gdx.utils.BitsTest > testAnd PASSED
+
+com.badlogic.gdx.utils.BitsTest > testXor PASSED
+
+com.badlogic.gdx.utils.BitsTest > testOr PASSED
+
+com.badlogic.gdx.utils.BitsTest > testHashcodeAndEquals PASSED
+
+com.badlogic.gdx.math.IntersectorTest > testSplitTriangle PASSED
+
+com.badlogic.gdx.math.Vector3Test > testToString PASSED
+
+com.badlogic.gdx.math.Vector3Test > testFromString PASSED
+
+com.badlogic.gdx.math.Vector2Test > testToString PASSED
+
+com.badlogic.gdx.math.Vector2Test > testFromString PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type LibGDXArrays use setter true] PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type LibGDXArrays use setter false] PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type JavaArrays use setter true] PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type JavaArrays use setter false] PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type JavaVarArgs use setter true] PASSED
+
+com.badlogic.gdx.math.BezierTest > testLinear2D[imported type JavaVarArgs use setter false] PASSED
+
+com.badlogic.gdx.math.RectangleTest > testToString PASSED
+
+com.badlogic.gdx.math.RectangleTest > testFromString PASSED
+
+com.badlogic.gdx.math.Shape2DTest > testCircle PASSED
+
+com.badlogic.gdx.math.Shape2DTest > testRectangle PASSED
+
+com.badlogic.gdx.math.MathUtilsTest > testMap PASSED
+
+com.badlogic.gdx.math.MathUtilsTest > testNorm PASSED
+
+com.badlogic.gdx.math.MathUtilsTest > lerpAngleDegCrossingZeroBackwards PASSED
+
+com.badlogic.gdx.math.MathUtilsTest > lerpAngleDegCrossingZero PASSED
+
+com.badlogic.gdx.math.MathUtilsTest > lerpAngleDeg PASSED
+
+com.badlogic.gdx.math.collision.CollisionTest > testBoundingBox PASSED
+
+com.badlogic.gdx.graphics.g3d.utils.AnimationControllerTest > testGetFirstKeyframeIndexAtTimeEmpty PASSED
+
+com.badlogic.gdx.graphics.g3d.utils.AnimationControllerTest > testGetFirstKeyframeIndexAtTimeNominal PASSED
+
+com.badlogic.gdx.graphics.g3d.utils.AnimationControllerTest > testGetFirstKeyframeIndexAtTimeSingleKey PASSED
+
+> Task :tests:compileJava NO-SOURCE
+> Task :tests:processResources NO-SOURCE
+> Task :tests:classes UP-TO-DATE
+> Task :tests:compileTestJava NO-SOURCE
+> Task :tests:processTestResources NO-SOURCE
+> Task :tests:testClasses UP-TO-DATE
+> Task :tests:test NO-SOURCE
+> Task :gdx:jar
+
+> Task :backends:gdx-backend-android:compileJava
+
+> Task :backends:gdx-backend-android:processResources NO-SOURCE
+> Task :backends:gdx-backend-android:classes
+> Task :backends:gdx-backend-android:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-android:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-android:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-android:test NO-SOURCE
+
+> Task :backends:gdx-backend-headless:compileJava
+
+> Task :backends:gdx-backend-headless:processResources NO-SOURCE
+> Task :backends:gdx-backend-headless:classes
+> Task :backends:gdx-backend-headless:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-headless:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-headless:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-headless:test NO-SOURCE
+> Task :backends:gdx-backend-jglfw:compileJava NO-SOURCE
+> Task :backends:gdx-backend-jglfw:processResources NO-SOURCE
+> Task :backends:gdx-backend-jglfw:classes UP-TO-DATE
+> Task :backends:gdx-backend-jglfw:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-jglfw:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-jglfw:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-jglfw:test NO-SOURCE
+
+> Task :backends:gdx-backend-lwjgl:compileJava
+
+> Task :backends:gdx-backend-lwjgl:processResources NO-SOURCE
+> Task :backends:gdx-backend-lwjgl:classes
+> Task :backends:gdx-backend-lwjgl:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-lwjgl:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-lwjgl:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-lwjgl:test NO-SOURCE
+
+> Task :backends:gdx-backend-lwjgl3:compileJava
+
+> Task :backends:gdx-backend-lwjgl3:processResources NO-SOURCE
+> Task :backends:gdx-backend-lwjgl3:classes
+> Task :backends:gdx-backend-lwjgl3:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-lwjgl3:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-lwjgl3:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-lwjgl3:test NO-SOURCE
+
+> Task :backends:gdx-backend-moe:compileJava
+
+> Task :backends:gdx-backend-moe:processResources NO-SOURCE
+> Task :backends:gdx-backend-moe:classes
+> Task :backends:gdx-backend-moe:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-moe:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-moe:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-moe:test NO-SOURCE
+
+> Task :backends:gdx-backend-robovm:compileJava
+
+> Task :backends:gdx-backend-robovm:processResources NO-SOURCE
+> Task :backends:gdx-backend-robovm:classes
+> Task :backends:gdx-backend-robovm:compileTestJava NO-SOURCE
+> Task :backends:gdx-backend-robovm:processTestResources NO-SOURCE
+> Task :backends:gdx-backend-robovm:testClasses UP-TO-DATE
+> Task :backends:gdx-backend-robovm:test NO-SOURCE
+
+> Task :backends:gdx-backends-gwt:compileJava
+
+> Task :backends:gdx-backends-gwt:processResources
+> Task :backends:gdx-backends-gwt:classes
+> Task :backends:gdx-backends-gwt:compileTestJava NO-SOURCE
+> Task :backends:gdx-backends-gwt:processTestResources NO-SOURCE
+> Task :backends:gdx-backends-gwt:testClasses UP-TO-DATE
+> Task :backends:gdx-backends-gwt:test NO-SOURCE
+> Task :extensions:gdx-box2d:compileJava NO-SOURCE
+> Task :extensions:gdx-box2d:processResources NO-SOURCE
+> Task :extensions:gdx-box2d:classes UP-TO-DATE
+> Task :extensions:gdx-box2d:compileTestJava NO-SOURCE
+> Task :extensions:gdx-box2d:processTestResources NO-SOURCE
+> Task :extensions:gdx-box2d:testClasses UP-TO-DATE
+> Task :extensions:gdx-box2d:test NO-SOURCE
+
+> Task :extensions:gdx-bullet:compileJava
+
+> Task :extensions:gdx-bullet:processResources NO-SOURCE
+> Task :extensions:gdx-bullet:classes
+> Task :extensions:gdx-bullet:compileTestJava NO-SOURCE
+> Task :extensions:gdx-bullet:processTestResources NO-SOURCE
+> Task :extensions:gdx-bullet:testClasses UP-TO-DATE
+> Task :extensions:gdx-bullet:test NO-SOURCE
+> Task :extensions:gdx-controllers:compileJava NO-SOURCE
+> Task :extensions:gdx-controllers:processResources NO-SOURCE
+> Task :extensions:gdx-controllers:classes UP-TO-DATE
+> Task :extensions:gdx-controllers:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:test NO-SOURCE
+
+> Task :extensions:gdx-freetype:compileJava
+
+> Task :extensions:gdx-freetype:processResources NO-SOURCE
+> Task :extensions:gdx-freetype:classes
+> Task :extensions:gdx-freetype:compileTestJava NO-SOURCE
+> Task :extensions:gdx-freetype:processTestResources NO-SOURCE
+> Task :extensions:gdx-freetype:testClasses UP-TO-DATE
+> Task :extensions:gdx-freetype:test NO-SOURCE
+> Task :extensions:gdx-jnigen:compileTestJava NO-SOURCE
+> Task :extensions:gdx-jnigen:processTestResources NO-SOURCE
+> Task :extensions:gdx-jnigen:testClasses UP-TO-DATE
+> Task :extensions:gdx-jnigen:test NO-SOURCE
+
+> Task :extensions:gdx-setup:compileJava
+
+> Task :extensions:gdx-setup:processResources
+> Task :extensions:gdx-setup:classes
+> Task :extensions:gdx-setup:compileTestJava NO-SOURCE
+> Task :extensions:gdx-setup:processTestResources NO-SOURCE
+> Task :extensions:gdx-setup:testClasses UP-TO-DATE
+> Task :extensions:gdx-setup:test NO-SOURCE
+> Task :backends:gdx-backend-headless:jar
+> Task :backends:gdx-backend-lwjgl:jar
+> Task :extensions:gdx-freetype:jar
+
+> Task :extensions:gdx-tools:compileJava
+
+> Task :extensions:gdx-tools:processResources
+> Task :extensions:gdx-tools:classes
+> Task :extensions:gdx-tools:compileTestJava NO-SOURCE
+> Task :extensions:gdx-tools:processTestResources NO-SOURCE
+> Task :extensions:gdx-tools:testClasses UP-TO-DATE
+> Task :extensions:gdx-tools:test NO-SOURCE
+> Task :extensions:gdx-bullet:jar
+> Task :extensions:gdx-tools:jar
+
+> Task :extensions:gdx-box2d:gdx-box2d:compileJava
+
+> Task :extensions:gdx-box2d:gdx-box2d:processResources
+> Task :extensions:gdx-box2d:gdx-box2d:classes
+> Task :extensions:gdx-box2d:gdx-box2d:jar
+
+> Task :extensions:gdx-controllers:gdx-controllers:compileJava
+
+> Task :extensions:gdx-controllers:gdx-controllers:processResources
+> Task :extensions:gdx-controllers:gdx-controllers:classes
+> Task :extensions:gdx-controllers:gdx-controllers:jar
+
+> Task :tests:gdx-tests:compileJava
+
+> Task :tests:gdx-tests:processResources
+> Task :tests:gdx-tests:classes
+> Task :tests:gdx-tests:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests:processTestResources NO-SOURCE
+> Task :tests:gdx-tests:testClasses UP-TO-DATE
+> Task :tests:gdx-tests:test NO-SOURCE
+> Task :backends:gdx-backend-android:jar
+
+> Task :extensions:gdx-controllers:gdx-controllers-android:compileJava
+
+> Task :extensions:gdx-controllers:gdx-controllers-android:processResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-android:classes
+> Task :extensions:gdx-controllers:gdx-controllers-android:jar
+> Task :tests:gdx-tests:jar
+> Task :tests:gdx-tests-android:preBuild UP-TO-DATE
+> Task :tests:gdx-tests-android:preDebugBuild
+> Task :tests:gdx-tests-android:compileDebugAidl
+> Task :tests:gdx-tests-android:compileDebugRenderscript
+> Task :tests:gdx-tests-android:checkDebugManifest
+> Task :tests:gdx-tests-android:generateDebugBuildConfig
+> Task :tests:gdx-tests-android:prepareLintJar
+> Task :tests:gdx-tests-android:mainApkListPersistenceDebug
+> Task :tests:gdx-tests-android:generateDebugResValues
+> Task :tests:gdx-tests-android:generateDebugResources
+> Task :tests:gdx-tests-android:mergeDebugResources
+> Task :tests:gdx-tests-android:createDebugCompatibleScreenManifests
+> Task :tests:gdx-tests-android:processDebugManifest
+> Task :tests:gdx-tests-android:splitsDiscoveryTaskDebug
+> Task :tests:gdx-tests-android:processDebugResources
+> Task :tests:gdx-tests-android:generateDebugSources
+> Task :tests:gdx-tests-android:javaPreCompileDebug
+
+> Task :tests:gdx-tests-android:compileDebugJavaWithJavac
+
+> Task :tests:gdx-tests-android:preDebugUnitTestBuild UP-TO-DATE
+> Task :tests:gdx-tests-android:javaPreCompileDebugUnitTest
+> Task :tests:gdx-tests-android:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :tests:gdx-tests-android:mockableAndroidJar
+> Task :tests:gdx-tests-android:processDebugJavaRes NO-SOURCE
+> Task :tests:gdx-tests-android:processDebugUnitTestJavaRes NO-SOURCE
+> Task :tests:gdx-tests-android:testDebugUnitTest NO-SOURCE
+> Task :tests:gdx-tests-android:preReleaseBuild
+> Task :tests:gdx-tests-android:compileReleaseAidl
+> Task :tests:gdx-tests-android:compileReleaseRenderscript
+> Task :tests:gdx-tests-android:checkReleaseManifest
+> Task :tests:gdx-tests-android:generateReleaseBuildConfig
+> Task :tests:gdx-tests-android:mainApkListPersistenceRelease
+> Task :tests:gdx-tests-android:generateReleaseResValues
+> Task :tests:gdx-tests-android:generateReleaseResources
+> Task :tests:gdx-tests-android:mergeReleaseResources
+> Task :tests:gdx-tests-android:createReleaseCompatibleScreenManifests
+> Task :tests:gdx-tests-android:processReleaseManifest
+> Task :tests:gdx-tests-android:splitsDiscoveryTaskRelease
+> Task :tests:gdx-tests-android:processReleaseResources
+> Task :tests:gdx-tests-android:generateReleaseSources
+> Task :tests:gdx-tests-android:javaPreCompileRelease
+
+> Task :tests:gdx-tests-android:compileReleaseJavaWithJavac
+
+> Task :tests:gdx-tests-android:preReleaseUnitTestBuild UP-TO-DATE
+> Task :tests:gdx-tests-android:javaPreCompileReleaseUnitTest
+> Task :tests:gdx-tests-android:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :tests:gdx-tests-android:processReleaseJavaRes NO-SOURCE
+> Task :tests:gdx-tests-android:processReleaseUnitTestJavaRes NO-SOURCE
+> Task :tests:gdx-tests-android:testReleaseUnitTest NO-SOURCE
+> Task :tests:gdx-tests-android:test UP-TO-DATE
+> Task :backends:gdx-backends-gwt:jar
+
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:compileJava
+
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:processResources
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:classes
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:jar
+
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:compileJava
+
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:processResources
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:classes
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:jar
+
+> Task :tests:gdx-tests-gwt:compileJava
+
+> Task :tests:gdx-tests-gwt:processResources
+> Task :tests:gdx-tests-gwt:classes
+> Task :tests:gdx-tests-gwt:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests-gwt:processTestResources NO-SOURCE
+> Task :tests:gdx-tests-gwt:testClasses UP-TO-DATE
+> Task :tests:gdx-tests-gwt:warTemplate
+> Task :tests:gdx-tests-gwt:test NO-SOURCE
+> Task :backends:gdx-backend-robovm:jar
+> Task :tests:gdx-tests-iosrobovm:compileJava
+> Task :tests:gdx-tests-iosrobovm:processResources NO-SOURCE
+> Task :tests:gdx-tests-iosrobovm:classes
+> Task :tests:gdx-tests-iosrobovm:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests-iosrobovm:processTestResources NO-SOURCE
+> Task :tests:gdx-tests-iosrobovm:testClasses UP-TO-DATE
+> Task :tests:gdx-tests-iosrobovm:test NO-SOURCE
+> Task :tests:gdx-tests-jglfw:compileJava NO-SOURCE
+> Task :tests:gdx-tests-jglfw:processResources NO-SOURCE
+> Task :tests:gdx-tests-jglfw:classes UP-TO-DATE
+> Task :tests:gdx-tests-jglfw:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests-jglfw:processTestResources NO-SOURCE
+> Task :tests:gdx-tests-jglfw:testClasses UP-TO-DATE
+> Task :tests:gdx-tests-jglfw:test NO-SOURCE
+
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:compileJava
+
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:processResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:classes
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:jar
+
+> Task :tests:gdx-tests-lwjgl:compileJava
+
+> Task :tests:gdx-tests-lwjgl:processResources NO-SOURCE
+> Task :tests:gdx-tests-lwjgl:classes
+> Task :tests:gdx-tests-lwjgl:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests-lwjgl:processTestResources NO-SOURCE
+> Task :tests:gdx-tests-lwjgl:testClasses UP-TO-DATE
+> Task :tests:gdx-tests-lwjgl:test NO-SOURCE
+> Task :backends:gdx-backend-lwjgl3:jar
+
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:compileJava
+
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:processResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:classes
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:jar
+
+> Task :tests:gdx-tests-lwjgl3:compileJava
+
+> Task :tests:gdx-tests-lwjgl3:processResources NO-SOURCE
+> Task :tests:gdx-tests-lwjgl3:classes
+> Task :tests:gdx-tests-lwjgl3:compileTestJava NO-SOURCE
+> Task :tests:gdx-tests-lwjgl3:processTestResources NO-SOURCE
+> Task :tests:gdx-tests-lwjgl3:testClasses UP-TO-DATE
+> Task :tests:gdx-tests-lwjgl3:test NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d:compileTestJava NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d:processTestResources NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d:testClasses UP-TO-DATE
+> Task :extensions:gdx-box2d:gdx-box2d:test NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:compileTestJava NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:processTestResources NO-SOURCE
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:testClasses UP-TO-DATE
+> Task :extensions:gdx-box2d:gdx-box2d-gwt:test NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:gdx-controllers:test NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-android:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-android:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-android:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:gdx-controllers-android:test NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:gdx-controllers-desktop:test NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:gdx-controllers-gwt:test NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:compileTestJava NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:processTestResources NO-SOURCE
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:testClasses UP-TO-DATE
+> Task :extensions:gdx-controllers:gdx-controllers-lwjgl3:test NO-SOURCE
+
+BUILD SUCCESSFUL in 1m 14s
+90 actionable tasks: 90 executed

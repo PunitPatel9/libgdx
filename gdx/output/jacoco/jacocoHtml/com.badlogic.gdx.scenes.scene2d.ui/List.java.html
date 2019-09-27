@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>List.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">List.java</span></div><h1>List.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ArraySelection;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent;
+import com.badlogic.gdx.scenes.scene2d.utils.Cullable;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.UIUtils;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.ObjectSet;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
+
+/** A list (aka list box) displays textual items and highlights the currently selected item.
+ * &lt;p&gt;
+ * {@link ChangeEvent} is fired when the list selection changes.
+ * &lt;p&gt;
+ * The preferred size of the list is determined by the text bounds of the items and the size of the {@link ListStyle#selection}.
+ * @author mzechner
+ * @author Nathan Sweet */
+public class List&lt;T&gt; extends Widget implements Cullable {
+	ListStyle style;
+<span class="nc" id="L48">	final Array&lt;T&gt; items = new Array();</span>
+<span class="nc" id="L49">	ArraySelection&lt;T&gt; selection = new ArraySelection(items);</span>
+	private Rectangle cullingArea;
+	private float prefWidth, prefHeight;
+	float itemHeight;
+<span class="nc" id="L53">	private int alignment = Align.left;</span>
+<span class="nc" id="L54">	int pressedIndex = -1, overIndex = -1;</span>
+	private InputListener keyListener;
+	boolean typeToSelect;
+
+	public List (Skin skin) {
+<span class="nc" id="L59">		this(skin.get(ListStyle.class));</span>
+<span class="nc" id="L60">	}</span>
+
+	public List (Skin skin, String styleName) {
+<span class="nc" id="L63">		this(skin.get(styleName, ListStyle.class));</span>
+<span class="nc" id="L64">	}</span>
+
+<span class="nc" id="L66">	public List (ListStyle style) {</span>
+<span class="nc" id="L67">		selection.setActor(this);</span>
+<span class="nc" id="L68">		selection.setRequired(true);</span>
+
+<span class="nc" id="L70">		setStyle(style);</span>
+<span class="nc" id="L71">		setSize(getPrefWidth(), getPrefHeight());</span>
+
+<span class="nc" id="L73">		addListener(keyListener = new InputListener() {</span>
+			long typeTimeout;
+			String prefix;
+
+			public boolean keyDown (InputEvent event, int keycode) {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">				if (items.isEmpty()) return false;</span>
+				int index;
+<span class="nc bnc" id="L80" title="All 7 branches missed.">				switch (keycode) {</span>
+				case Keys.A:
+<span class="nc bnc" id="L82" title="All 4 branches missed.">					if (UIUtils.ctrl() &amp;&amp; selection.getMultiple()) {</span>
+<span class="nc" id="L83">						selection.clear();</span>
+<span class="nc" id="L84">						selection.addAll(items);</span>
+<span class="nc" id="L85">						return true;</span>
+					}
+					break;
+				case Keys.HOME:
+<span class="nc" id="L89">					setSelectedIndex(0);</span>
+<span class="nc" id="L90">					return true;</span>
+				case Keys.END:
+<span class="nc" id="L92">					setSelectedIndex(items.size - 1);</span>
+<span class="nc" id="L93">					return true;</span>
+				case Keys.DOWN:
+<span class="nc" id="L95">					index = items.indexOf(getSelected(), false) + 1;</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">					if (index &gt;= items.size) index = 0;</span>
+<span class="nc" id="L97">					setSelectedIndex(index);</span>
+<span class="nc" id="L98">					return true;</span>
+				case Keys.UP:
+<span class="nc" id="L100">					index = items.indexOf(getSelected(), false) - 1;</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">					if (index &lt; 0) index = items.size - 1;</span>
+<span class="nc" id="L102">					setSelectedIndex(index);</span>
+<span class="nc" id="L103">					return true;</span>
+				case Keys.ESCAPE:
+<span class="nc bnc" id="L105" title="All 2 branches missed.">					if (getStage() != null) getStage().setKeyboardFocus(null);</span>
+<span class="nc" id="L106">					return true;</span>
+				}
+<span class="nc" id="L108">				return false;</span>
+			}
+
+			public boolean keyTyped (InputEvent event, char character) {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">				if (!typeToSelect) return false;</span>
+<span class="nc" id="L113">				long time = System.currentTimeMillis();</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">				if (time &gt; typeTimeout) prefix = &quot;&quot;;</span>
+<span class="nc" id="L115">				typeTimeout = time + 300;</span>
+<span class="nc" id="L116">				prefix += Character.toLowerCase(character);</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">				for (int i = 0, n = items.size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">					if (List.this.toString(items.get(i)).toLowerCase().startsWith(prefix)) {</span>
+<span class="nc" id="L119">						setSelectedIndex(i);</span>
+<span class="nc" id="L120">						break;</span>
+					}
+				}
+<span class="nc" id="L123">				return false;</span>
+			}
+		});
+
+<span class="nc" id="L127">		addListener(new InputListener() {</span>
+			public boolean touchDown (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L129" title="All 4 branches missed.">				if (pointer != 0 || button != 0) return true;</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">				if (selection.isDisabled()) return true;</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">				if (getStage() != null) getStage().setKeyboardFocus(List.this);</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">				if (items.size == 0) return true;</span>
+<span class="nc" id="L133">				int index = getItemIndexAt(y);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">				if (index == -1) return true;</span>
+<span class="nc" id="L135">				selection.choose(items.get(index));</span>
+<span class="nc" id="L136">				pressedIndex = index;</span>
+<span class="nc" id="L137">				return true;</span>
+			}
+
+			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L141" title="All 4 branches missed.">				if (pointer != 0 || button != 0) return;</span>
+<span class="nc" id="L142">				pressedIndex = -1;</span>
+<span class="nc" id="L143">			}</span>
+
+			public void touchDragged (InputEvent event, float x, float y, int pointer) {
+<span class="nc" id="L146">				overIndex = getItemIndexAt(y);</span>
+<span class="nc" id="L147">			}</span>
+
+			public boolean mouseMoved (InputEvent event, float x, float y) {
+<span class="nc" id="L150">				overIndex = getItemIndexAt(y);</span>
+<span class="nc" id="L151">				return false;</span>
+			}
+
+			public void exit (InputEvent event, float x, float y, int pointer, Actor toActor) {
+<span class="nc bnc" id="L155" title="All 2 branches missed.">				if (pointer == 0) pressedIndex = -1;</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">				if (pointer == -1) overIndex = -1;</span>
+<span class="nc" id="L157">			}</span>
+		});
+<span class="nc" id="L159">	}</span>
+
+	public void setStyle (ListStyle style) {
+<span class="nc bnc" id="L162" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null.&quot;);</span>
+<span class="nc" id="L163">		this.style = style;</span>
+<span class="nc" id="L164">		invalidateHierarchy();</span>
+<span class="nc" id="L165">	}</span>
+
+	/** Returns the list's style. Modifying the returned style may not have an effect until {@link #setStyle(ListStyle)} is
+	 * called. */
+	public ListStyle getStyle () {
+<span class="nc" id="L170">		return style;</span>
+	}
+
+	public void layout () {
+<span class="nc" id="L174">		BitmapFont font = style.font;</span>
+<span class="nc" id="L175">		Drawable selectedDrawable = style.selection;</span>
+
+<span class="nc" id="L177">		itemHeight = font.getCapHeight() - font.getDescent() * 2;</span>
+<span class="nc" id="L178">		itemHeight += selectedDrawable.getTopHeight() + selectedDrawable.getBottomHeight();</span>
+
+<span class="nc" id="L180">		prefWidth = 0;</span>
+<span class="nc" id="L181">		Pool&lt;GlyphLayout&gt; layoutPool = Pools.get(GlyphLayout.class);</span>
+<span class="nc" id="L182">		GlyphLayout layout = layoutPool.obtain();</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">		for (int i = 0; i &lt; items.size; i++) {</span>
+<span class="nc" id="L184">			layout.setText(font, toString(items.get(i)));</span>
+<span class="nc" id="L185">			prefWidth = Math.max(layout.width, prefWidth);</span>
+		}
+<span class="nc" id="L187">		layoutPool.free(layout);</span>
+<span class="nc" id="L188">		prefWidth += selectedDrawable.getLeftWidth() + selectedDrawable.getRightWidth();</span>
+<span class="nc" id="L189">		prefHeight = items.size * itemHeight;</span>
+
+<span class="nc" id="L191">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">		if (background != null) {</span>
+<span class="nc" id="L193">			prefWidth = Math.max(prefWidth + background.getLeftWidth() + background.getRightWidth(), background.getMinWidth());</span>
+<span class="nc" id="L194">			prefHeight = Math.max(prefHeight + background.getTopHeight() + background.getBottomHeight(), background.getMinHeight());</span>
+		}
+<span class="nc" id="L196">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L199">		validate();</span>
+
+<span class="nc" id="L201">		drawBackground(batch, parentAlpha);</span>
+
+<span class="nc" id="L203">		BitmapFont font = style.font;</span>
+<span class="nc" id="L204">		Drawable selectedDrawable = style.selection;</span>
+<span class="nc" id="L205">		Color fontColorSelected = style.fontColorSelected;</span>
+<span class="nc" id="L206">		Color fontColorUnselected = style.fontColorUnselected;</span>
+
+<span class="nc" id="L208">		Color color = getColor();</span>
+<span class="nc" id="L209">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+
+<span class="nc" id="L211">		float x = getX(), y = getY(), width = getWidth(), height = getHeight();</span>
+<span class="nc" id="L212">		float itemY = height;</span>
+
+<span class="nc" id="L214">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">		if (background != null) {</span>
+<span class="nc" id="L216">			float leftWidth = background.getLeftWidth();</span>
+<span class="nc" id="L217">			x += leftWidth;</span>
+<span class="nc" id="L218">			itemY -= background.getTopHeight();</span>
+<span class="nc" id="L219">			width -= leftWidth + background.getRightWidth();</span>
+		}
+
+<span class="nc" id="L222">		float textOffsetX = selectedDrawable.getLeftWidth(), textWidth = width - textOffsetX - selectedDrawable.getRightWidth();</span>
+<span class="nc" id="L223">		float textOffsetY = selectedDrawable.getTopHeight() - font.getDescent();</span>
+
+<span class="nc" id="L225">		font.setColor(fontColorUnselected.r, fontColorUnselected.g, fontColorUnselected.b, fontColorUnselected.a * parentAlpha);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">		for (int i = 0; i &lt; items.size; i++) {</span>
+<span class="nc bnc" id="L227" title="All 6 branches missed.">			if (cullingArea == null || (itemY - itemHeight &lt;= cullingArea.y + cullingArea.height &amp;&amp; itemY &gt;= cullingArea.y)) {</span>
+<span class="nc" id="L228">				T item = items.get(i);</span>
+<span class="nc" id="L229">				boolean selected = selection.contains(item);</span>
+<span class="nc" id="L230">				Drawable drawable = null;</span>
+<span class="nc bnc" id="L231" title="All 4 branches missed.">				if (pressedIndex == i &amp;&amp; style.down != null)</span>
+<span class="nc" id="L232">					drawable = style.down;</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">				else if (selected) {</span>
+<span class="nc" id="L234">					drawable = selectedDrawable;</span>
+<span class="nc" id="L235">					font.setColor(fontColorSelected.r, fontColorSelected.g, fontColorSelected.b, fontColorSelected.a * parentAlpha);</span>
+<span class="nc bnc" id="L236" title="All 4 branches missed.">				} else if (overIndex == i &amp;&amp; style.over != null) //</span>
+<span class="nc" id="L237">					drawable = style.over;</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">				if (drawable != null) drawable.draw(batch, x, y + itemY - itemHeight, width, itemHeight);</span>
+<span class="nc" id="L239">				drawItem(batch, font, i, item, x + textOffsetX, y + itemY - textOffsetY, textWidth);</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">				if (selected) {</span>
+<span class="nc" id="L241">					font.setColor(fontColorUnselected.r, fontColorUnselected.g, fontColorUnselected.b,</span>
+						fontColorUnselected.a * parentAlpha);
+				}
+<span class="nc bnc" id="L244" title="All 2 branches missed.">			} else if (itemY &lt; cullingArea.y) {</span>
+<span class="nc" id="L245">				break;</span>
+			}
+<span class="nc" id="L247">			itemY -= itemHeight;</span>
+		}
+<span class="nc" id="L249">	}</span>
+
+	/** Called to draw the background. Default implementation draws the style background drawable. */
+	protected void drawBackground (Batch batch, float parentAlpha) {
+<span class="nc bnc" id="L253" title="All 2 branches missed.">		if (style.background != null) {</span>
+<span class="nc" id="L254">			Color color = getColor();</span>
+<span class="nc" id="L255">			batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L256">			style.background.draw(batch, getX(), getY(), getWidth(), getHeight());</span>
+		}
+<span class="nc" id="L258">	}</span>
+
+	protected GlyphLayout drawItem (Batch batch, BitmapFont font, int index, T item, float x, float y, float width) {
+<span class="nc" id="L261">		String string = toString(item);</span>
+<span class="nc" id="L262">		return font.draw(batch, string, x, y, 0, string.length(), width, alignment, false, &quot;...&quot;);</span>
+	}
+
+	public ArraySelection&lt;T&gt; getSelection () {
+<span class="nc" id="L266">		return selection;</span>
+	}
+
+	public void setSelection (ArraySelection&lt;T&gt; selection) {
+<span class="nc" id="L270">		this.selection = selection;</span>
+<span class="nc" id="L271">	}</span>
+
+	/** Returns the first selected item, or null. */
+	public T getSelected () {
+<span class="nc" id="L275">		return selection.first();</span>
+	}
+
+	/** Sets the selection to only the passed item, if it is a possible choice.
+	 * @param item May be null. */
+	public void setSelected (T item) {
+<span class="nc bnc" id="L281" title="All 2 branches missed.">		if (items.contains(item, false))</span>
+<span class="nc" id="L282">			selection.set(item);</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">		else if (selection.getRequired() &amp;&amp; items.size &gt; 0)</span>
+<span class="nc" id="L284">			selection.set(items.first());</span>
+		else
+<span class="nc" id="L286">			selection.clear();</span>
+<span class="nc" id="L287">	}</span>
+
+	/** @return The index of the first selected item. The top item has an index of 0. Nothing selected has an index of -1. */
+	public int getSelectedIndex () {
+<span class="nc" id="L291">		ObjectSet&lt;T&gt; selected = selection.items();</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">		return selected.size == 0 ? -1 : items.indexOf(selected.first(), false);</span>
+	}
+
+	/** Sets the selection to only the selected index.
+	 * @param index -1 to clear the selection. */
+	public void setSelectedIndex (int index) {
+<span class="nc bnc" id="L298" title="All 4 branches missed.">		if (index &lt; -1 || index &gt;= items.size)</span>
+<span class="nc" id="L299">			throw new IllegalArgumentException(&quot;index must be &gt;= -1 and &lt; &quot; + items.size + &quot;: &quot; + index);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">		if (index == -1) {</span>
+<span class="nc" id="L301">			selection.clear();</span>
+		} else {
+<span class="nc" id="L303">			selection.set(items.get(index));</span>
+		}
+<span class="nc" id="L305">	}</span>
+
+	/** @return May be null. */
+	public T getOverItem () {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">		return overIndex == -1 ? null : items.get(overIndex);</span>
+	}
+
+	/** @return May be null. */
+	public T getPressedItem () {
+<span class="nc bnc" id="L314" title="All 2 branches missed.">		return pressedIndex == -1 ? null : items.get(pressedIndex);</span>
+	}
+
+	/** @return null if not over an item. */
+	public T getItemAt (float y) {
+<span class="nc" id="L319">		int index = getItemIndexAt(y);</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">		if (index == -1) return null;</span>
+<span class="nc" id="L321">		return items.get(index);</span>
+	}
+
+	/** @return -1 if not over an item. */
+	public int getItemIndexAt (float y) {
+<span class="nc" id="L326">		float height = getHeight();</span>
+<span class="nc" id="L327">		Drawable background = List.this.style.background;</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (background != null) {</span>
+<span class="nc" id="L329">			height -= background.getTopHeight() + background.getBottomHeight();</span>
+<span class="nc" id="L330">			y -= background.getBottomHeight();</span>
+		}
+<span class="nc" id="L332">		int index = (int)((height - y) / itemHeight);</span>
+<span class="nc bnc" id="L333" title="All 4 branches missed.">		if (index &lt; 0 || index &gt;= items.size) return -1;</span>
+<span class="nc" id="L334">		return index;</span>
+	}
+
+	public void setItems (T... newItems) {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (newItems == null) throw new IllegalArgumentException(&quot;newItems cannot be null.&quot;);</span>
+<span class="nc" id="L339">		float oldPrefWidth = getPrefWidth(), oldPrefHeight = getPrefHeight();</span>
+
+<span class="nc" id="L341">		items.clear();</span>
+<span class="nc" id="L342">		items.addAll(newItems);</span>
+<span class="nc" id="L343">		overIndex = -1;</span>
+<span class="nc" id="L344">		pressedIndex = -1;</span>
+<span class="nc" id="L345">		selection.validate();</span>
+
+<span class="nc" id="L347">		invalidate();</span>
+<span class="nc bnc" id="L348" title="All 4 branches missed.">		if (oldPrefWidth != getPrefWidth() || oldPrefHeight != getPrefHeight()) invalidateHierarchy();</span>
+<span class="nc" id="L349">	}</span>
+
+	/** Sets the items visible in the list, clearing the selection if it is no longer valid. If a selection is
+	 * {@link ArraySelection#getRequired()}, the first item is selected. This can safely be called with a (modified) array returned
+	 * from {@link #getItems()}. */
+	public void setItems (Array newItems) {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">		if (newItems == null) throw new IllegalArgumentException(&quot;newItems cannot be null.&quot;);</span>
+<span class="nc" id="L356">		float oldPrefWidth = getPrefWidth(), oldPrefHeight = getPrefHeight();</span>
+
+<span class="nc bnc" id="L358" title="All 2 branches missed.">		if (newItems != items) {</span>
+<span class="nc" id="L359">			items.clear();</span>
+<span class="nc" id="L360">			items.addAll(newItems);</span>
+		}
+<span class="nc" id="L362">		overIndex = -1;</span>
+<span class="nc" id="L363">		pressedIndex = -1;</span>
+<span class="nc" id="L364">		selection.validate();</span>
+
+<span class="nc" id="L366">		invalidate();</span>
+<span class="nc bnc" id="L367" title="All 4 branches missed.">		if (oldPrefWidth != getPrefWidth() || oldPrefHeight != getPrefHeight()) invalidateHierarchy();</span>
+<span class="nc" id="L368">	}</span>
+
+	public void clearItems () {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">		if (items.size == 0) return;</span>
+<span class="nc" id="L372">		items.clear();</span>
+<span class="nc" id="L373">		overIndex = -1;</span>
+<span class="nc" id="L374">		pressedIndex = -1;</span>
+<span class="nc" id="L375">		selection.clear();</span>
+<span class="nc" id="L376">		invalidateHierarchy();</span>
+<span class="nc" id="L377">	}</span>
+
+	/** Returns the internal items array. If modified, {@link #setItems(Array)} must be called to reflect the changes. */
+	public Array&lt;T&gt; getItems () {
+<span class="nc" id="L381">		return items;</span>
+	}
+
+	public float getItemHeight () {
+<span class="nc" id="L385">		return itemHeight;</span>
+	}
+
+	public float getPrefWidth () {
+<span class="nc" id="L389">		validate();</span>
+<span class="nc" id="L390">		return prefWidth;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc" id="L394">		validate();</span>
+<span class="nc" id="L395">		return prefHeight;</span>
+	}
+
+	public String toString (T object) {
+<span class="nc" id="L399">		return object.toString();</span>
+	}
+
+	public void setCullingArea (Rectangle cullingArea) {
+<span class="nc" id="L403">		this.cullingArea = cullingArea;</span>
+<span class="nc" id="L404">	}</span>
+
+	/** @return May be null.
+	 * @see #setCullingArea(Rectangle) */
+	public Rectangle getCullingArea () {
+<span class="nc" id="L409">		return cullingArea;</span>
+	}
+
+	/** Sets the horizontal alignment of the list items.
+	 * @param alignment See {@link Align}. */
+	public void setAlignment (int alignment) {
+<span class="nc" id="L415">		this.alignment = alignment;</span>
+<span class="nc" id="L416">	}</span>
+
+	public void setTypeToSelect (boolean typeToSelect) {
+<span class="nc" id="L419">		this.typeToSelect = typeToSelect;</span>
+<span class="nc" id="L420">	}</span>
+
+	public InputListener getKeyListener () {
+<span class="nc" id="L423">		return keyListener;</span>
+	}
+
+	/** The style for a list, see {@link List}.
+	 * @author mzechner
+	 * @author Nathan Sweet */
+	static public class ListStyle {
+		public BitmapFont font;
+<span class="nc" id="L431">		public Color fontColorSelected = new Color(1, 1, 1, 1);</span>
+<span class="nc" id="L432">		public Color fontColorUnselected = new Color(1, 1, 1, 1);</span>
+		public Drawable selection;
+		/** Optional. */
+		public Drawable down, over, background;
+
+<span class="nc" id="L437">		public ListStyle () {</span>
+<span class="nc" id="L438">		}</span>
+
+<span class="nc" id="L440">		public ListStyle (BitmapFont font, Color fontColorSelected, Color fontColorUnselected, Drawable selection) {</span>
+<span class="nc" id="L441">			this.font = font;</span>
+<span class="nc" id="L442">			this.fontColorSelected.set(fontColorSelected);</span>
+<span class="nc" id="L443">			this.fontColorUnselected.set(fontColorUnselected);</span>
+<span class="nc" id="L444">			this.selection = selection;</span>
+<span class="nc" id="L445">		}</span>
+
+<span class="nc" id="L447">		public ListStyle (ListStyle style) {</span>
+<span class="nc" id="L448">			this.font = style.font;</span>
+<span class="nc" id="L449">			this.fontColorSelected.set(style.fontColorSelected);</span>
+<span class="nc" id="L450">			this.fontColorUnselected.set(style.fontColorUnselected);</span>
+<span class="nc" id="L451">			this.selection = style.selection;</span>
+<span class="nc" id="L452">			this.down = style.down;</span>
+<span class="nc" id="L453">			this.over = style.over;</span>
+<span class="nc" id="L454">			this.background = style.background;</span>
+<span class="nc" id="L455">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

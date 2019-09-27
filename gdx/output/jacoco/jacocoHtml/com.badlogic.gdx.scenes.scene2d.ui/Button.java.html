@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Button.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Button.java</span></div><h1>Button.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.Disableable;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.FocusListener;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pools;
+
+/** A button is a {@link Table} with a checked state and additional {@link ButtonStyle style} fields for pressed, unpressed, and
+ * checked. Each time a button is clicked, the checked state is toggled. Being a table, a button can contain any other actors.&lt;br&gt;
+ * &lt;br&gt;
+ * The button's padding is set to the background drawable's padding when the background changes, overwriting any padding set
+ * manually. Padding can still be set on the button's table cells.
+ * &lt;p&gt;
+ * {@link ChangeEvent} is fired when the button is clicked. Cancelling the event will restore the checked button state to what is
+ * was previously.
+ * &lt;p&gt;
+ * The preferred size of the button is determined by the background and the button contents.
+ * @author Nathan Sweet */
+public class Button extends Table implements Disableable {
+	private ButtonStyle style;
+	boolean isChecked, isDisabled;
+	boolean focused;
+	ButtonGroup buttonGroup;
+	private ClickListener clickListener;
+<span class="nc" id="L50">	private boolean programmaticChangeEvents = true;</span>
+
+	public Button (Skin skin) {
+<span class="nc" id="L53">		super(skin);</span>
+<span class="nc" id="L54">		initialize();</span>
+<span class="nc" id="L55">		setStyle(skin.get(ButtonStyle.class));</span>
+<span class="nc" id="L56">		setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L57">	}</span>
+
+	public Button (Skin skin, String styleName) {
+<span class="nc" id="L60">		super(skin);</span>
+<span class="nc" id="L61">		initialize();</span>
+<span class="nc" id="L62">		setStyle(skin.get(styleName, ButtonStyle.class));</span>
+<span class="nc" id="L63">		setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L64">	}</span>
+
+	public Button (Actor child, Skin skin, String styleName) {
+<span class="nc" id="L67">		this(child, skin.get(styleName, ButtonStyle.class));</span>
+<span class="nc" id="L68">		setSkin(skin);</span>
+<span class="nc" id="L69">	}</span>
+
+<span class="nc" id="L71">	public Button (Actor child, ButtonStyle style) {</span>
+<span class="nc" id="L72">		initialize();</span>
+<span class="nc" id="L73">		add(child);</span>
+<span class="nc" id="L74">		setStyle(style);</span>
+<span class="nc" id="L75">		setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L76">	}</span>
+
+<span class="nc" id="L78">	public Button (ButtonStyle style) {</span>
+<span class="nc" id="L79">		initialize();</span>
+<span class="nc" id="L80">		setStyle(style);</span>
+<span class="nc" id="L81">		setSize(getPrefWidth(), getPrefHeight());</span>
+<span class="nc" id="L82">	}</span>
+
+	/** Creates a button without setting the style or size. At least a style must be set before using this button. */
+<span class="nc" id="L85">	public Button () {</span>
+<span class="nc" id="L86">		initialize();</span>
+<span class="nc" id="L87">	}</span>
+
+	private void initialize () {
+<span class="nc" id="L90">		setTouchable(Touchable.enabled);</span>
+<span class="nc" id="L91">		addListener(clickListener = new ClickListener() {</span>
+			public void clicked (InputEvent event, float x, float y) {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">				if (isDisabled()) return;</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">				setChecked(!isChecked, true);</span>
+<span class="nc" id="L95">			}</span>
+		});
+<span class="nc" id="L97">		addListener(new FocusListener() {</span>
+			public void keyboardFocusChanged (FocusEvent event, Actor actor, boolean focused) {
+<span class="nc" id="L99">				Button.this.focused = focused;</span>
+<span class="nc" id="L100">			}</span>
+		});
+<span class="nc" id="L102">	}</span>
+
+	public Button (Drawable up) {
+<span class="nc" id="L105">		this(new ButtonStyle(up, null, null));</span>
+<span class="nc" id="L106">	}</span>
+
+	public Button (Drawable up, Drawable down) {
+<span class="nc" id="L109">		this(new ButtonStyle(up, down, null));</span>
+<span class="nc" id="L110">	}</span>
+
+	public Button (Drawable up, Drawable down, Drawable checked) {
+<span class="nc" id="L113">		this(new ButtonStyle(up, down, checked));</span>
+<span class="nc" id="L114">	}</span>
+
+	public Button (Actor child, Skin skin) {
+<span class="nc" id="L117">		this(child, skin.get(ButtonStyle.class));</span>
+<span class="nc" id="L118">	}</span>
+
+	public void setChecked (boolean isChecked) {
+<span class="nc" id="L121">		setChecked(isChecked, programmaticChangeEvents);</span>
+<span class="nc" id="L122">	}</span>
+
+	void setChecked (boolean isChecked, boolean fireEvent) {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		if (this.isChecked == isChecked) return;</span>
+<span class="nc bnc" id="L126" title="All 4 branches missed.">		if (buttonGroup != null &amp;&amp; !buttonGroup.canCheck(this, isChecked)) return;</span>
+<span class="nc" id="L127">		this.isChecked = isChecked;</span>
+
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		if (fireEvent) {</span>
+<span class="nc" id="L130">			ChangeEvent changeEvent = Pools.obtain(ChangeEvent.class);</span>
+<span class="nc bnc" id="L131" title="All 4 branches missed.">			if (fire(changeEvent)) this.isChecked = !isChecked;</span>
+<span class="nc" id="L132">			Pools.free(changeEvent);</span>
+		}
+<span class="nc" id="L134">	}</span>
+
+	/** Toggles the checked state. This method changes the checked state, which fires a {@link ChangeEvent} (if programmatic change
+	 * events are enabled), so can be used to simulate a button click. */
+	public void toggle () {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">		setChecked(!isChecked);</span>
+<span class="nc" id="L140">	}</span>
+
+	public boolean isChecked () {
+<span class="nc" id="L143">		return isChecked;</span>
+	}
+
+	public boolean isPressed () {
+<span class="nc" id="L147">		return clickListener.isVisualPressed();</span>
+	}
+
+	public boolean isOver () {
+<span class="nc" id="L151">		return clickListener.isOver();</span>
+	}
+
+	public ClickListener getClickListener () {
+<span class="nc" id="L155">		return clickListener;</span>
+	}
+
+	public boolean isDisabled () {
+<span class="nc" id="L159">		return isDisabled;</span>
+	}
+
+	/** When true, the button will not toggle {@link #isChecked()} when clicked and will not fire a {@link ChangeEvent}. */
+	public void setDisabled (boolean isDisabled) {
+<span class="nc" id="L164">		this.isDisabled = isDisabled;</span>
+<span class="nc" id="L165">	}</span>
+
+	/** If false, {@link #setChecked(boolean)} and {@link #toggle()} will not fire {@link ChangeEvent}, event will be fired only
+	 * when user clicked the button */
+	public void setProgrammaticChangeEvents (boolean programmaticChangeEvents) {
+<span class="nc" id="L170">		this.programmaticChangeEvents = programmaticChangeEvents;</span>
+<span class="nc" id="L171">	}</span>
+
+	public void setStyle (ButtonStyle style) {
+<span class="nc bnc" id="L174" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null.&quot;);</span>
+<span class="nc" id="L175">		this.style = style;</span>
+
+<span class="nc" id="L177">		Drawable background = null;</span>
+<span class="nc bnc" id="L178" title="All 4 branches missed.">		if (isPressed() &amp;&amp; !isDisabled())</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">			background = style.down == null ? style.up : style.down;</span>
+		else {
+<span class="nc bnc" id="L181" title="All 4 branches missed.">			if (isDisabled() &amp;&amp; style.disabled != null)</span>
+<span class="nc" id="L182">				background = style.disabled;</span>
+<span class="nc bnc" id="L183" title="All 4 branches missed.">			else if (isChecked &amp;&amp; style.checked != null) {</span>
+<span class="nc bnc" id="L184" title="All 4 branches missed.">				if (isOver() &amp;&amp; style.checkedOver != null)</span>
+<span class="nc" id="L185">					background = style.checkedOver;</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">				else if (focused &amp;&amp; style.checkedFocused != null)</span>
+<span class="nc" id="L187">					background = style.checkedFocused;</span>
+				else
+<span class="nc" id="L189">					background = style.checked;</span>
+<span class="nc bnc" id="L190" title="All 4 branches missed.">			} else if (isOver() &amp;&amp; style.over != null)</span>
+<span class="nc" id="L191">				background = style.over;</span>
+<span class="nc bnc" id="L192" title="All 4 branches missed.">			else if (focused &amp;&amp; style.focused != null)</span>
+<span class="nc" id="L193">				background = style.focused;</span>
+			else
+<span class="nc" id="L195">				background = style.up;</span>
+		}
+<span class="nc" id="L197">		setBackground(background);</span>
+<span class="nc" id="L198">	}</span>
+
+	/** Returns the button's style. Modifying the returned style may not have an effect until {@link #setStyle(ButtonStyle)} is
+	 * called. */
+	public ButtonStyle getStyle () {
+<span class="nc" id="L203">		return style;</span>
+	}
+
+	/** @return May be null. */
+	public ButtonGroup getButtonGroup () {
+<span class="nc" id="L208">		return buttonGroup;</span>
+	}
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L212">		validate();</span>
+
+<span class="nc" id="L214">		boolean isDisabled = isDisabled();</span>
+<span class="nc" id="L215">		boolean isPressed = isPressed();</span>
+<span class="nc" id="L216">		boolean isChecked = isChecked();</span>
+<span class="nc" id="L217">		boolean isOver = isOver();</span>
+
+<span class="nc" id="L219">		Drawable background = null;</span>
+<span class="nc bnc" id="L220" title="All 4 branches missed.">		if (isDisabled &amp;&amp; style.disabled != null) {</span>
+<span class="nc" id="L221">			background = style.disabled;</span>
+<span class="nc bnc" id="L222" title="All 4 branches missed.">		} else if (isPressed &amp;&amp; style.down != null) {</span>
+<span class="nc" id="L223">			background = style.down;</span>
+<span class="nc bnc" id="L224" title="All 4 branches missed.">		} else if (isChecked &amp;&amp; style.checked != null) {</span>
+<span class="nc bnc" id="L225" title="All 4 branches missed.">			if (style.checkedOver != null &amp;&amp; isOver) {</span>
+<span class="nc" id="L226">				background = style.checkedOver;</span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">			} else if (style.checkedFocused != null &amp;&amp; focused) {</span>
+<span class="nc" id="L228">				background = style.checkedFocused;</span>
+			} else {
+<span class="nc" id="L230">				background = style.checked;</span>
+			}
+<span class="nc bnc" id="L232" title="All 4 branches missed.">		} else if (isOver &amp;&amp; style.over != null) {</span>
+<span class="nc" id="L233">			background = style.over;</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">		} else if (focused &amp;&amp; style.focused != null) {</span>
+<span class="nc" id="L235">			background = style.focused;</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		} else if (style.up != null) {</span>
+<span class="nc" id="L237">			background = style.up;</span>
+		}
+<span class="nc" id="L239">		setBackground(background);</span>
+
+<span class="nc" id="L241">		float offsetX = 0, offsetY = 0;</span>
+<span class="nc bnc" id="L242" title="All 4 branches missed.">		if (isPressed &amp;&amp; !isDisabled) {</span>
+<span class="nc" id="L243">			offsetX = style.pressedOffsetX;</span>
+<span class="nc" id="L244">			offsetY = style.pressedOffsetY;</span>
+<span class="nc bnc" id="L245" title="All 4 branches missed.">		} else if (isChecked &amp;&amp; !isDisabled) {</span>
+<span class="nc" id="L246">			offsetX = style.checkedOffsetX;</span>
+<span class="nc" id="L247">			offsetY = style.checkedOffsetY;</span>
+		} else {
+<span class="nc" id="L249">			offsetX = style.unpressedOffsetX;</span>
+<span class="nc" id="L250">			offsetY = style.unpressedOffsetY;</span>
+		}
+
+<span class="nc" id="L253">		Array&lt;Actor&gt; children = getChildren();</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">		for (int i = 0; i &lt; children.size; i++)</span>
+<span class="nc" id="L255">			children.get(i).moveBy(offsetX, offsetY);</span>
+<span class="nc" id="L256">		super.draw(batch, parentAlpha);</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">		for (int i = 0; i &lt; children.size; i++)</span>
+<span class="nc" id="L258">			children.get(i).moveBy(-offsetX, -offsetY);</span>
+
+<span class="nc" id="L260">		Stage stage = getStage();</span>
+<span class="nc bnc" id="L261" title="All 6 branches missed.">		if (stage != null &amp;&amp; stage.getActionsRequestRendering() &amp;&amp; isPressed != clickListener.isPressed())</span>
+<span class="nc" id="L262">			Gdx.graphics.requestRendering();</span>
+<span class="nc" id="L263">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc" id="L266">		float width = super.getPrefWidth();</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">		if (style.up != null) width = Math.max(width, style.up.getMinWidth());</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">		if (style.down != null) width = Math.max(width, style.down.getMinWidth());</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">		if (style.checked != null) width = Math.max(width, style.checked.getMinWidth());</span>
+<span class="nc" id="L270">		return width;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc" id="L274">		float height = super.getPrefHeight();</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">		if (style.up != null) height = Math.max(height, style.up.getMinHeight());</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">		if (style.down != null) height = Math.max(height, style.down.getMinHeight());</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">		if (style.checked != null) height = Math.max(height, style.checked.getMinHeight());</span>
+<span class="nc" id="L278">		return height;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc" id="L282">		return getPrefWidth();</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc" id="L286">		return getPrefHeight();</span>
+	}
+
+	/** The style for a button, see {@link Button}.
+	 * @author mzechner */
+	static public class ButtonStyle {
+		/** Optional. */
+		public Drawable up, down, over, focused, checked, checkedOver, checkedFocused, disabled;
+		/** Optional. */
+		public float pressedOffsetX, pressedOffsetY, unpressedOffsetX, unpressedOffsetY, checkedOffsetX, checkedOffsetY;
+
+<span class="nc" id="L297">		public ButtonStyle () {</span>
+<span class="nc" id="L298">		}</span>
+
+<span class="nc" id="L300">		public ButtonStyle (Drawable up, Drawable down, Drawable checked) {</span>
+<span class="nc" id="L301">			this.up = up;</span>
+<span class="nc" id="L302">			this.down = down;</span>
+<span class="nc" id="L303">			this.checked = checked;</span>
+<span class="nc" id="L304">		}</span>
+
+<span class="nc" id="L306">		public ButtonStyle (ButtonStyle style) {</span>
+<span class="nc" id="L307">			this.up = style.up;</span>
+<span class="nc" id="L308">			this.down = style.down;</span>
+<span class="nc" id="L309">			this.over = style.over;</span>
+<span class="nc" id="L310">			this.focused = style.focused;</span>
+<span class="nc" id="L311">			this.checked = style.checked;</span>
+<span class="nc" id="L312">			this.checkedOver = style.checkedOver;</span>
+<span class="nc" id="L313">			this.checkedFocused = style.checkedFocused;</span>
+<span class="nc" id="L314">			this.disabled = style.disabled;</span>
+<span class="nc" id="L315">			this.pressedOffsetX = style.pressedOffsetX;</span>
+<span class="nc" id="L316">			this.pressedOffsetY = style.pressedOffsetY;</span>
+<span class="nc" id="L317">			this.unpressedOffsetX = style.unpressedOffsetX;</span>
+<span class="nc" id="L318">			this.unpressedOffsetY = style.unpressedOffsetY;</span>
+<span class="nc" id="L319">			this.checkedOffsetX = style.checkedOffsetX;</span>
+<span class="nc" id="L320">			this.checkedOffsetY = style.checkedOffsetY;</span>
+<span class="nc" id="L321">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,1728 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleEmitter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">ParticleEmitter.java</span></div><h1>ParticleEmitter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.utils.Array;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Arrays;
+
+public class ParticleEmitter {
+	static private final int UPDATE_SCALE = 1 &lt;&lt; 0;
+	static private final int UPDATE_ANGLE = 1 &lt;&lt; 1;
+	static private final int UPDATE_ROTATION = 1 &lt;&lt; 2;
+	static private final int UPDATE_VELOCITY = 1 &lt;&lt; 3;
+	static private final int UPDATE_WIND = 1 &lt;&lt; 4;
+	static private final int UPDATE_GRAVITY = 1 &lt;&lt; 5;
+	static private final int UPDATE_TINT = 1 &lt;&lt; 6;
+	static private final int UPDATE_SPRITE = 1 &lt;&lt; 7;
+
+<span class="nc" id="L41">	private RangedNumericValue delayValue = new RangedNumericValue();</span>
+<span class="nc" id="L42">	private IndependentScaledNumericValue lifeOffsetValue = new IndependentScaledNumericValue();</span>
+<span class="nc" id="L43">	private RangedNumericValue durationValue = new RangedNumericValue();</span>
+<span class="nc" id="L44">	private IndependentScaledNumericValue lifeValue = new IndependentScaledNumericValue();</span>
+<span class="nc" id="L45">	private ScaledNumericValue emissionValue = new ScaledNumericValue();</span>
+<span class="nc" id="L46">	private ScaledNumericValue xScaleValue = new ScaledNumericValue();</span>
+<span class="nc" id="L47">	private ScaledNumericValue yScaleValue = new ScaledNumericValue();</span>
+<span class="nc" id="L48">	private ScaledNumericValue rotationValue = new ScaledNumericValue();</span>
+<span class="nc" id="L49">	private ScaledNumericValue velocityValue = new ScaledNumericValue();</span>
+<span class="nc" id="L50">	private ScaledNumericValue angleValue = new ScaledNumericValue();</span>
+<span class="nc" id="L51">	private ScaledNumericValue windValue = new ScaledNumericValue();</span>
+<span class="nc" id="L52">	private ScaledNumericValue gravityValue = new ScaledNumericValue();</span>
+<span class="nc" id="L53">	private ScaledNumericValue transparencyValue = new ScaledNumericValue();</span>
+<span class="nc" id="L54">	private GradientColorValue tintValue = new GradientColorValue();</span>
+<span class="nc" id="L55">	private RangedNumericValue xOffsetValue = new ScaledNumericValue();</span>
+<span class="nc" id="L56">	private RangedNumericValue yOffsetValue = new ScaledNumericValue();</span>
+<span class="nc" id="L57">	private ScaledNumericValue spawnWidthValue = new ScaledNumericValue();</span>
+<span class="nc" id="L58">	private ScaledNumericValue spawnHeightValue = new ScaledNumericValue();</span>
+<span class="nc" id="L59">	private SpawnShapeValue spawnShapeValue = new SpawnShapeValue();</span>
+
+	private RangedNumericValue[] xSizeValues;
+	private RangedNumericValue[] ySizeValues;
+	private RangedNumericValue[] motionValues;
+
+	private float accumulator;
+	private Array&lt;Sprite&gt; sprites;
+<span class="nc" id="L67">	private SpriteMode spriteMode = SpriteMode.single;</span>
+	private Particle[] particles;
+<span class="nc" id="L69">	private int minParticleCount, maxParticleCount = 4;</span>
+	private float x, y;
+	private String name;
+	private Array&lt;String&gt; imagePaths;
+	private int activeCount;
+	private boolean[] active;
+	private boolean firstUpdate;
+	private boolean flipX, flipY;
+	private int updateFlags;
+	private boolean allowCompletion;
+	private BoundingBox bounds;
+
+	private int emission, emissionDiff, emissionDelta;
+	private int lifeOffset, lifeOffsetDiff;
+	private int life, lifeDiff;
+	private float spawnWidth, spawnWidthDiff;
+	private float spawnHeight, spawnHeightDiff;
+<span class="nc" id="L86">	public float duration = 1, durationTimer;</span>
+	private float delay, delayTimer;
+
+	private boolean attached;
+	private boolean continuous;
+	private boolean aligned;
+	private boolean behind;
+<span class="nc" id="L93">	private boolean additive = true;</span>
+<span class="nc" id="L94">	private boolean premultipliedAlpha = false;</span>
+<span class="nc" id="L95">	boolean cleansUpBlendFunction = true;</span>
+
+<span class="nc" id="L97">	public ParticleEmitter () {</span>
+<span class="nc" id="L98">		initialize();</span>
+<span class="nc" id="L99">	}</span>
+
+<span class="nc" id="L101">	public ParticleEmitter (BufferedReader reader) throws IOException {</span>
+<span class="nc" id="L102">		initialize();</span>
+<span class="nc" id="L103">		load(reader);</span>
+<span class="nc" id="L104">	}</span>
+
+<span class="nc" id="L106">	public ParticleEmitter (ParticleEmitter emitter) {</span>
+<span class="nc" id="L107">		sprites = new Array&lt;Sprite&gt;(emitter.sprites);</span>
+<span class="nc" id="L108">		name = emitter.name;</span>
+<span class="nc" id="L109">		imagePaths = new Array&lt;String&gt;(emitter.imagePaths);</span>
+<span class="nc" id="L110">		setMaxParticleCount(emitter.maxParticleCount);</span>
+<span class="nc" id="L111">		minParticleCount = emitter.minParticleCount;</span>
+<span class="nc" id="L112">		delayValue.load(emitter.delayValue);</span>
+<span class="nc" id="L113">		durationValue.load(emitter.durationValue);</span>
+<span class="nc" id="L114">		emissionValue.load(emitter.emissionValue);</span>
+<span class="nc" id="L115">		lifeValue.load(emitter.lifeValue);</span>
+<span class="nc" id="L116">		lifeOffsetValue.load(emitter.lifeOffsetValue);</span>
+<span class="nc" id="L117">		xScaleValue.load(emitter.xScaleValue);</span>
+<span class="nc" id="L118">		yScaleValue.load(emitter.yScaleValue);</span>
+<span class="nc" id="L119">		rotationValue.load(emitter.rotationValue);</span>
+<span class="nc" id="L120">		velocityValue.load(emitter.velocityValue);</span>
+<span class="nc" id="L121">		angleValue.load(emitter.angleValue);</span>
+<span class="nc" id="L122">		windValue.load(emitter.windValue);</span>
+<span class="nc" id="L123">		gravityValue.load(emitter.gravityValue);</span>
+<span class="nc" id="L124">		transparencyValue.load(emitter.transparencyValue);</span>
+<span class="nc" id="L125">		tintValue.load(emitter.tintValue);</span>
+<span class="nc" id="L126">		xOffsetValue.load(emitter.xOffsetValue);</span>
+<span class="nc" id="L127">		yOffsetValue.load(emitter.yOffsetValue);</span>
+<span class="nc" id="L128">		spawnWidthValue.load(emitter.spawnWidthValue);</span>
+<span class="nc" id="L129">		spawnHeightValue.load(emitter.spawnHeightValue);</span>
+<span class="nc" id="L130">		spawnShapeValue.load(emitter.spawnShapeValue);</span>
+<span class="nc" id="L131">		attached = emitter.attached;</span>
+<span class="nc" id="L132">		continuous = emitter.continuous;</span>
+<span class="nc" id="L133">		aligned = emitter.aligned;</span>
+<span class="nc" id="L134">		behind = emitter.behind;</span>
+<span class="nc" id="L135">		additive = emitter.additive;</span>
+<span class="nc" id="L136">		premultipliedAlpha = emitter.premultipliedAlpha;</span>
+<span class="nc" id="L137">		cleansUpBlendFunction = emitter.cleansUpBlendFunction;</span>
+<span class="nc" id="L138">		spriteMode = emitter.spriteMode;</span>
+<span class="nc" id="L139">		setPosition(emitter.getX(),emitter.getY());</span>
+<span class="nc" id="L140">	}</span>
+
+	private void initialize () {
+<span class="nc" id="L143">		sprites = new Array&lt;Sprite&gt;();</span>
+<span class="nc" id="L144">		imagePaths = new Array&lt;String&gt;();</span>
+<span class="nc" id="L145">		durationValue.setAlwaysActive(true);</span>
+<span class="nc" id="L146">		emissionValue.setAlwaysActive(true);</span>
+<span class="nc" id="L147">		lifeValue.setAlwaysActive(true);</span>
+<span class="nc" id="L148">		xScaleValue.setAlwaysActive(true);</span>
+<span class="nc" id="L149">		transparencyValue.setAlwaysActive(true);</span>
+<span class="nc" id="L150">		spawnShapeValue.setAlwaysActive(true);</span>
+<span class="nc" id="L151">		spawnWidthValue.setAlwaysActive(true);</span>
+<span class="nc" id="L152">		spawnHeightValue.setAlwaysActive(true);</span>
+<span class="nc" id="L153">	}</span>
+
+	public void setMaxParticleCount (int maxParticleCount) {
+<span class="nc" id="L156">		this.maxParticleCount = maxParticleCount;</span>
+<span class="nc" id="L157">		active = new boolean[maxParticleCount];</span>
+<span class="nc" id="L158">		activeCount = 0;</span>
+<span class="nc" id="L159">		particles = new Particle[maxParticleCount];</span>
+<span class="nc" id="L160">	}</span>
+
+	public void addParticle () {
+<span class="nc" id="L163">		int activeCount = this.activeCount;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (activeCount == maxParticleCount) return;</span>
+<span class="nc" id="L165">		boolean[] active = this.active;</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">			if (!active[i]) {</span>
+<span class="nc" id="L168">				activateParticle(i);</span>
+<span class="nc" id="L169">				active[i] = true;</span>
+<span class="nc" id="L170">				this.activeCount = activeCount + 1;</span>
+<span class="nc" id="L171">				break;</span>
+			}
+		}
+<span class="nc" id="L174">	}</span>
+
+	public void addParticles (int count) {
+<span class="nc" id="L177">		count = Math.min(count, maxParticleCount - activeCount);</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		if (count == 0) return;</span>
+<span class="nc" id="L179">		boolean[] active = this.active;</span>
+<span class="nc" id="L180">		int index = 0, n = active.length;</span>
+		outer:
+<span class="nc bnc" id="L182" title="All 2 branches missed.">		for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">			for (; index &lt; n; index++) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">				if (!active[index]) {</span>
+<span class="nc" id="L185">					activateParticle(index);</span>
+<span class="nc" id="L186">					active[index++] = true;</span>
+<span class="nc" id="L187">					continue outer;</span>
+				}
+			}
+			break;
+		}
+<span class="nc" id="L192">		this.activeCount += count;</span>
+<span class="nc" id="L193">	}</span>
+
+	public void update (float delta) {
+<span class="nc" id="L196">		accumulator += delta * 1000;</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">		if (accumulator &lt; 1) return;</span>
+<span class="nc" id="L198">		int deltaMillis = (int)accumulator;</span>
+<span class="nc" id="L199">		accumulator -= deltaMillis;</span>
+
+<span class="nc bnc" id="L201" title="All 2 branches missed.">		if (delayTimer &lt; delay) {</span>
+<span class="nc" id="L202">			delayTimer += deltaMillis;</span>
+		} else {
+<span class="nc" id="L204">			boolean done = false;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">			if (firstUpdate) {</span>
+<span class="nc" id="L206">				firstUpdate = false;</span>
+<span class="nc" id="L207">				addParticle();</span>
+			}
+
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			if (durationTimer &lt; duration)</span>
+<span class="nc" id="L211">				durationTimer += deltaMillis;</span>
+			else {
+<span class="nc bnc" id="L213" title="All 4 branches missed.">				if (!continuous || allowCompletion)</span>
+<span class="nc" id="L214">					done = true;</span>
+				else
+<span class="nc" id="L216">					restart();</span>
+			}
+
+<span class="nc bnc" id="L219" title="All 2 branches missed.">			if (!done) {</span>
+<span class="nc" id="L220">				emissionDelta += deltaMillis;</span>
+<span class="nc" id="L221">				float emissionTime = emission + emissionDiff * emissionValue.getScale(durationTimer / (float)duration);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">				if (emissionTime &gt; 0) {</span>
+<span class="nc" id="L223">					emissionTime = 1000 / emissionTime;</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">					if (emissionDelta &gt;= emissionTime) {</span>
+<span class="nc" id="L225">						int emitCount = (int)(emissionDelta / emissionTime);</span>
+<span class="nc" id="L226">						emitCount = Math.min(emitCount, maxParticleCount - activeCount);</span>
+<span class="nc" id="L227">						emissionDelta -= emitCount * emissionTime;</span>
+<span class="nc" id="L228">						emissionDelta %= emissionTime;</span>
+<span class="nc" id="L229">						addParticles(emitCount);</span>
+					}
+				}
+<span class="nc bnc" id="L232" title="All 2 branches missed.">				if (activeCount &lt; minParticleCount) addParticles(minParticleCount - activeCount);</span>
+			}
+		}
+
+<span class="nc" id="L236">		boolean[] active = this.active;</span>
+<span class="nc" id="L237">		int activeCount = this.activeCount;</span>
+<span class="nc" id="L238">		Particle[] particles = this.particles;</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L240" title="All 4 branches missed.">			if (active[i] &amp;&amp; !updateParticle(particles[i], delta, deltaMillis)) {</span>
+<span class="nc" id="L241">				active[i] = false;</span>
+<span class="nc" id="L242">				activeCount--;</span>
+			}
+		}
+<span class="nc" id="L245">		this.activeCount = activeCount;</span>
+<span class="nc" id="L246">	}</span>
+
+	public void draw (Batch batch) {
+<span class="nc bnc" id="L249" title="All 2 branches missed.">		if (premultipliedAlpha) {</span>
+<span class="nc" id="L250">			batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">		} else if (additive) {</span>
+<span class="nc" id="L252">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE);</span>
+		} else {
+<span class="nc" id="L254">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+		}
+<span class="nc" id="L256">		Particle[] particles = this.particles;</span>
+<span class="nc" id="L257">		boolean[] active = this.active;</span>
+
+<span class="nc bnc" id="L259" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">			if (active[i]) particles[i].draw(batch);</span>
+		}
+
+<span class="nc bnc" id="L263" title="All 6 branches missed.">		if (cleansUpBlendFunction &amp;&amp; (additive || premultipliedAlpha))</span>
+<span class="nc" id="L264">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+
+<span class="nc" id="L266">	}</span>
+
+	/** Updates and draws the particles. This is slightly more efficient than calling {@link #update(float)} and
+	 * {@link #draw(Batch)} separately. */
+	public void draw (Batch batch, float delta) {
+<span class="nc" id="L271">		accumulator += delta * 1000;</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">		if (accumulator &lt; 1) {</span>
+<span class="nc" id="L273">			draw(batch);</span>
+<span class="nc" id="L274">			return;</span>
+		}
+<span class="nc" id="L276">		int deltaMillis = (int)accumulator;</span>
+<span class="nc" id="L277">		accumulator -= deltaMillis;</span>
+
+<span class="nc bnc" id="L279" title="All 2 branches missed.">		if (premultipliedAlpha) {</span>
+<span class="nc" id="L280">			batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">		} else if (additive) {</span>
+<span class="nc" id="L282">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE);</span>
+		} else {
+<span class="nc" id="L284">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+		}
+
+<span class="nc" id="L287">		Particle[] particles = this.particles;</span>
+<span class="nc" id="L288">		boolean[] active = this.active;</span>
+<span class="nc" id="L289">		int activeCount = this.activeCount;</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">			if (active[i]) {</span>
+<span class="nc" id="L292">				Particle particle = particles[i];</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">				if (updateParticle(particle, delta, deltaMillis))</span>
+<span class="nc" id="L294">					particle.draw(batch);</span>
+				else {
+<span class="nc" id="L296">					active[i] = false;</span>
+<span class="nc" id="L297">					activeCount--;</span>
+				}
+			}
+		}
+<span class="nc" id="L301">		this.activeCount = activeCount;</span>
+
+<span class="nc bnc" id="L303" title="All 6 branches missed.">		if (cleansUpBlendFunction &amp;&amp; (additive || premultipliedAlpha))</span>
+<span class="nc" id="L304">			batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);</span>
+
+<span class="nc bnc" id="L306" title="All 2 branches missed.">		if (delayTimer &lt; delay) {</span>
+<span class="nc" id="L307">			delayTimer += deltaMillis;</span>
+<span class="nc" id="L308">			return;</span>
+		}
+
+<span class="nc bnc" id="L311" title="All 2 branches missed.">		if (firstUpdate) {</span>
+<span class="nc" id="L312">			firstUpdate = false;</span>
+<span class="nc" id="L313">			addParticle();</span>
+		}
+
+<span class="nc bnc" id="L316" title="All 2 branches missed.">		if (durationTimer &lt; duration)</span>
+<span class="nc" id="L317">			durationTimer += deltaMillis;</span>
+		else {
+<span class="nc bnc" id="L319" title="All 4 branches missed.">			if (!continuous || allowCompletion) return;</span>
+<span class="nc" id="L320">			restart();</span>
+		}
+
+<span class="nc" id="L323">		emissionDelta += deltaMillis;</span>
+<span class="nc" id="L324">		float emissionTime = emission + emissionDiff * emissionValue.getScale(durationTimer / (float)duration);</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">		if (emissionTime &gt; 0) {</span>
+<span class="nc" id="L326">			emissionTime = 1000 / emissionTime;</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">			if (emissionDelta &gt;= emissionTime) {</span>
+<span class="nc" id="L328">				int emitCount = (int)(emissionDelta / emissionTime);</span>
+<span class="nc" id="L329">				emitCount = Math.min(emitCount, maxParticleCount - activeCount);</span>
+<span class="nc" id="L330">				emissionDelta -= emitCount * emissionTime;</span>
+<span class="nc" id="L331">				emissionDelta %= emissionTime;</span>
+<span class="nc" id="L332">				addParticles(emitCount);</span>
+			}
+		}
+<span class="nc bnc" id="L335" title="All 2 branches missed.">		if (activeCount &lt; minParticleCount) addParticles(minParticleCount - activeCount);</span>
+<span class="nc" id="L336">	}</span>
+
+	public void start () {
+<span class="nc" id="L339">		firstUpdate = true;</span>
+<span class="nc" id="L340">		allowCompletion = false;</span>
+<span class="nc" id="L341">		restart();</span>
+<span class="nc" id="L342">	}</span>
+
+	public void reset () {
+<span class="nc" id="L345">		emissionDelta = 0;</span>
+<span class="nc" id="L346">		durationTimer = duration;</span>
+<span class="nc" id="L347">		boolean[] active = this.active;</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++)</span>
+<span class="nc" id="L349">			active[i] = false;</span>
+<span class="nc" id="L350">		activeCount = 0;</span>
+<span class="nc" id="L351">		start();</span>
+<span class="nc" id="L352">	}</span>
+
+	private void restart () {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">		delay = delayValue.active ? delayValue.newLowValue() : 0;</span>
+<span class="nc" id="L356">		delayTimer = 0;</span>
+
+<span class="nc" id="L358">		durationTimer -= duration;</span>
+<span class="nc" id="L359">		duration = durationValue.newLowValue();</span>
+
+<span class="nc" id="L361">		emission = (int)emissionValue.newLowValue();</span>
+<span class="nc" id="L362">		emissionDiff = (int)emissionValue.newHighValue();</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		if (!emissionValue.isRelative()) emissionDiff -= emission;</span>
+
+<span class="nc bnc" id="L365" title="All 2 branches missed.">		if (!lifeValue.independent) generateLifeValues();</span>
+
+<span class="nc bnc" id="L367" title="All 2 branches missed.">		if (!lifeOffsetValue.independent) generateLifeOffsetValues();</span>
+
+<span class="nc" id="L369">		spawnWidth = spawnWidthValue.newLowValue();</span>
+<span class="nc" id="L370">		spawnWidthDiff = spawnWidthValue.newHighValue();</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">		if (!spawnWidthValue.isRelative()) spawnWidthDiff -= spawnWidth;</span>
+
+<span class="nc" id="L373">		spawnHeight = spawnHeightValue.newLowValue();</span>
+<span class="nc" id="L374">		spawnHeightDiff = spawnHeightValue.newHighValue();</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">		if (!spawnHeightValue.isRelative()) spawnHeightDiff -= spawnHeight;</span>
+
+<span class="nc" id="L377">		updateFlags = 0;</span>
+<span class="nc bnc" id="L378" title="All 4 branches missed.">		if (angleValue.active &amp;&amp; angleValue.timeline.length &gt; 1) updateFlags |= UPDATE_ANGLE;</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">		if (velocityValue.active) updateFlags |= UPDATE_VELOCITY;</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">		if (xScaleValue.timeline.length &gt; 1) updateFlags |= UPDATE_SCALE;</span>
+<span class="nc bnc" id="L381" title="All 4 branches missed.">		if (yScaleValue.active &amp;&amp; yScaleValue.timeline.length &gt; 1) updateFlags |= UPDATE_SCALE;</span>
+<span class="nc bnc" id="L382" title="All 4 branches missed.">		if (rotationValue.active &amp;&amp; rotationValue.timeline.length &gt; 1) updateFlags |= UPDATE_ROTATION;</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">		if (windValue.active) updateFlags |= UPDATE_WIND;</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">		if (gravityValue.active) updateFlags |= UPDATE_GRAVITY;</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">		if (tintValue.timeline.length &gt; 1) updateFlags |= UPDATE_TINT;</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">		if (spriteMode == SpriteMode.animated) updateFlags |= UPDATE_SPRITE;</span>
+<span class="nc" id="L387">	}</span>
+
+	protected Particle newParticle (Sprite sprite) {
+<span class="nc" id="L390">		return new Particle(sprite);</span>
+	}
+
+	protected Particle[] getParticles () {
+<span class="nc" id="L394">		return particles;</span>
+	}
+
+	private void activateParticle (int index) {
+<span class="nc" id="L398">		Sprite sprite = null;</span>
+<span class="nc bnc" id="L399" title="All 3 branches missed.">		switch (spriteMode) {</span>
+		case single:
+		case animated:
+<span class="nc" id="L402">			sprite = sprites.first();</span>
+<span class="nc" id="L403">			break;</span>
+		case random:
+<span class="nc" id="L405">			sprite = sprites.random();</span>
+			break;
+		}
+
+<span class="nc" id="L409">		Particle particle = particles[index];</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">		if (particle == null) {</span>
+<span class="nc" id="L411">			particles[index] = particle = newParticle(sprite);</span>
+<span class="nc" id="L412">			particle.flip(flipX, flipY);</span>
+		} else {
+<span class="nc" id="L414">			particle.set(sprite);</span>
+		}
+
+<span class="nc" id="L417">		float percent = durationTimer / (float)duration;</span>
+<span class="nc" id="L418">		int updateFlags = this.updateFlags;</span>
+
+<span class="nc bnc" id="L420" title="All 2 branches missed.">		if (lifeValue.independent) generateLifeValues();</span>
+
+<span class="nc bnc" id="L422" title="All 2 branches missed.">		if (lifeOffsetValue.independent) generateLifeOffsetValues();</span>
+
+<span class="nc" id="L424">		particle.currentLife = particle.life = life + (int)(lifeDiff * lifeValue.getScale(percent));</span>
+
+<span class="nc bnc" id="L426" title="All 2 branches missed.">		if (velocityValue.active) {</span>
+<span class="nc" id="L427">			particle.velocity = velocityValue.newLowValue();</span>
+<span class="nc" id="L428">			particle.velocityDiff = velocityValue.newHighValue();</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">			if (!velocityValue.isRelative()) particle.velocityDiff -= particle.velocity;</span>
+		}
+
+<span class="nc" id="L432">		particle.angle = angleValue.newLowValue();</span>
+<span class="nc" id="L433">		particle.angleDiff = angleValue.newHighValue();</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">		if (!angleValue.isRelative()) particle.angleDiff -= particle.angle;</span>
+<span class="nc" id="L435">		float angle = 0;</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">		if ((updateFlags &amp; UPDATE_ANGLE) == 0) {</span>
+<span class="nc" id="L437">			angle = particle.angle + particle.angleDiff * angleValue.getScale(0);</span>
+<span class="nc" id="L438">			particle.angle = angle;</span>
+<span class="nc" id="L439">			particle.angleCos = MathUtils.cosDeg(angle);</span>
+<span class="nc" id="L440">			particle.angleSin = MathUtils.sinDeg(angle);</span>
+		}
+
+<span class="nc" id="L443">		float spriteWidth = sprite.getWidth();</span>
+<span class="nc" id="L444">		float spriteHeight = sprite.getHeight();</span>
+
+<span class="nc" id="L446">		particle.xScale = xScaleValue.newLowValue() / spriteWidth;</span>
+<span class="nc" id="L447">		particle.xScaleDiff = xScaleValue.newHighValue() / spriteWidth;</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">		if (!xScaleValue.isRelative()) particle.xScaleDiff -= particle.xScale;</span>
+
+<span class="nc bnc" id="L450" title="All 2 branches missed.">		if (yScaleValue.active) {</span>
+<span class="nc" id="L451">			particle.yScale = yScaleValue.newLowValue() / spriteHeight;</span>
+<span class="nc" id="L452">			particle.yScaleDiff = yScaleValue.newHighValue() / spriteHeight;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">			if (!yScaleValue.isRelative()) particle.yScaleDiff -= particle.yScale;</span>
+<span class="nc" id="L454">			particle.setScale(particle.xScale + particle.xScaleDiff * xScaleValue.getScale(0),</span>
+<span class="nc" id="L455">				particle.yScale + particle.yScaleDiff * yScaleValue.getScale(0));</span>
+		} else {
+<span class="nc" id="L457">			particle.setScale(particle.xScale + particle.xScaleDiff * xScaleValue.getScale(0));</span>
+		}
+
+<span class="nc bnc" id="L460" title="All 2 branches missed.">		if (rotationValue.active) {</span>
+<span class="nc" id="L461">			particle.rotation = rotationValue.newLowValue();</span>
+<span class="nc" id="L462">			particle.rotationDiff = rotationValue.newHighValue();</span>
+<span class="nc bnc" id="L463" title="All 2 branches missed.">			if (!rotationValue.isRelative()) particle.rotationDiff -= particle.rotation;</span>
+<span class="nc" id="L464">			float rotation = particle.rotation + particle.rotationDiff * rotationValue.getScale(0);</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">			if (aligned) rotation += angle;</span>
+<span class="nc" id="L466">			particle.setRotation(rotation);</span>
+		}
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">		if (windValue.active) {</span>
+<span class="nc" id="L470">			particle.wind = windValue.newLowValue();</span>
+<span class="nc" id="L471">			particle.windDiff = windValue.newHighValue();</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">			if (!windValue.isRelative()) particle.windDiff -= particle.wind;</span>
+		}
+
+<span class="nc bnc" id="L475" title="All 2 branches missed.">		if (gravityValue.active) {</span>
+<span class="nc" id="L476">			particle.gravity = gravityValue.newLowValue();</span>
+<span class="nc" id="L477">			particle.gravityDiff = gravityValue.newHighValue();</span>
+<span class="nc bnc" id="L478" title="All 2 branches missed.">			if (!gravityValue.isRelative()) particle.gravityDiff -= particle.gravity;</span>
+		}
+
+<span class="nc" id="L481">		float[] color = particle.tint;</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">		if (color == null) particle.tint = color = new float[3];</span>
+<span class="nc" id="L483">		float[] temp = tintValue.getColor(0);</span>
+<span class="nc" id="L484">		color[0] = temp[0];</span>
+<span class="nc" id="L485">		color[1] = temp[1];</span>
+<span class="nc" id="L486">		color[2] = temp[2];</span>
+
+<span class="nc" id="L488">		particle.transparency = transparencyValue.newLowValue();</span>
+<span class="nc" id="L489">		particle.transparencyDiff = transparencyValue.newHighValue() - particle.transparency;</span>
+
+		// Spawn.
+<span class="nc" id="L492">		float x = this.x;</span>
+<span class="nc bnc" id="L493" title="All 2 branches missed.">		if (xOffsetValue.active) x += xOffsetValue.newLowValue();</span>
+<span class="nc" id="L494">		float y = this.y;</span>
+<span class="nc bnc" id="L495" title="All 2 branches missed.">		if (yOffsetValue.active) y += yOffsetValue.newLowValue();</span>
+<span class="nc bnc" id="L496" title="All 4 branches missed.">		switch (spawnShapeValue.shape) {</span>
+		case square: {
+<span class="nc" id="L498">			float width = spawnWidth + (spawnWidthDiff * spawnWidthValue.getScale(percent));</span>
+<span class="nc" id="L499">			float height = spawnHeight + (spawnHeightDiff * spawnHeightValue.getScale(percent));</span>
+<span class="nc" id="L500">			x += MathUtils.random(width) - width / 2;</span>
+<span class="nc" id="L501">			y += MathUtils.random(height) - height / 2;</span>
+<span class="nc" id="L502">			break;</span>
+		}
+		case ellipse: {
+<span class="nc" id="L505">			float width = spawnWidth + (spawnWidthDiff * spawnWidthValue.getScale(percent));</span>
+<span class="nc" id="L506">			float height = spawnHeight + (spawnHeightDiff * spawnHeightValue.getScale(percent));</span>
+<span class="nc" id="L507">			float radiusX = width / 2;</span>
+<span class="nc" id="L508">			float radiusY = height / 2;</span>
+<span class="nc bnc" id="L509" title="All 4 branches missed.">			if (radiusX == 0 || radiusY == 0) break;</span>
+<span class="nc" id="L510">			float scaleY = radiusX / (float)radiusY;</span>
+<span class="nc bnc" id="L511" title="All 2 branches missed.">			if (spawnShapeValue.edges) {</span>
+				float spawnAngle;
+<span class="nc bnc" id="L513" title="All 3 branches missed.">				switch (spawnShapeValue.side) {</span>
+				case top:
+<span class="nc" id="L515">					spawnAngle = -MathUtils.random(179f);</span>
+<span class="nc" id="L516">					break;</span>
+				case bottom:
+<span class="nc" id="L518">					spawnAngle = MathUtils.random(179f);</span>
+<span class="nc" id="L519">					break;</span>
+				default:
+<span class="nc" id="L521">					spawnAngle = MathUtils.random(360f);</span>
+					break;
+				}
+<span class="nc" id="L524">				float cosDeg = MathUtils.cosDeg(spawnAngle);</span>
+<span class="nc" id="L525">				float sinDeg = MathUtils.sinDeg(spawnAngle);</span>
+<span class="nc" id="L526">				x += cosDeg * radiusX;</span>
+<span class="nc" id="L527">				y += sinDeg * radiusX / scaleY;</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">				if ((updateFlags &amp; UPDATE_ANGLE) == 0) {</span>
+<span class="nc" id="L529">					particle.angle = spawnAngle;</span>
+<span class="nc" id="L530">					particle.angleCos = cosDeg;</span>
+<span class="nc" id="L531">					particle.angleSin = sinDeg;</span>
+				}
+<span class="nc" id="L533">			} else {</span>
+<span class="nc" id="L534">				float radius2 = radiusX * radiusX;</span>
+				while (true) {
+<span class="nc" id="L536">					float px = MathUtils.random(width) - radiusX;</span>
+<span class="nc" id="L537">					float py = MathUtils.random(width) - radiusX;</span>
+<span class="nc bnc" id="L538" title="All 2 branches missed.">					if (px * px + py * py &lt;= radius2) {</span>
+<span class="nc" id="L539">						x += px;</span>
+<span class="nc" id="L540">						y += py / scaleY;</span>
+<span class="nc" id="L541">						break;</span>
+					}
+<span class="nc" id="L543">				}</span>
+			}
+<span class="nc" id="L545">			break;</span>
+		}
+		case line: {
+<span class="nc" id="L548">			float width = spawnWidth + (spawnWidthDiff * spawnWidthValue.getScale(percent));</span>
+<span class="nc" id="L549">			float height = spawnHeight + (spawnHeightDiff * spawnHeightValue.getScale(percent));</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">			if (width != 0) {</span>
+<span class="nc" id="L551">				float lineX = width * MathUtils.random();</span>
+<span class="nc" id="L552">				x += lineX;</span>
+<span class="nc" id="L553">				y += lineX * (height / (float)width);</span>
+<span class="nc" id="L554">			} else</span>
+<span class="nc" id="L555">				y += height * MathUtils.random();</span>
+<span class="nc" id="L556">			break;</span>
+		}
+		}
+
+<span class="nc" id="L560">		particle.setBounds(x - spriteWidth / 2, y - spriteHeight / 2, spriteWidth, spriteHeight);</span>
+
+<span class="nc" id="L562">		int offsetTime = (int)(lifeOffset + lifeOffsetDiff * lifeOffsetValue.getScale(percent));</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">		if (offsetTime &gt; 0) {</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">			if (offsetTime &gt;= particle.currentLife) offsetTime = particle.currentLife - 1;</span>
+<span class="nc" id="L565">			updateParticle(particle, offsetTime / 1000f, offsetTime);</span>
+		}
+<span class="nc" id="L567">	}</span>
+
+	private boolean updateParticle (Particle particle, float delta, int deltaMillis) {
+<span class="nc" id="L570">		int life = particle.currentLife - deltaMillis;</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">		if (life &lt;= 0) return false;</span>
+<span class="nc" id="L572">		particle.currentLife = life;</span>
+
+<span class="nc" id="L574">		float percent = 1 - particle.currentLife / (float)particle.life;</span>
+<span class="nc" id="L575">		int updateFlags = this.updateFlags;</span>
+
+<span class="nc bnc" id="L577" title="All 2 branches missed.">		if ((updateFlags &amp; UPDATE_SCALE) != 0) {</span>
+<span class="nc bnc" id="L578" title="All 2 branches missed.">			if (yScaleValue.active) {</span>
+<span class="nc" id="L579">				particle.setScale(particle.xScale + particle.xScaleDiff * xScaleValue.getScale(percent),</span>
+<span class="nc" id="L580">					particle.yScale + particle.yScaleDiff * yScaleValue.getScale(percent));</span>
+			} else {
+<span class="nc" id="L582">				particle.setScale(particle.xScale + particle.xScaleDiff * xScaleValue.getScale(percent));</span>
+			}
+		}
+
+<span class="nc bnc" id="L586" title="All 2 branches missed.">		if ((updateFlags &amp; UPDATE_VELOCITY) != 0) {</span>
+<span class="nc" id="L587">			float velocity = (particle.velocity + particle.velocityDiff * velocityValue.getScale(percent)) * delta;</span>
+
+			float velocityX, velocityY;
+<span class="nc bnc" id="L590" title="All 2 branches missed.">			if ((updateFlags &amp; UPDATE_ANGLE) != 0) {</span>
+<span class="nc" id="L591">				float angle = particle.angle + particle.angleDiff * angleValue.getScale(percent);</span>
+<span class="nc" id="L592">				velocityX = velocity * MathUtils.cosDeg(angle);</span>
+<span class="nc" id="L593">				velocityY = velocity * MathUtils.sinDeg(angle);</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">				if ((updateFlags &amp; UPDATE_ROTATION) != 0) {</span>
+<span class="nc" id="L595">					float rotation = particle.rotation + particle.rotationDiff * rotationValue.getScale(percent);</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">					if (aligned) rotation += angle;</span>
+<span class="nc" id="L597">					particle.setRotation(rotation);</span>
+				}
+<span class="nc" id="L599">			} else {</span>
+<span class="nc" id="L600">				velocityX = velocity * particle.angleCos;</span>
+<span class="nc" id="L601">				velocityY = velocity * particle.angleSin;</span>
+<span class="nc bnc" id="L602" title="All 4 branches missed.">				if (aligned || (updateFlags &amp; UPDATE_ROTATION) != 0) {</span>
+<span class="nc" id="L603">					float rotation = particle.rotation + particle.rotationDiff * rotationValue.getScale(percent);</span>
+<span class="nc bnc" id="L604" title="All 2 branches missed.">					if (aligned) rotation += particle.angle;</span>
+<span class="nc" id="L605">					particle.setRotation(rotation);</span>
+				}
+			}
+
+<span class="nc bnc" id="L609" title="All 2 branches missed.">			if ((updateFlags &amp; UPDATE_WIND) != 0)</span>
+<span class="nc" id="L610">				velocityX += (particle.wind + particle.windDiff * windValue.getScale(percent)) * delta;</span>
+
+<span class="nc bnc" id="L612" title="All 2 branches missed.">			if ((updateFlags &amp; UPDATE_GRAVITY) != 0)</span>
+<span class="nc" id="L613">				velocityY += (particle.gravity + particle.gravityDiff * gravityValue.getScale(percent)) * delta;</span>
+
+<span class="nc" id="L615">			particle.translate(velocityX, velocityY);</span>
+<span class="nc" id="L616">		} else {</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">			if ((updateFlags &amp; UPDATE_ROTATION) != 0)</span>
+<span class="nc" id="L618">				particle.setRotation(particle.rotation + particle.rotationDiff * rotationValue.getScale(percent));</span>
+		}
+
+		float[] color;
+<span class="nc bnc" id="L622" title="All 2 branches missed.">		if ((updateFlags &amp; UPDATE_TINT) != 0)</span>
+<span class="nc" id="L623">			color = tintValue.getColor(percent);</span>
+		else
+<span class="nc" id="L625">			color = particle.tint;</span>
+
+<span class="nc bnc" id="L627" title="All 2 branches missed.">		if (premultipliedAlpha) {</span>
+<span class="nc bnc" id="L628" title="All 2 branches missed.">			float alphaMultiplier = additive ? 0 : 1;</span>
+<span class="nc" id="L629">			float a = particle.transparency + particle.transparencyDiff * transparencyValue.getScale(percent);</span>
+<span class="nc" id="L630">			particle.setColor(color[0] * a, color[1] * a, color[2] * a, a * alphaMultiplier);</span>
+<span class="nc" id="L631">		} else {</span>
+<span class="nc" id="L632">			particle.setColor(color[0], color[1], color[2],</span>
+<span class="nc" id="L633">				particle.transparency + particle.transparencyDiff * transparencyValue.getScale(percent));</span>
+		}
+
+<span class="nc bnc" id="L636" title="All 2 branches missed.">		if ((updateFlags &amp; UPDATE_SPRITE) != 0) {</span>
+<span class="nc" id="L637">			int frame = Math.min((int)(percent * sprites.size), sprites.size - 1);</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">			if (particle.frame != frame) {</span>
+<span class="nc" id="L639">				Sprite sprite = sprites.get(frame);</span>
+<span class="nc" id="L640">				float prevSpriteWidth = particle.getWidth();</span>
+<span class="nc" id="L641">				float prevSpriteHeight = particle.getHeight();</span>
+<span class="nc" id="L642">				particle.setRegion(sprite);</span>
+<span class="nc" id="L643">				particle.setSize(sprite.getWidth(), sprite.getHeight());</span>
+<span class="nc" id="L644">				particle.setOrigin(sprite.getOriginX(), sprite.getOriginY());</span>
+<span class="nc" id="L645">				particle.translate((prevSpriteWidth - sprite.getWidth()) / 2, (prevSpriteHeight - sprite.getHeight()) / 2);</span>
+<span class="nc" id="L646">				particle.frame = frame;</span>
+			}
+		}
+
+<span class="nc" id="L650">		return true;</span>
+	}
+
+	private void generateLifeValues () {
+<span class="nc" id="L654">		life = (int)lifeValue.newLowValue();</span>
+<span class="nc" id="L655">		lifeDiff = (int)lifeValue.newHighValue();</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">		if (!lifeValue.isRelative()) lifeDiff -= life;</span>
+<span class="nc" id="L657">	}</span>
+
+	private void generateLifeOffsetValues () {
+<span class="nc bnc" id="L660" title="All 2 branches missed.">		lifeOffset = lifeOffsetValue.active ? (int)lifeOffsetValue.newLowValue() : 0;</span>
+<span class="nc" id="L661">		lifeOffsetDiff = (int)lifeOffsetValue.newHighValue();</span>
+<span class="nc bnc" id="L662" title="All 2 branches missed.">		if (!lifeOffsetValue.isRelative()) lifeOffsetDiff -= lifeOffset;</span>
+<span class="nc" id="L663">	}</span>
+
+	public void setPosition (float x, float y) {
+<span class="nc bnc" id="L666" title="All 2 branches missed.">		if (attached) {</span>
+<span class="nc" id="L667">			float xAmount = x - this.x;</span>
+<span class="nc" id="L668">			float yAmount = y - this.y;</span>
+<span class="nc" id="L669">			boolean[] active = this.active;</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">			for (int i = 0, n = active.length; i &lt; n; i++)</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">				if (active[i]) particles[i].translate(xAmount, yAmount);</span>
+		}
+<span class="nc" id="L673">		this.x = x;</span>
+<span class="nc" id="L674">		this.y = y;</span>
+<span class="nc" id="L675">	}</span>
+
+	public void setSprites (Array&lt;Sprite&gt; sprites) {
+<span class="nc" id="L678">		this.sprites = sprites;</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">		if (sprites.size == 0) return;</span>
+<span class="nc bnc" id="L680" title="All 2 branches missed.">		for (int i = 0, n = particles.length; i &lt; n; i++) {</span>
+<span class="nc" id="L681">			Particle particle = particles[i];</span>
+<span class="nc bnc" id="L682" title="All 2 branches missed.">			if (particle == null) break;</span>
+<span class="nc" id="L683">			Sprite sprite = null;</span>
+<span class="nc bnc" id="L684" title="All 4 branches missed.">			switch (spriteMode) {</span>
+			case single:
+<span class="nc" id="L686">				sprite = sprites.first();</span>
+<span class="nc" id="L687">				break;</span>
+			case random:
+<span class="nc" id="L689">				sprite = sprites.random();</span>
+<span class="nc" id="L690">				break;</span>
+			case animated:
+<span class="nc" id="L692">				float percent = 1 - particle.currentLife / (float)particle.life;</span>
+<span class="nc" id="L693">				particle.frame = Math.min((int)(percent * sprites.size), sprites.size - 1);</span>
+<span class="nc" id="L694">				sprite = sprites.get(particle.frame);</span>
+				break;
+			}
+<span class="nc" id="L697">			particle.setRegion(sprite);</span>
+<span class="nc" id="L698">			particle.setOrigin(sprite.getOriginX(), sprite.getOriginY());</span>
+		}
+<span class="nc" id="L700">	}</span>
+
+	public void setSpriteMode (SpriteMode spriteMode) {
+<span class="nc" id="L703">		this.spriteMode = spriteMode;</span>
+<span class="nc" id="L704">	}</span>
+
+	/** Ignores the {@link #setContinuous(boolean) continuous} setting until the emitter is started again. This allows the emitter
+	 * to stop smoothly. */
+	public void allowCompletion () {
+<span class="nc" id="L709">		allowCompletion = true;</span>
+<span class="nc" id="L710">		durationTimer = duration;</span>
+<span class="nc" id="L711">	}</span>
+
+	public Array&lt;Sprite&gt; getSprites () {
+<span class="nc" id="L714">		return sprites;</span>
+	}
+
+	public SpriteMode getSpriteMode () {
+<span class="nc" id="L718">		return spriteMode;</span>
+	}
+
+	public String getName () {
+<span class="nc" id="L722">		return name;</span>
+	}
+
+	public void setName (String name) {
+<span class="nc" id="L726">		this.name = name;</span>
+<span class="nc" id="L727">	}</span>
+
+	public ScaledNumericValue getLife () {
+<span class="nc" id="L730">		return lifeValue;</span>
+	}
+
+	public ScaledNumericValue getXScale () {
+<span class="nc" id="L734">		return xScaleValue;</span>
+	}
+
+	public ScaledNumericValue getYScale () {
+<span class="nc" id="L738">		return yScaleValue;</span>
+	}
+
+	public ScaledNumericValue getRotation () {
+<span class="nc" id="L742">		return rotationValue;</span>
+	}
+
+	public GradientColorValue getTint () {
+<span class="nc" id="L746">		return tintValue;</span>
+	}
+
+	public ScaledNumericValue getVelocity () {
+<span class="nc" id="L750">		return velocityValue;</span>
+	}
+
+	public ScaledNumericValue getWind () {
+<span class="nc" id="L754">		return windValue;</span>
+	}
+
+	public ScaledNumericValue getGravity () {
+<span class="nc" id="L758">		return gravityValue;</span>
+	}
+
+	public ScaledNumericValue getAngle () {
+<span class="nc" id="L762">		return angleValue;</span>
+	}
+
+	public ScaledNumericValue getEmission () {
+<span class="nc" id="L766">		return emissionValue;</span>
+	}
+
+	public ScaledNumericValue getTransparency () {
+<span class="nc" id="L770">		return transparencyValue;</span>
+	}
+
+	public RangedNumericValue getDuration () {
+<span class="nc" id="L774">		return durationValue;</span>
+	}
+
+	public RangedNumericValue getDelay () {
+<span class="nc" id="L778">		return delayValue;</span>
+	}
+
+	public ScaledNumericValue getLifeOffset () {
+<span class="nc" id="L782">		return lifeOffsetValue;</span>
+	}
+
+	public RangedNumericValue getXOffsetValue () {
+<span class="nc" id="L786">		return xOffsetValue;</span>
+	}
+
+	public RangedNumericValue getYOffsetValue () {
+<span class="nc" id="L790">		return yOffsetValue;</span>
+	}
+
+	public ScaledNumericValue getSpawnWidth () {
+<span class="nc" id="L794">		return spawnWidthValue;</span>
+	}
+
+	public ScaledNumericValue getSpawnHeight () {
+<span class="nc" id="L798">		return spawnHeightValue;</span>
+	}
+
+	public SpawnShapeValue getSpawnShape () {
+<span class="nc" id="L802">		return spawnShapeValue;</span>
+	}
+
+	public boolean isAttached () {
+<span class="nc" id="L806">		return attached;</span>
+	}
+
+	public void setAttached (boolean attached) {
+<span class="nc" id="L810">		this.attached = attached;</span>
+<span class="nc" id="L811">	}</span>
+
+	public boolean isContinuous () {
+<span class="nc" id="L814">		return continuous;</span>
+	}
+
+	public void setContinuous (boolean continuous) {
+<span class="nc" id="L818">		this.continuous = continuous;</span>
+<span class="nc" id="L819">	}</span>
+
+	public boolean isAligned () {
+<span class="nc" id="L822">		return aligned;</span>
+	}
+
+	public void setAligned (boolean aligned) {
+<span class="nc" id="L826">		this.aligned = aligned;</span>
+<span class="nc" id="L827">	}</span>
+
+	public boolean isAdditive () {
+<span class="nc" id="L830">		return additive;</span>
+	}
+
+	public void setAdditive (boolean additive) {
+<span class="nc" id="L834">		this.additive = additive;</span>
+<span class="nc" id="L835">	}</span>
+
+	/** @return Whether this ParticleEmitter automatically returns the {@link com.badlogic.gdx.graphics.g2d.Batch Batch}'s blend
+	 *         function to the alpha-blending default (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) when done drawing. */
+	public boolean cleansUpBlendFunction () {
+<span class="nc" id="L840">		return cleansUpBlendFunction;</span>
+	}
+
+	/** Set whether to automatically return the {@link com.badlogic.gdx.graphics.g2d.Batch Batch}'s blend function to the
+	 * alpha-blending default (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) when done drawing. Is true by default. If set to false, the
+	 * Batch's blend function is left as it was for drawing this ParticleEmitter, which prevents the Batch from being flushed
+	 * repeatedly if consecutive ParticleEmitters with the same additive or pre-multiplied alpha state are drawn in a row.
+	 * &lt;p&gt;
+	 * IMPORTANT: If set to false and if the next object to use this Batch expects alpha blending, you are responsible for setting
+	 * the Batch's blend function to (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) before that next object is drawn.
+	 * @param cleansUpBlendFunction */
+	public void setCleansUpBlendFunction (boolean cleansUpBlendFunction) {
+<span class="nc" id="L852">		this.cleansUpBlendFunction = cleansUpBlendFunction;</span>
+<span class="nc" id="L853">	}</span>
+
+	public boolean isBehind () {
+<span class="nc" id="L856">		return behind;</span>
+	}
+
+	public void setBehind (boolean behind) {
+<span class="nc" id="L860">		this.behind = behind;</span>
+<span class="nc" id="L861">	}</span>
+
+	public boolean isPremultipliedAlpha () {
+<span class="nc" id="L864">		return premultipliedAlpha;</span>
+	}
+
+	public void setPremultipliedAlpha (boolean premultipliedAlpha) {
+<span class="nc" id="L868">		this.premultipliedAlpha = premultipliedAlpha;</span>
+<span class="nc" id="L869">	}</span>
+
+	public int getMinParticleCount () {
+<span class="nc" id="L872">		return minParticleCount;</span>
+	}
+
+	public void setMinParticleCount (int minParticleCount) {
+<span class="nc" id="L876">		this.minParticleCount = minParticleCount;</span>
+<span class="nc" id="L877">	}</span>
+
+	public int getMaxParticleCount () {
+<span class="nc" id="L880">		return maxParticleCount;</span>
+	}
+
+	public boolean isComplete () {
+<span class="nc bnc" id="L884" title="All 4 branches missed.">		if (continuous &amp;&amp; !allowCompletion) return false;</span>
+<span class="nc bnc" id="L885" title="All 2 branches missed.">		if (delayTimer &lt; delay) return false;</span>
+<span class="nc bnc" id="L886" title="All 4 branches missed.">		return durationTimer &gt;= duration &amp;&amp; activeCount == 0;</span>
+	}
+
+	public float getPercentComplete () {
+<span class="nc bnc" id="L890" title="All 2 branches missed.">		if (delayTimer &lt; delay) return 0;</span>
+<span class="nc" id="L891">		return Math.min(1, durationTimer / (float)duration);</span>
+	}
+
+	public float getX () {
+<span class="nc" id="L895">		return x;</span>
+	}
+
+	public float getY () {
+<span class="nc" id="L899">		return y;</span>
+	}
+
+	public int getActiveCount () {
+<span class="nc" id="L903">		return activeCount;</span>
+	}
+
+	public Array&lt;String&gt; getImagePaths () {
+<span class="nc" id="L907">		return imagePaths;</span>
+	}
+
+	public void setImagePaths (Array&lt;String&gt; imagePaths) {
+<span class="nc" id="L911">		this.imagePaths = imagePaths;</span>
+<span class="nc" id="L912">	}</span>
+
+	public void setFlip (boolean flipX, boolean flipY) {
+<span class="nc" id="L915">		this.flipX = flipX;</span>
+<span class="nc" id="L916">		this.flipY = flipY;</span>
+<span class="nc bnc" id="L917" title="All 2 branches missed.">		if (particles == null) return;</span>
+<span class="nc bnc" id="L918" title="All 2 branches missed.">		for (int i = 0, n = particles.length; i &lt; n; i++) {</span>
+<span class="nc" id="L919">			Particle particle = particles[i];</span>
+<span class="nc bnc" id="L920" title="All 2 branches missed.">			if (particle != null) particle.flip(flipX, flipY);</span>
+		}
+<span class="nc" id="L922">	}</span>
+
+	public void flipY () {
+<span class="nc" id="L925">		angleValue.setHigh(-angleValue.getHighMin(), -angleValue.getHighMax());</span>
+<span class="nc" id="L926">		angleValue.setLow(-angleValue.getLowMin(), -angleValue.getLowMax());</span>
+
+<span class="nc" id="L928">		gravityValue.setHigh(-gravityValue.getHighMin(), -gravityValue.getHighMax());</span>
+<span class="nc" id="L929">		gravityValue.setLow(-gravityValue.getLowMin(), -gravityValue.getLowMax());</span>
+
+<span class="nc" id="L931">		windValue.setHigh(-windValue.getHighMin(), -windValue.getHighMax());</span>
+<span class="nc" id="L932">		windValue.setLow(-windValue.getLowMin(), -windValue.getLowMax());</span>
+
+<span class="nc" id="L934">		rotationValue.setHigh(-rotationValue.getHighMin(), -rotationValue.getHighMax());</span>
+<span class="nc" id="L935">		rotationValue.setLow(-rotationValue.getLowMin(), -rotationValue.getLowMax());</span>
+
+<span class="nc" id="L937">		yOffsetValue.setLow(-yOffsetValue.getLowMin(), -yOffsetValue.getLowMax());</span>
+<span class="nc" id="L938">	}</span>
+
+	/** Returns the bounding box for all active particles. z axis will always be zero. */
+	public BoundingBox getBoundingBox () {
+<span class="nc bnc" id="L942" title="All 2 branches missed.">		if (bounds == null) bounds = new BoundingBox();</span>
+
+<span class="nc" id="L944">		Particle[] particles = this.particles;</span>
+<span class="nc" id="L945">		boolean[] active = this.active;</span>
+<span class="nc" id="L946">		BoundingBox bounds = this.bounds;</span>
+
+<span class="nc" id="L948">		bounds.inf();</span>
+<span class="nc bnc" id="L949" title="All 2 branches missed.">		for (int i = 0, n = active.length; i &lt; n; i++)</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">			if (active[i]) {</span>
+<span class="nc" id="L951">				Rectangle r = particles[i].getBoundingRectangle();</span>
+<span class="nc" id="L952">				bounds.ext(r.x, r.y, 0);</span>
+<span class="nc" id="L953">				bounds.ext(r.x + r.width, r.y + r.height, 0);</span>
+			}
+
+<span class="nc" id="L956">		return bounds;</span>
+	}
+
+	protected RangedNumericValue[] getXSizeValues () {
+<span class="nc bnc" id="L960" title="All 2 branches missed.">		if (xSizeValues == null) {</span>
+<span class="nc" id="L961">			xSizeValues = new RangedNumericValue[3];</span>
+<span class="nc" id="L962">			xSizeValues[0] = xScaleValue;</span>
+<span class="nc" id="L963">			xSizeValues[1] = spawnWidthValue;</span>
+<span class="nc" id="L964">			xSizeValues[2] = xOffsetValue;</span>
+		}
+<span class="nc" id="L966">		return xSizeValues;</span>
+	}
+
+	protected RangedNumericValue[] getYSizeValues () {
+<span class="nc bnc" id="L970" title="All 2 branches missed.">		if (ySizeValues == null) {</span>
+<span class="nc" id="L971">			ySizeValues = new RangedNumericValue[3];</span>
+<span class="nc" id="L972">			ySizeValues[0] = yScaleValue;</span>
+<span class="nc" id="L973">			ySizeValues[1] = spawnHeightValue;</span>
+<span class="nc" id="L974">			ySizeValues[2] = yOffsetValue;</span>
+		}
+<span class="nc" id="L976">		return ySizeValues;</span>
+	}
+
+	protected RangedNumericValue[] getMotionValues () {
+<span class="nc bnc" id="L980" title="All 2 branches missed.">		if (motionValues == null) {</span>
+<span class="nc" id="L981">			motionValues = new RangedNumericValue[3];</span>
+<span class="nc" id="L982">			motionValues[0] = velocityValue;</span>
+<span class="nc" id="L983">			motionValues[1] = windValue;</span>
+<span class="nc" id="L984">			motionValues[2] = gravityValue;</span>
+		}
+<span class="nc" id="L986">		return motionValues;</span>
+	}
+
+	/** Permanently scales the size of the emitter by scaling all its ranged values related to size. */
+	public void scaleSize (float scale) {
+<span class="nc bnc" id="L991" title="All 2 branches missed.">		if (scale == 1f) return;</span>
+<span class="nc" id="L992">		scaleSize(scale, scale);</span>
+<span class="nc" id="L993">	}</span>
+
+	/** Permanently scales the size of the emitter by scaling all its ranged values related to size. */
+	public void scaleSize (float scaleX, float scaleY) {
+<span class="nc bnc" id="L997" title="All 4 branches missed.">		if (scaleX == 1f &amp;&amp; scaleY == 1f) return;</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">		for (RangedNumericValue value : getXSizeValues())</span>
+<span class="nc" id="L999">			value.scale(scaleX);</span>
+<span class="nc bnc" id="L1000" title="All 2 branches missed.">		for (RangedNumericValue value : getYSizeValues())</span>
+<span class="nc" id="L1001">			value.scale(scaleY);</span>
+<span class="nc" id="L1002">	}</span>
+
+	/** Permanently scales the speed of the emitter by scaling all its ranged values related to motion. */
+	public void scaleMotion (float scale) {
+<span class="nc bnc" id="L1006" title="All 2 branches missed.">		if (scale == 1f) return;</span>
+<span class="nc bnc" id="L1007" title="All 2 branches missed.">		for (RangedNumericValue value : getMotionValues())</span>
+<span class="nc" id="L1008">			value.scale(scale);</span>
+<span class="nc" id="L1009">	}</span>
+
+	/** Sets all size-related ranged values to match those of the template emitter. */
+	public void matchSize (ParticleEmitter template) {
+<span class="nc" id="L1013">		matchXSize(template);</span>
+<span class="nc" id="L1014">		matchYSize(template);</span>
+<span class="nc" id="L1015">	}</span>
+
+	/** Sets all horizontal size-related ranged values to match those of the template emitter. */
+	public void matchXSize (ParticleEmitter template) {
+<span class="nc" id="L1019">		RangedNumericValue[] values = getXSizeValues();</span>
+<span class="nc" id="L1020">		RangedNumericValue[] templateValues = template.getXSizeValues();</span>
+<span class="nc bnc" id="L1021" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc" id="L1022">			values[i].set(templateValues[i]);</span>
+		}
+<span class="nc" id="L1024">	}</span>
+
+	/** Sets all vertical size-related ranged values to match those of the template emitter. */
+	public void matchYSize (ParticleEmitter template) {
+<span class="nc" id="L1028">		RangedNumericValue[] values = getYSizeValues();</span>
+<span class="nc" id="L1029">		RangedNumericValue[] templateValues = template.getYSizeValues();</span>
+<span class="nc bnc" id="L1030" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc" id="L1031">			values[i].set(templateValues[i]);</span>
+		}
+<span class="nc" id="L1033">	}</span>
+
+	/** Sets all motion-related ranged values to match those of the template emitter. */
+	public void matchMotion (ParticleEmitter template) {
+<span class="nc" id="L1037">		RangedNumericValue[] values = getMotionValues();</span>
+<span class="nc" id="L1038">		RangedNumericValue[] templateValues = template.getMotionValues();</span>
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc" id="L1040">			values[i].set(templateValues[i]);</span>
+		}
+<span class="nc" id="L1042">	}</span>
+
+	public void save (Writer output) throws IOException {
+<span class="nc" id="L1045">		output.write(name + &quot;\n&quot;);</span>
+<span class="nc" id="L1046">		output.write(&quot;- Delay -\n&quot;);</span>
+<span class="nc" id="L1047">		delayValue.save(output);</span>
+<span class="nc" id="L1048">		output.write(&quot;- Duration - \n&quot;);</span>
+<span class="nc" id="L1049">		durationValue.save(output);</span>
+<span class="nc" id="L1050">		output.write(&quot;- Count - \n&quot;);</span>
+<span class="nc" id="L1051">		output.write(&quot;min: &quot; + minParticleCount + &quot;\n&quot;);</span>
+<span class="nc" id="L1052">		output.write(&quot;max: &quot; + maxParticleCount + &quot;\n&quot;);</span>
+<span class="nc" id="L1053">		output.write(&quot;- Emission - \n&quot;);</span>
+<span class="nc" id="L1054">		emissionValue.save(output);</span>
+<span class="nc" id="L1055">		output.write(&quot;- Life - \n&quot;);</span>
+<span class="nc" id="L1056">		lifeValue.save(output);</span>
+<span class="nc" id="L1057">		output.write(&quot;- Life Offset - \n&quot;);</span>
+<span class="nc" id="L1058">		lifeOffsetValue.save(output);</span>
+<span class="nc" id="L1059">		output.write(&quot;- X Offset - \n&quot;);</span>
+<span class="nc" id="L1060">		xOffsetValue.save(output);</span>
+<span class="nc" id="L1061">		output.write(&quot;- Y Offset - \n&quot;);</span>
+<span class="nc" id="L1062">		yOffsetValue.save(output);</span>
+<span class="nc" id="L1063">		output.write(&quot;- Spawn Shape - \n&quot;);</span>
+<span class="nc" id="L1064">		spawnShapeValue.save(output);</span>
+<span class="nc" id="L1065">		output.write(&quot;- Spawn Width - \n&quot;);</span>
+<span class="nc" id="L1066">		spawnWidthValue.save(output);</span>
+<span class="nc" id="L1067">		output.write(&quot;- Spawn Height - \n&quot;);</span>
+<span class="nc" id="L1068">		spawnHeightValue.save(output);</span>
+<span class="nc" id="L1069">		output.write(&quot;- X Scale - \n&quot;);</span>
+<span class="nc" id="L1070">		xScaleValue.save(output);</span>
+<span class="nc" id="L1071">		output.write(&quot;- Y Scale - \n&quot;);</span>
+<span class="nc" id="L1072">		yScaleValue.save(output);</span>
+<span class="nc" id="L1073">		output.write(&quot;- Velocity - \n&quot;);</span>
+<span class="nc" id="L1074">		velocityValue.save(output);</span>
+<span class="nc" id="L1075">		output.write(&quot;- Angle - \n&quot;);</span>
+<span class="nc" id="L1076">		angleValue.save(output);</span>
+<span class="nc" id="L1077">		output.write(&quot;- Rotation - \n&quot;);</span>
+<span class="nc" id="L1078">		rotationValue.save(output);</span>
+<span class="nc" id="L1079">		output.write(&quot;- Wind - \n&quot;);</span>
+<span class="nc" id="L1080">		windValue.save(output);</span>
+<span class="nc" id="L1081">		output.write(&quot;- Gravity - \n&quot;);</span>
+<span class="nc" id="L1082">		gravityValue.save(output);</span>
+<span class="nc" id="L1083">		output.write(&quot;- Tint - \n&quot;);</span>
+<span class="nc" id="L1084">		tintValue.save(output);</span>
+<span class="nc" id="L1085">		output.write(&quot;- Transparency - \n&quot;);</span>
+<span class="nc" id="L1086">		transparencyValue.save(output);</span>
+<span class="nc" id="L1087">		output.write(&quot;- Options - \n&quot;);</span>
+<span class="nc" id="L1088">		output.write(&quot;attached: &quot; + attached + &quot;\n&quot;);</span>
+<span class="nc" id="L1089">		output.write(&quot;continuous: &quot; + continuous + &quot;\n&quot;);</span>
+<span class="nc" id="L1090">		output.write(&quot;aligned: &quot; + aligned + &quot;\n&quot;);</span>
+<span class="nc" id="L1091">		output.write(&quot;additive: &quot; + additive + &quot;\n&quot;);</span>
+<span class="nc" id="L1092">		output.write(&quot;behind: &quot; + behind + &quot;\n&quot;);</span>
+<span class="nc" id="L1093">		output.write(&quot;premultipliedAlpha: &quot; + premultipliedAlpha + &quot;\n&quot;);</span>
+<span class="nc" id="L1094">		output.write(&quot;spriteMode: &quot; + spriteMode.toString() + &quot;\n&quot;);</span>
+<span class="nc" id="L1095">		output.write(&quot;- Image Paths -\n&quot;);</span>
+<span class="nc bnc" id="L1096" title="All 2 branches missed.">		for (String imagePath : imagePaths) {</span>
+<span class="nc" id="L1097">			output.write(imagePath + &quot;\n&quot;);</span>
+<span class="nc" id="L1098">		}</span>
+<span class="nc" id="L1099">		output.write(&quot;\n&quot;);</span>
+<span class="nc" id="L1100">	}</span>
+
+	public void load (BufferedReader reader) throws IOException {
+		try {
+<span class="nc" id="L1104">			name = readString(reader, &quot;name&quot;);</span>
+<span class="nc" id="L1105">			reader.readLine();</span>
+<span class="nc" id="L1106">			delayValue.load(reader);</span>
+<span class="nc" id="L1107">			reader.readLine();</span>
+<span class="nc" id="L1108">			durationValue.load(reader);</span>
+<span class="nc" id="L1109">			reader.readLine();</span>
+<span class="nc" id="L1110">			setMinParticleCount(readInt(reader, &quot;minParticleCount&quot;));</span>
+<span class="nc" id="L1111">			setMaxParticleCount(readInt(reader, &quot;maxParticleCount&quot;));</span>
+<span class="nc" id="L1112">			reader.readLine();</span>
+<span class="nc" id="L1113">			emissionValue.load(reader);</span>
+<span class="nc" id="L1114">			reader.readLine();</span>
+<span class="nc" id="L1115">			lifeValue.load(reader);</span>
+<span class="nc" id="L1116">			reader.readLine();</span>
+<span class="nc" id="L1117">			lifeOffsetValue.load(reader);</span>
+<span class="nc" id="L1118">			reader.readLine();</span>
+<span class="nc" id="L1119">			xOffsetValue.load(reader);</span>
+<span class="nc" id="L1120">			reader.readLine();</span>
+<span class="nc" id="L1121">			yOffsetValue.load(reader);</span>
+<span class="nc" id="L1122">			reader.readLine();</span>
+<span class="nc" id="L1123">			spawnShapeValue.load(reader);</span>
+<span class="nc" id="L1124">			reader.readLine();</span>
+<span class="nc" id="L1125">			spawnWidthValue.load(reader);</span>
+<span class="nc" id="L1126">			reader.readLine();</span>
+<span class="nc" id="L1127">			spawnHeightValue.load(reader);</span>
+<span class="nc" id="L1128">			String line = reader.readLine();</span>
+<span class="nc bnc" id="L1129" title="All 2 branches missed.">			if (line.trim().equals(&quot;- Scale -&quot;)) {</span>
+<span class="nc" id="L1130">				xScaleValue.load(reader);</span>
+<span class="nc" id="L1131">				yScaleValue.setActive(false);</span>
+			} else {
+<span class="nc" id="L1133">				xScaleValue.load(reader);</span>
+<span class="nc" id="L1134">				reader.readLine();</span>
+<span class="nc" id="L1135">				yScaleValue.load(reader);</span>
+			}
+<span class="nc" id="L1137">			reader.readLine();</span>
+<span class="nc" id="L1138">			velocityValue.load(reader);</span>
+<span class="nc" id="L1139">			reader.readLine();</span>
+<span class="nc" id="L1140">			angleValue.load(reader);</span>
+<span class="nc" id="L1141">			reader.readLine();</span>
+<span class="nc" id="L1142">			rotationValue.load(reader);</span>
+<span class="nc" id="L1143">			reader.readLine();</span>
+<span class="nc" id="L1144">			windValue.load(reader);</span>
+<span class="nc" id="L1145">			reader.readLine();</span>
+<span class="nc" id="L1146">			gravityValue.load(reader);</span>
+<span class="nc" id="L1147">			reader.readLine();</span>
+<span class="nc" id="L1148">			tintValue.load(reader);</span>
+<span class="nc" id="L1149">			reader.readLine();</span>
+<span class="nc" id="L1150">			transparencyValue.load(reader);</span>
+<span class="nc" id="L1151">			reader.readLine();</span>
+<span class="nc" id="L1152">			attached = readBoolean(reader, &quot;attached&quot;);</span>
+<span class="nc" id="L1153">			continuous = readBoolean(reader, &quot;continuous&quot;);</span>
+<span class="nc" id="L1154">			aligned = readBoolean(reader, &quot;aligned&quot;);</span>
+<span class="nc" id="L1155">			additive = readBoolean(reader, &quot;additive&quot;);</span>
+<span class="nc" id="L1156">			behind = readBoolean(reader, &quot;behind&quot;);</span>
+
+			// Backwards compatibility
+<span class="nc" id="L1159">			line = reader.readLine();</span>
+<span class="nc bnc" id="L1160" title="All 2 branches missed.">			if (line.startsWith(&quot;premultipliedAlpha&quot;)) {</span>
+<span class="nc" id="L1161">				premultipliedAlpha = readBoolean(line);</span>
+<span class="nc" id="L1162">				line = reader.readLine();</span>
+			}
+<span class="nc bnc" id="L1164" title="All 2 branches missed.">			if (line.startsWith(&quot;spriteMode&quot;)) {</span>
+<span class="nc" id="L1165">				spriteMode = SpriteMode.valueOf(readString(line));</span>
+<span class="nc" id="L1166">				line = reader.readLine();</span>
+			}
+
+<span class="nc" id="L1169">			Array&lt;String&gt; imagePaths = new Array&lt;String&gt;();</span>
+<span class="nc bnc" id="L1170" title="All 4 branches missed.">			while ((line = reader.readLine()) != null &amp;&amp; !line.isEmpty()) {</span>
+<span class="nc" id="L1171">				imagePaths.add(line);</span>
+			}
+<span class="nc" id="L1173">			setImagePaths(imagePaths);</span>
+<span class="nc" id="L1174">		} catch (RuntimeException ex) {</span>
+<span class="nc bnc" id="L1175" title="All 2 branches missed.">			if (name == null) throw ex;</span>
+<span class="nc" id="L1176">			throw new RuntimeException(&quot;Error parsing emitter: &quot; + name, ex);</span>
+<span class="nc" id="L1177">		}</span>
+<span class="nc" id="L1178">	}</span>
+
+	static String readString (String line) throws IOException {
+<span class="nc" id="L1181">		return line.substring(line.indexOf(&quot;:&quot;) + 1).trim();</span>
+	}
+
+	static String readString (BufferedReader reader, String name) throws IOException {
+<span class="nc" id="L1185">		String line = reader.readLine();</span>
+<span class="nc bnc" id="L1186" title="All 2 branches missed.">		if (line == null) throw new IOException(&quot;Missing value: &quot; + name);</span>
+<span class="nc" id="L1187">		return readString(line);</span>
+	}
+
+	static boolean readBoolean (String line) throws IOException {
+<span class="nc" id="L1191">		return Boolean.parseBoolean(readString(line));</span>
+	}
+
+	static boolean readBoolean (BufferedReader reader, String name) throws IOException {
+<span class="nc" id="L1195">		return Boolean.parseBoolean(readString(reader, name));</span>
+	}
+
+	static int readInt (BufferedReader reader, String name) throws IOException {
+<span class="nc" id="L1199">		return Integer.parseInt(readString(reader, name));</span>
+	}
+
+	static float readFloat (BufferedReader reader, String name) throws IOException {
+<span class="nc" id="L1203">		return Float.parseFloat(readString(reader, name));</span>
+	}
+
+	public static class Particle extends Sprite {
+		protected int life, currentLife;
+		protected float xScale, xScaleDiff;
+		protected float yScale, yScaleDiff;
+		protected float rotation, rotationDiff;
+		protected float velocity, velocityDiff;
+		protected float angle, angleDiff;
+		protected float angleCos, angleSin;
+		protected float transparency, transparencyDiff;
+		protected float wind, windDiff;
+		protected float gravity, gravityDiff;
+		protected float[] tint;
+		protected int frame;
+
+		public Particle (Sprite sprite) {
+<span class="nc" id="L1221">			super(sprite);</span>
+<span class="nc" id="L1222">		}</span>
+	}
+
+<span class="nc" id="L1225">	static public class ParticleValue {</span>
+		boolean active;
+		boolean alwaysActive;
+
+		public void setAlwaysActive (boolean alwaysActive) {
+<span class="nc" id="L1230">			this.alwaysActive = alwaysActive;</span>
+<span class="nc" id="L1231">		}</span>
+
+		public boolean isAlwaysActive () {
+<span class="nc" id="L1234">			return alwaysActive;</span>
+		}
+
+		public boolean isActive () {
+<span class="nc bnc" id="L1238" title="All 4 branches missed.">			return alwaysActive || active;</span>
+		}
+
+		public void setActive (boolean active) {
+<span class="nc" id="L1242">			this.active = active;</span>
+<span class="nc" id="L1243">		}</span>
+
+		public void save (Writer output) throws IOException {
+<span class="nc bnc" id="L1246" title="All 2 branches missed.">			if (!alwaysActive)</span>
+<span class="nc" id="L1247">				output.write(&quot;active: &quot; + active + &quot;\n&quot;);</span>
+			else
+<span class="nc" id="L1249">				active = true;</span>
+<span class="nc" id="L1250">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc bnc" id="L1253" title="All 2 branches missed.">			if (!alwaysActive)</span>
+<span class="nc" id="L1254">				active = readBoolean(reader, &quot;active&quot;);</span>
+			else
+<span class="nc" id="L1256">				active = true;</span>
+<span class="nc" id="L1257">		}</span>
+
+		public void load (ParticleValue value) {
+<span class="nc" id="L1260">			active = value.active;</span>
+<span class="nc" id="L1261">			alwaysActive = value.alwaysActive;</span>
+<span class="nc" id="L1262">		}</span>
+	}
+
+<span class="nc" id="L1265">	static public class NumericValue extends ParticleValue {</span>
+		private float value;
+
+		public float getValue () {
+<span class="nc" id="L1269">			return value;</span>
+		}
+
+		public void setValue (float value) {
+<span class="nc" id="L1273">			this.value = value;</span>
+<span class="nc" id="L1274">		}</span>
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1277">			super.save(output);</span>
+<span class="nc bnc" id="L1278" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1279">			output.write(&quot;value: &quot; + value + &quot;\n&quot;);</span>
+<span class="nc" id="L1280">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1283">			super.load(reader);</span>
+<span class="nc bnc" id="L1284" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1285">			value = readFloat(reader, &quot;value&quot;);</span>
+<span class="nc" id="L1286">		}</span>
+
+		public void load (NumericValue value) {
+<span class="nc" id="L1289">			super.load(value);</span>
+<span class="nc" id="L1290">			this.value = value.value;</span>
+<span class="nc" id="L1291">		}</span>
+	}
+
+<span class="nc" id="L1294">	static public class RangedNumericValue extends ParticleValue {</span>
+		private float lowMin, lowMax;
+
+		public float newLowValue () {
+<span class="nc" id="L1298">			return lowMin + (lowMax - lowMin) * MathUtils.random();</span>
+		}
+
+		public void setLow (float value) {
+<span class="nc" id="L1302">			lowMin = value;</span>
+<span class="nc" id="L1303">			lowMax = value;</span>
+<span class="nc" id="L1304">		}</span>
+
+		public void setLow (float min, float max) {
+<span class="nc" id="L1307">			lowMin = min;</span>
+<span class="nc" id="L1308">			lowMax = max;</span>
+<span class="nc" id="L1309">		}</span>
+
+		public float getLowMin () {
+<span class="nc" id="L1312">			return lowMin;</span>
+		}
+
+		public void setLowMin (float lowMin) {
+<span class="nc" id="L1316">			this.lowMin = lowMin;</span>
+<span class="nc" id="L1317">		}</span>
+
+		public float getLowMax () {
+<span class="nc" id="L1320">			return lowMax;</span>
+		}
+
+		public void setLowMax (float lowMax) {
+<span class="nc" id="L1324">			this.lowMax = lowMax;</span>
+<span class="nc" id="L1325">		}</span>
+
+		/** permanently scales the range by a scalar. */
+		public void scale (float scale) {
+<span class="nc" id="L1329">			lowMin *= scale;</span>
+<span class="nc" id="L1330">			lowMax *= scale;</span>
+<span class="nc" id="L1331">		}</span>
+
+		public void set (RangedNumericValue value) {
+<span class="nc" id="L1334">			this.lowMin = value.lowMin;</span>
+<span class="nc" id="L1335">			this.lowMax = value.lowMax;</span>
+<span class="nc" id="L1336">		}</span>
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1339">			super.save(output);</span>
+<span class="nc bnc" id="L1340" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1341">			output.write(&quot;lowMin: &quot; + lowMin + &quot;\n&quot;);</span>
+<span class="nc" id="L1342">			output.write(&quot;lowMax: &quot; + lowMax + &quot;\n&quot;);</span>
+<span class="nc" id="L1343">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1346">			super.load(reader);</span>
+<span class="nc bnc" id="L1347" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1348">			lowMin = readFloat(reader, &quot;lowMin&quot;);</span>
+<span class="nc" id="L1349">			lowMax = readFloat(reader, &quot;lowMax&quot;);</span>
+<span class="nc" id="L1350">		}</span>
+
+		public void load (RangedNumericValue value) {
+<span class="nc" id="L1353">			super.load(value);</span>
+<span class="nc" id="L1354">			lowMax = value.lowMax;</span>
+<span class="nc" id="L1355">			lowMin = value.lowMin;</span>
+<span class="nc" id="L1356">		}</span>
+	}
+
+<span class="nc" id="L1359">	static public class ScaledNumericValue extends RangedNumericValue {</span>
+<span class="nc" id="L1360">		private float[] scaling = {1};</span>
+<span class="nc" id="L1361">		float[] timeline = {0};</span>
+		private float highMin, highMax;
+		private boolean relative;
+
+		public float newHighValue () {
+<span class="nc" id="L1366">			return highMin + (highMax - highMin) * MathUtils.random();</span>
+		}
+
+		public void setHigh (float value) {
+<span class="nc" id="L1370">			highMin = value;</span>
+<span class="nc" id="L1371">			highMax = value;</span>
+<span class="nc" id="L1372">		}</span>
+
+		public void setHigh (float min, float max) {
+<span class="nc" id="L1375">			highMin = min;</span>
+<span class="nc" id="L1376">			highMax = max;</span>
+<span class="nc" id="L1377">		}</span>
+
+		public float getHighMin () {
+<span class="nc" id="L1380">			return highMin;</span>
+		}
+
+		public void setHighMin (float highMin) {
+<span class="nc" id="L1384">			this.highMin = highMin;</span>
+<span class="nc" id="L1385">		}</span>
+
+		public float getHighMax () {
+<span class="nc" id="L1388">			return highMax;</span>
+		}
+
+		public void setHighMax (float highMax) {
+<span class="nc" id="L1392">			this.highMax = highMax;</span>
+<span class="nc" id="L1393">		}</span>
+
+		public void scale (float scale) {
+<span class="nc" id="L1396">			super.scale(scale);</span>
+<span class="nc" id="L1397">			highMin *= scale;</span>
+<span class="nc" id="L1398">			highMax *= scale;</span>
+<span class="nc" id="L1399">		}</span>
+
+		public void set (RangedNumericValue value) {
+<span class="nc bnc" id="L1402" title="All 2 branches missed.">			if (value instanceof ScaledNumericValue)</span>
+<span class="nc" id="L1403">				set((ScaledNumericValue)value);</span>
+			else
+<span class="nc" id="L1405">				super.set(value);</span>
+<span class="nc" id="L1406">		}</span>
+
+		public void set (ScaledNumericValue value) {
+<span class="nc" id="L1409">			super.set(value);</span>
+<span class="nc" id="L1410">			this.highMin = value.highMin;</span>
+<span class="nc" id="L1411">			this.highMax = value.highMax;</span>
+<span class="nc bnc" id="L1412" title="All 2 branches missed.">			if (scaling.length != value.scaling.length)</span>
+<span class="nc" id="L1413">				scaling = Arrays.copyOf(value.scaling, value.scaling.length);</span>
+			else
+<span class="nc" id="L1415">				System.arraycopy(value.scaling, 0, scaling, 0, scaling.length);</span>
+<span class="nc bnc" id="L1416" title="All 2 branches missed.">			if (timeline.length != value.timeline.length)</span>
+<span class="nc" id="L1417">				timeline = Arrays.copyOf(value.timeline, value.timeline.length);</span>
+			else
+<span class="nc" id="L1419">				System.arraycopy(value.timeline, 0, timeline, 0, timeline.length);</span>
+<span class="nc" id="L1420">			this.relative = value.relative;</span>
+<span class="nc" id="L1421">		}</span>
+
+		public float[] getScaling () {
+<span class="nc" id="L1424">			return scaling;</span>
+		}
+
+		public void setScaling (float[] values) {
+<span class="nc" id="L1428">			this.scaling = values;</span>
+<span class="nc" id="L1429">		}</span>
+
+		public float[] getTimeline () {
+<span class="nc" id="L1432">			return timeline;</span>
+		}
+
+		public void setTimeline (float[] timeline) {
+<span class="nc" id="L1436">			this.timeline = timeline;</span>
+<span class="nc" id="L1437">		}</span>
+
+		public boolean isRelative () {
+<span class="nc" id="L1440">			return relative;</span>
+		}
+
+		public void setRelative (boolean relative) {
+<span class="nc" id="L1444">			this.relative = relative;</span>
+<span class="nc" id="L1445">		}</span>
+
+		public float getScale (float percent) {
+<span class="nc" id="L1448">			int endIndex = -1;</span>
+<span class="nc" id="L1449">			float[] timeline = this.timeline;</span>
+<span class="nc" id="L1450">			int n = timeline.length;</span>
+<span class="nc bnc" id="L1451" title="All 2 branches missed.">			for (int i = 1; i &lt; n; i++) {</span>
+<span class="nc" id="L1452">				float t = timeline[i];</span>
+<span class="nc bnc" id="L1453" title="All 2 branches missed.">				if (t &gt; percent) {</span>
+<span class="nc" id="L1454">					endIndex = i;</span>
+<span class="nc" id="L1455">					break;</span>
+				}
+			}
+<span class="nc bnc" id="L1458" title="All 2 branches missed.">			if (endIndex == -1) return scaling[n - 1];</span>
+<span class="nc" id="L1459">			float[] scaling = this.scaling;</span>
+<span class="nc" id="L1460">			int startIndex = endIndex - 1;</span>
+<span class="nc" id="L1461">			float startValue = scaling[startIndex];</span>
+<span class="nc" id="L1462">			float startTime = timeline[startIndex];</span>
+<span class="nc" id="L1463">			return startValue + (scaling[endIndex] - startValue) * ((percent - startTime) / (timeline[endIndex] - startTime));</span>
+		}
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1467">			super.save(output);</span>
+<span class="nc bnc" id="L1468" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1469">			output.write(&quot;highMin: &quot; + highMin + &quot;\n&quot;);</span>
+<span class="nc" id="L1470">			output.write(&quot;highMax: &quot; + highMax + &quot;\n&quot;);</span>
+<span class="nc" id="L1471">			output.write(&quot;relative: &quot; + relative + &quot;\n&quot;);</span>
+<span class="nc" id="L1472">			output.write(&quot;scalingCount: &quot; + scaling.length + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L1473" title="All 2 branches missed.">			for (int i = 0; i &lt; scaling.length; i++)</span>
+<span class="nc" id="L1474">				output.write(&quot;scaling&quot; + i + &quot;: &quot; + scaling[i] + &quot;\n&quot;);</span>
+<span class="nc" id="L1475">			output.write(&quot;timelineCount: &quot; + timeline.length + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L1476" title="All 2 branches missed.">			for (int i = 0; i &lt; timeline.length; i++)</span>
+<span class="nc" id="L1477">				output.write(&quot;timeline&quot; + i + &quot;: &quot; + timeline[i] + &quot;\n&quot;);</span>
+<span class="nc" id="L1478">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1481">			super.load(reader);</span>
+<span class="nc bnc" id="L1482" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1483">			highMin = readFloat(reader, &quot;highMin&quot;);</span>
+<span class="nc" id="L1484">			highMax = readFloat(reader, &quot;highMax&quot;);</span>
+<span class="nc" id="L1485">			relative = readBoolean(reader, &quot;relative&quot;);</span>
+<span class="nc" id="L1486">			scaling = new float[readInt(reader, &quot;scalingCount&quot;)];</span>
+<span class="nc bnc" id="L1487" title="All 2 branches missed.">			for (int i = 0; i &lt; scaling.length; i++)</span>
+<span class="nc" id="L1488">				scaling[i] = readFloat(reader, &quot;scaling&quot; + i);</span>
+<span class="nc" id="L1489">			timeline = new float[readInt(reader, &quot;timelineCount&quot;)];</span>
+<span class="nc bnc" id="L1490" title="All 2 branches missed.">			for (int i = 0; i &lt; timeline.length; i++)</span>
+<span class="nc" id="L1491">				timeline[i] = readFloat(reader, &quot;timeline&quot; + i);</span>
+<span class="nc" id="L1492">		}</span>
+
+		public void load (ScaledNumericValue value) {
+<span class="nc" id="L1495">			super.load(value);</span>
+<span class="nc" id="L1496">			highMax = value.highMax;</span>
+<span class="nc" id="L1497">			highMin = value.highMin;</span>
+<span class="nc" id="L1498">			scaling = new float[value.scaling.length];</span>
+<span class="nc" id="L1499">			System.arraycopy(value.scaling, 0, scaling, 0, scaling.length);</span>
+<span class="nc" id="L1500">			timeline = new float[value.timeline.length];</span>
+<span class="nc" id="L1501">			System.arraycopy(value.timeline, 0, timeline, 0, timeline.length);</span>
+<span class="nc" id="L1502">			relative = value.relative;</span>
+<span class="nc" id="L1503">		}</span>
+	}
+
+<span class="nc" id="L1506">	static public class IndependentScaledNumericValue extends ScaledNumericValue {</span>
+		boolean independent;
+
+		public boolean isIndependent () {
+<span class="nc" id="L1510">			return independent;</span>
+		}
+
+		public void setIndependent (boolean independent) {
+<span class="nc" id="L1514">			this.independent = independent;</span>
+<span class="nc" id="L1515">		}</span>
+
+		public void set (RangedNumericValue value) {
+<span class="nc bnc" id="L1518" title="All 2 branches missed.">			if (value instanceof IndependentScaledNumericValue)</span>
+<span class="nc" id="L1519">				set((IndependentScaledNumericValue)value);</span>
+			else
+<span class="nc" id="L1521">				super.set(value);</span>
+<span class="nc" id="L1522">		}</span>
+
+		public void set (ScaledNumericValue value) {
+<span class="nc bnc" id="L1525" title="All 2 branches missed.">			if (value instanceof IndependentScaledNumericValue)</span>
+<span class="nc" id="L1526">				set((IndependentScaledNumericValue)value);</span>
+			else
+<span class="nc" id="L1528">				super.set(value);</span>
+<span class="nc" id="L1529">		}</span>
+
+		public void set (IndependentScaledNumericValue value) {
+<span class="nc" id="L1532">			super.set(value);</span>
+<span class="nc" id="L1533">			independent = value.independent;</span>
+<span class="nc" id="L1534">		}</span>
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1537">			super.save(output);</span>
+<span class="nc" id="L1538">			output.write(&quot;independent: &quot; + independent + &quot;\n&quot;);</span>
+<span class="nc" id="L1539">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1542">			super.load(reader);</span>
+			// For backwards compatibility, independent property may not be defined
+<span class="nc bnc" id="L1544" title="All 2 branches missed.">			if (reader.markSupported())</span>
+<span class="nc" id="L1545">				reader.mark(100);</span>
+<span class="nc" id="L1546">			String line = reader.readLine();</span>
+<span class="nc bnc" id="L1547" title="All 2 branches missed.">			if (line == null) throw new IOException(&quot;Missing value: independent&quot;);</span>
+<span class="nc bnc" id="L1548" title="All 2 branches missed.">			if (line.contains(&quot;independent&quot;))</span>
+<span class="nc" id="L1549">				independent = Boolean.parseBoolean(readString(line));</span>
+<span class="nc bnc" id="L1550" title="All 2 branches missed.">			else if (reader.markSupported())</span>
+<span class="nc" id="L1551">				reader.reset();</span>
+			else {
+				// @see java.io.BufferedReader#markSupported may return false in some platforms (such as GWT),
+				// in that case backwards commpatibility is not possible
+<span class="nc" id="L1555">				String errorMessage = &quot;The loaded particle effect descriptor file uses an old invalid format. &quot; +</span>
+						&quot;Please download the latest version of the Particle Editor tool and recreate the file by&quot; +
+						&quot; loading and saving it again.&quot;;
+<span class="nc" id="L1558">				Gdx.app.error(&quot;ParticleEmitter&quot;, errorMessage);</span>
+<span class="nc" id="L1559">				throw new IOException(errorMessage);</span>
+			}
+<span class="nc" id="L1561">		}</span>
+
+		public void load (IndependentScaledNumericValue value) {
+<span class="nc" id="L1564">			super.load(value);</span>
+<span class="nc" id="L1565">			independent = value.independent;</span>
+<span class="nc" id="L1566">		}</span>
+	}
+
+	static public class GradientColorValue extends ParticleValue {
+<span class="nc" id="L1570">		static private float[] temp = new float[4];</span>
+
+<span class="nc" id="L1572">		private float[] colors = {1, 1, 1};</span>
+<span class="nc" id="L1573">		float[] timeline = {0};</span>
+
+<span class="nc" id="L1575">		public GradientColorValue () {</span>
+<span class="nc" id="L1576">			alwaysActive = true;</span>
+<span class="nc" id="L1577">		}</span>
+
+		public float[] getTimeline () {
+<span class="nc" id="L1580">			return timeline;</span>
+		}
+
+		public void setTimeline (float[] timeline) {
+<span class="nc" id="L1584">			this.timeline = timeline;</span>
+<span class="nc" id="L1585">		}</span>
+
+		/** @return the r, g and b values for every timeline position */
+		public float[] getColors () {
+<span class="nc" id="L1589">			return colors;</span>
+		}
+
+		/** @param colors the r, g and b values for every timeline position */
+		public void setColors (float[] colors) {
+<span class="nc" id="L1594">			this.colors = colors;</span>
+<span class="nc" id="L1595">		}</span>
+
+		public float[] getColor (float percent) {
+<span class="nc" id="L1598">			int startIndex = 0, endIndex = -1;</span>
+<span class="nc" id="L1599">			float[] timeline = this.timeline;</span>
+<span class="nc" id="L1600">			int n = timeline.length;</span>
+<span class="nc bnc" id="L1601" title="All 2 branches missed.">			for (int i = 1; i &lt; n; i++) {</span>
+<span class="nc" id="L1602">				float t = timeline[i];</span>
+<span class="nc bnc" id="L1603" title="All 2 branches missed.">				if (t &gt; percent) {</span>
+<span class="nc" id="L1604">					endIndex = i;</span>
+<span class="nc" id="L1605">					break;</span>
+				}
+<span class="nc" id="L1607">				startIndex = i;</span>
+			}
+<span class="nc" id="L1609">			float startTime = timeline[startIndex];</span>
+<span class="nc" id="L1610">			startIndex *= 3;</span>
+<span class="nc" id="L1611">			float r1 = colors[startIndex];</span>
+<span class="nc" id="L1612">			float g1 = colors[startIndex + 1];</span>
+<span class="nc" id="L1613">			float b1 = colors[startIndex + 2];</span>
+<span class="nc bnc" id="L1614" title="All 2 branches missed.">			if (endIndex == -1) {</span>
+<span class="nc" id="L1615">				temp[0] = r1;</span>
+<span class="nc" id="L1616">				temp[1] = g1;</span>
+<span class="nc" id="L1617">				temp[2] = b1;</span>
+<span class="nc" id="L1618">				return temp;</span>
+			}
+<span class="nc" id="L1620">			float factor = (percent - startTime) / (timeline[endIndex] - startTime);</span>
+<span class="nc" id="L1621">			endIndex *= 3;</span>
+<span class="nc" id="L1622">			temp[0] = r1 + (colors[endIndex] - r1) * factor;</span>
+<span class="nc" id="L1623">			temp[1] = g1 + (colors[endIndex + 1] - g1) * factor;</span>
+<span class="nc" id="L1624">			temp[2] = b1 + (colors[endIndex + 2] - b1) * factor;</span>
+<span class="nc" id="L1625">			return temp;</span>
+		}
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1629">			super.save(output);</span>
+<span class="nc bnc" id="L1630" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1631">			output.write(&quot;colorsCount: &quot; + colors.length + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L1632" title="All 2 branches missed.">			for (int i = 0; i &lt; colors.length; i++)</span>
+<span class="nc" id="L1633">				output.write(&quot;colors&quot; + i + &quot;: &quot; + colors[i] + &quot;\n&quot;);</span>
+<span class="nc" id="L1634">			output.write(&quot;timelineCount: &quot; + timeline.length + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L1635" title="All 2 branches missed.">			for (int i = 0; i &lt; timeline.length; i++)</span>
+<span class="nc" id="L1636">				output.write(&quot;timeline&quot; + i + &quot;: &quot; + timeline[i] + &quot;\n&quot;);</span>
+<span class="nc" id="L1637">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1640">			super.load(reader);</span>
+<span class="nc bnc" id="L1641" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1642">			colors = new float[readInt(reader, &quot;colorsCount&quot;)];</span>
+<span class="nc bnc" id="L1643" title="All 2 branches missed.">			for (int i = 0; i &lt; colors.length; i++)</span>
+<span class="nc" id="L1644">				colors[i] = readFloat(reader, &quot;colors&quot; + i);</span>
+<span class="nc" id="L1645">			timeline = new float[readInt(reader, &quot;timelineCount&quot;)];</span>
+<span class="nc bnc" id="L1646" title="All 2 branches missed.">			for (int i = 0; i &lt; timeline.length; i++)</span>
+<span class="nc" id="L1647">				timeline[i] = readFloat(reader, &quot;timeline&quot; + i);</span>
+<span class="nc" id="L1648">		}</span>
+
+		public void load (GradientColorValue value) {
+<span class="nc" id="L1651">			super.load(value);</span>
+<span class="nc" id="L1652">			colors = new float[value.colors.length];</span>
+<span class="nc" id="L1653">			System.arraycopy(value.colors, 0, colors, 0, colors.length);</span>
+<span class="nc" id="L1654">			timeline = new float[value.timeline.length];</span>
+<span class="nc" id="L1655">			System.arraycopy(value.timeline, 0, timeline, 0, timeline.length);</span>
+<span class="nc" id="L1656">		}</span>
+	}
+
+<span class="nc" id="L1659">	static public class SpawnShapeValue extends ParticleValue {</span>
+<span class="nc" id="L1660">		SpawnShape shape = SpawnShape.point;</span>
+		boolean edges;
+<span class="nc" id="L1662">		SpawnEllipseSide side = SpawnEllipseSide.both;</span>
+
+		public SpawnShape getShape () {
+<span class="nc" id="L1665">			return shape;</span>
+		}
+
+		public void setShape (SpawnShape shape) {
+<span class="nc" id="L1669">			this.shape = shape;</span>
+<span class="nc" id="L1670">		}</span>
+
+		public boolean isEdges () {
+<span class="nc" id="L1673">			return edges;</span>
+		}
+
+		public void setEdges (boolean edges) {
+<span class="nc" id="L1677">			this.edges = edges;</span>
+<span class="nc" id="L1678">		}</span>
+
+		public SpawnEllipseSide getSide () {
+<span class="nc" id="L1681">			return side;</span>
+		}
+
+		public void setSide (SpawnEllipseSide side) {
+<span class="nc" id="L1685">			this.side = side;</span>
+<span class="nc" id="L1686">		}</span>
+
+		public void save (Writer output) throws IOException {
+<span class="nc" id="L1689">			super.save(output);</span>
+<span class="nc bnc" id="L1690" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1691">			output.write(&quot;shape: &quot; + shape + &quot;\n&quot;);</span>
+<span class="nc bnc" id="L1692" title="All 2 branches missed.">			if (shape == SpawnShape.ellipse) {</span>
+<span class="nc" id="L1693">				output.write(&quot;edges: &quot; + edges + &quot;\n&quot;);</span>
+<span class="nc" id="L1694">				output.write(&quot;side: &quot; + side + &quot;\n&quot;);</span>
+			}
+<span class="nc" id="L1696">		}</span>
+
+		public void load (BufferedReader reader) throws IOException {
+<span class="nc" id="L1699">			super.load(reader);</span>
+<span class="nc bnc" id="L1700" title="All 2 branches missed.">			if (!active) return;</span>
+<span class="nc" id="L1701">			shape = SpawnShape.valueOf(readString(reader, &quot;shape&quot;));</span>
+<span class="nc bnc" id="L1702" title="All 2 branches missed.">			if (shape == SpawnShape.ellipse) {</span>
+<span class="nc" id="L1703">				edges = readBoolean(reader, &quot;edges&quot;);</span>
+<span class="nc" id="L1704">				side = SpawnEllipseSide.valueOf(readString(reader, &quot;side&quot;));</span>
+			}
+<span class="nc" id="L1706">		}</span>
+
+		public void load (SpawnShapeValue value) {
+<span class="nc" id="L1709">			super.load(value);</span>
+<span class="nc" id="L1710">			shape = value.shape;</span>
+<span class="nc" id="L1711">			edges = value.edges;</span>
+<span class="nc" id="L1712">			side = value.side;</span>
+<span class="nc" id="L1713">		}</span>
+	}
+
+<span class="nc" id="L1716">	static public enum SpawnShape {</span>
+<span class="nc" id="L1717">		point, line, square, ellipse</span>
+	}
+
+<span class="nc" id="L1720">	static public enum SpawnEllipseSide {</span>
+<span class="nc" id="L1721">		both, top, bottom</span>
+	}
+
+<span class="nc" id="L1724">	static public enum SpriteMode {</span>
+<span class="nc" id="L1725">		single, random, animated</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

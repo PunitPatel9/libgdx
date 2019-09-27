@@ -1,0 +1,1317 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Table.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Table.java</span></div><h1>Table.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
+import com.badlogic.gdx.scenes.scene2d.ui.Value.Fixed;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.Layout;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
+
+/** A group that sizes and positions children using table constraints. By default, {@link #getTouchable()} is
+ * {@link Touchable#childrenOnly}.
+ * &lt;p&gt;
+ * The preferred and minimum sizes are that of the children when laid out in columns and rows.
+ * @author Nathan Sweet */
+public class Table extends WidgetGroup {
+<span class="nc" id="L41">	static public Color debugTableColor = new Color(0, 0, 1, 1);</span>
+<span class="nc" id="L42">	static public Color debugCellColor = new Color(1, 0, 0, 1);</span>
+<span class="nc" id="L43">	static public Color debugActorColor = new Color(0, 1, 0, 1);</span>
+
+<span class="nc" id="L45">	static final Pool&lt;Cell&gt; cellPool = new Pool&lt;Cell&gt;() {</span>
+		protected Cell newObject () {
+<span class="nc" id="L47">			return new Cell();</span>
+		}
+	};
+	static private float[] columnWeightedWidth, rowWeightedHeight;
+
+	private int columns, rows;
+	private boolean implicitEndRow;
+
+<span class="nc" id="L55">	private final Array&lt;Cell&gt; cells = new Array(4);</span>
+	private final Cell cellDefaults;
+<span class="nc" id="L57">	private final Array&lt;Cell&gt; columnDefaults = new Array(2);</span>
+	private Cell rowDefaults;
+
+<span class="nc" id="L60">	private boolean sizeInvalid = true;</span>
+	private float[] columnMinWidth, rowMinHeight;
+	private float[] columnPrefWidth, rowPrefHeight;
+	private float tableMinWidth, tableMinHeight;
+	private float tablePrefWidth, tablePrefHeight;
+	private float[] columnWidth, rowHeight;
+	private float[] expandWidth, expandHeight;
+
+<span class="nc" id="L68">	Value padTop = backgroundTop, padLeft = backgroundLeft, padBottom = backgroundBottom, padRight = backgroundRight;</span>
+<span class="nc" id="L69">	int align = Align.center;</span>
+
+<span class="nc" id="L71">	Debug debug = Debug.none;</span>
+	Array&lt;DebugRect&gt; debugRects;
+
+	Drawable background;
+	private boolean clip;
+	private Skin skin;
+<span class="nc" id="L77">	boolean round = true;</span>
+
+	public Table () {
+<span class="nc" id="L80">		this(null);</span>
+<span class="nc" id="L81">	}</span>
+
+	/** Creates a table with a skin, which enables the {@link #add(CharSequence)} and {@link #add(CharSequence, String)} methods to
+	 * be used. */
+<span class="nc" id="L85">	public Table (Skin skin) {</span>
+<span class="nc" id="L86">		this.skin = skin;</span>
+
+<span class="nc" id="L88">		cellDefaults = obtainCell();</span>
+
+<span class="nc" id="L90">		setTransform(false);</span>
+<span class="nc" id="L91">		setTouchable(Touchable.childrenOnly);</span>
+<span class="nc" id="L92">	}</span>
+
+	private Cell obtainCell () {
+<span class="nc" id="L95">		Cell cell = cellPool.obtain();</span>
+<span class="nc" id="L96">		cell.setTable(this);</span>
+<span class="nc" id="L97">		return cell;</span>
+	}
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L101">		validate();</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (isTransform()) {</span>
+<span class="nc" id="L103">			applyTransform(batch, computeTransform());</span>
+<span class="nc" id="L104">			drawBackground(batch, parentAlpha, 0, 0);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">			if (clip) {</span>
+<span class="nc" id="L106">				batch.flush();</span>
+<span class="nc" id="L107">				float padLeft = this.padLeft.get(this), padBottom = this.padBottom.get(this);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">				if (clipBegin(padLeft, padBottom, getWidth() - padLeft - padRight.get(this),</span>
+<span class="nc" id="L109">					getHeight() - padBottom - padTop.get(this))) {</span>
+<span class="nc" id="L110">					drawChildren(batch, parentAlpha);</span>
+<span class="nc" id="L111">					batch.flush();</span>
+<span class="nc" id="L112">					clipEnd();</span>
+				}
+<span class="nc" id="L114">			} else</span>
+<span class="nc" id="L115">				drawChildren(batch, parentAlpha);</span>
+<span class="nc" id="L116">			resetTransform(batch);</span>
+		} else {
+<span class="nc" id="L118">			drawBackground(batch, parentAlpha, getX(), getY());</span>
+<span class="nc" id="L119">			super.draw(batch, parentAlpha);</span>
+		}
+<span class="nc" id="L121">	}</span>
+
+	/** Called to draw the background, before clipping is applied (if enabled). Default implementation draws the background
+	 * drawable. */
+	protected void drawBackground (Batch batch, float parentAlpha, float x, float y) {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">		if (background == null) return;</span>
+<span class="nc" id="L127">		Color color = getColor();</span>
+<span class="nc" id="L128">		batch.setColor(color.r, color.g, color.b, color.a * parentAlpha);</span>
+<span class="nc" id="L129">		background.draw(batch, x, y, getWidth(), getHeight());</span>
+<span class="nc" id="L130">	}</span>
+
+	/** Sets the background drawable from the skin and adjusts the table's padding to match the background. This may only be called
+	 * if {@link Table#Table(Skin)} or {@link #setSkin(Skin)} was used.
+	 * @see #setBackground(Drawable) */
+	public void setBackground (String drawableName) {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">		if (skin == null) throw new IllegalStateException(&quot;Table must have a skin set to use this method.&quot;);</span>
+<span class="nc" id="L137">		setBackground(skin.getDrawable(drawableName));</span>
+<span class="nc" id="L138">	}</span>
+
+	/** @param background May be null to clear the background. */
+	public void setBackground (Drawable background) {
+<span class="nc bnc" id="L142" title="All 2 branches missed.">		if (this.background == background) return;</span>
+<span class="nc" id="L143">		float padTopOld = getPadTop(), padLeftOld = getPadLeft(), padBottomOld = getPadBottom(), padRightOld = getPadRight();</span>
+<span class="nc" id="L144">		this.background = background; // The default pad values use the background's padding.</span>
+<span class="nc" id="L145">		float padTopNew = getPadTop(), padLeftNew = getPadLeft(), padBottomNew = getPadBottom(), padRightNew = getPadRight();</span>
+<span class="nc bnc" id="L146" title="All 4 branches missed.">		if (padTopOld + padBottomOld != padTopNew + padBottomNew || padLeftOld + padRightOld != padLeftNew + padRightNew)</span>
+<span class="nc" id="L147">			invalidateHierarchy();</span>
+<span class="nc bnc" id="L148" title="All 8 branches missed.">		else if (padTopOld != padTopNew || padLeftOld != padLeftNew || padBottomOld != padBottomNew || padRightOld != padRightNew)</span>
+<span class="nc" id="L149">			invalidate();</span>
+<span class="nc" id="L150">	}</span>
+
+	/** @see #setBackground(Drawable) */
+	public Table background (Drawable background) {
+<span class="nc" id="L154">		setBackground(background);</span>
+<span class="nc" id="L155">		return this;</span>
+	}
+
+	/** @see #setBackground(String) */
+	public Table background (String drawableName) {
+<span class="nc" id="L160">		setBackground(drawableName);</span>
+<span class="nc" id="L161">		return this;</span>
+	}
+
+	public Drawable getBackground () {
+<span class="nc" id="L165">		return background;</span>
+	}
+
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (clip) {</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">			if (touchable &amp;&amp; getTouchable() == Touchable.disabled) return null;</span>
+<span class="nc bnc" id="L171" title="All 8 branches missed.">			if (x &lt; 0 || x &gt;= getWidth() || y &lt; 0 || y &gt;= getHeight()) return null;</span>
+		}
+<span class="nc" id="L173">		return super.hit(x, y, touchable);</span>
+	}
+
+	/** Causes the contents to be clipped if they exceed the table actor's bounds. Enabling clipping will set
+	 * {@link #setTransform(boolean)} to true. */
+	public void setClip (boolean enabled) {
+<span class="nc" id="L179">		clip = enabled;</span>
+<span class="nc" id="L180">		setTransform(enabled);</span>
+<span class="nc" id="L181">		invalidate();</span>
+<span class="nc" id="L182">	}</span>
+
+	public boolean getClip () {
+<span class="nc" id="L185">		return clip;</span>
+	}
+
+	public void invalidate () {
+<span class="nc" id="L189">		sizeInvalid = true;</span>
+<span class="nc" id="L190">		super.invalidate();</span>
+<span class="nc" id="L191">	}</span>
+
+	/** Adds a new cell to the table with the specified actor. */
+	public &lt;T extends Actor&gt; Cell&lt;T&gt; add (T actor) {
+<span class="nc" id="L195">		Cell&lt;T&gt; cell = obtainCell();</span>
+<span class="nc" id="L196">		cell.actor = actor;</span>
+
+		// The row was ended for layout, not by the user, so revert it.
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		if (implicitEndRow) {</span>
+<span class="nc" id="L200">			implicitEndRow = false;</span>
+<span class="nc" id="L201">			rows--;</span>
+<span class="nc" id="L202">			cells.peek().endRow = false;</span>
+		}
+
+<span class="nc" id="L205">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc" id="L206">		int cellCount = cells.size;</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		if (cellCount &gt; 0) {</span>
+			// Set cell column and row.
+<span class="nc" id="L209">			Cell lastCell = cells.peek();</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">			if (!lastCell.endRow) {</span>
+<span class="nc" id="L211">				cell.column = lastCell.column + lastCell.colspan;</span>
+<span class="nc" id="L212">				cell.row = lastCell.row;</span>
+			} else {
+<span class="nc" id="L214">				cell.column = 0;</span>
+<span class="nc" id="L215">				cell.row = lastCell.row + 1;</span>
+			}
+			// Set the index of the cell above.
+<span class="nc bnc" id="L218" title="All 2 branches missed.">			if (cell.row &gt; 0) {</span>
+				outer:
+<span class="nc bnc" id="L220" title="All 2 branches missed.">				for (int i = cellCount - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L221">					Cell other = cells.get(i);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">					for (int column = other.column, nn = column + other.colspan; column &lt; nn; column++) {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">						if (column == cell.column) {</span>
+<span class="nc" id="L224">							cell.cellAboveIndex = i;</span>
+<span class="nc" id="L225">							break outer;</span>
+						}
+					}
+				}
+			}
+<span class="nc" id="L230">		} else {</span>
+<span class="nc" id="L231">			cell.column = 0;</span>
+<span class="nc" id="L232">			cell.row = 0;</span>
+		}
+<span class="nc" id="L234">		cells.add(cell);</span>
+
+<span class="nc" id="L236">		cell.set(cellDefaults);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">		if (cell.column &lt; columnDefaults.size) {</span>
+<span class="nc" id="L238">			Cell columnCell = columnDefaults.get(cell.column);</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">			if (columnCell != null) cell.merge(columnCell);</span>
+		}
+<span class="nc" id="L241">		cell.merge(rowDefaults);</span>
+
+<span class="nc bnc" id="L243" title="All 2 branches missed.">		if (actor != null) addActor(actor);</span>
+
+<span class="nc" id="L245">		return cell;</span>
+	}
+
+	public Table add (Actor... actors) {
+<span class="nc bnc" id="L249" title="All 2 branches missed.">		for (int i = 0, n = actors.length; i &lt; n; i++)</span>
+<span class="nc" id="L250">			add(actors[i]);</span>
+<span class="nc" id="L251">		return this;</span>
+	}
+
+	/** Adds a new cell with a label. This may only be called if {@link Table#Table(Skin)} or {@link #setSkin(Skin)} was used. */
+	public Cell&lt;Label&gt; add (CharSequence text) {
+<span class="nc bnc" id="L256" title="All 2 branches missed.">		if (skin == null) throw new IllegalStateException(&quot;Table must have a skin set to use this method.&quot;);</span>
+<span class="nc" id="L257">		return add(new Label(text, skin));</span>
+	}
+
+	/** Adds a new cell with a label. This may only be called if {@link Table#Table(Skin)} or {@link #setSkin(Skin)} was used. */
+	public Cell&lt;Label&gt; add (CharSequence text, String labelStyleName) {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">		if (skin == null) throw new IllegalStateException(&quot;Table must have a skin set to use this method.&quot;);</span>
+<span class="nc" id="L263">		return add(new Label(text, skin.get(labelStyleName, LabelStyle.class)));</span>
+	}
+
+	/** Adds a new cell with a label. This may only be called if {@link Table#Table(Skin)} or {@link #setSkin(Skin)} was used. */
+	public Cell&lt;Label&gt; add (CharSequence text, String fontName, Color color) {
+<span class="nc bnc" id="L268" title="All 2 branches missed.">		if (skin == null) throw new IllegalStateException(&quot;Table must have a skin set to use this method.&quot;);</span>
+<span class="nc" id="L269">		return add(new Label(text, new LabelStyle(skin.getFont(fontName), color)));</span>
+	}
+
+	/** Adds a new cell with a label. This may only be called if {@link Table#Table(Skin)} or {@link #setSkin(Skin)} was used. */
+	public Cell&lt;Label&gt; add (CharSequence text, String fontName, String colorName) {
+<span class="nc bnc" id="L274" title="All 2 branches missed.">		if (skin == null) throw new IllegalStateException(&quot;Table must have a skin set to use this method.&quot;);</span>
+<span class="nc" id="L275">		return add(new Label(text, new LabelStyle(skin.getFont(fontName), skin.getColor(colorName))));</span>
+	}
+
+	/** Adds a cell without an actor. */
+	public Cell add () {
+<span class="nc" id="L280">		return add((Actor)null);</span>
+	}
+
+	/** Adds a new cell to the table with the specified actors in a {@link Stack}.
+	 * @param actors May be null to add a stack without any actors. */
+	public Cell&lt;Stack&gt; stack (Actor... actors) {
+<span class="nc" id="L286">		Stack stack = new Stack();</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">		if (actors != null) {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">			for (int i = 0, n = actors.length; i &lt; n; i++)</span>
+<span class="nc" id="L289">				stack.addActor(actors[i]);</span>
+		}
+<span class="nc" id="L291">		return add(stack);</span>
+	}
+
+	public boolean removeActor (Actor actor) {
+<span class="nc" id="L295">		return removeActor(actor, true);</span>
+	}
+
+	public boolean removeActor (Actor actor, boolean unfocus) {
+<span class="nc bnc" id="L299" title="All 2 branches missed.">		if (!super.removeActor(actor, unfocus)) return false;</span>
+<span class="nc" id="L300">		Cell cell = getCell(actor);</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		if (cell != null) cell.actor = null;</span>
+<span class="nc" id="L302">		return true;</span>
+	}
+
+	public Actor removeActorAt (int index, boolean unfocus) {
+<span class="nc" id="L306">		Actor actor = super.removeActorAt(index, unfocus);</span>
+<span class="nc" id="L307">		Cell cell = getCell(actor);</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">		if (cell != null) cell.actor = null;</span>
+<span class="nc" id="L309">		return actor;</span>
+	}
+
+	/** Removes all actors and cells from the table. */
+	public void clearChildren () {
+<span class="nc" id="L314">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">		for (int i = cells.size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L316">			Cell cell = cells.get(i);</span>
+<span class="nc" id="L317">			Actor actor = cell.actor;</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">			if (actor != null) actor.remove();</span>
+		}
+<span class="nc" id="L320">		cellPool.freeAll(cells);</span>
+<span class="nc" id="L321">		cells.clear();</span>
+<span class="nc" id="L322">		rows = 0;</span>
+<span class="nc" id="L323">		columns = 0;</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">		if (rowDefaults != null) cellPool.free(rowDefaults);</span>
+<span class="nc" id="L325">		rowDefaults = null;</span>
+<span class="nc" id="L326">		implicitEndRow = false;</span>
+
+<span class="nc" id="L328">		super.clearChildren();</span>
+<span class="nc" id="L329">	}</span>
+
+	/** Removes all actors and cells from the table (same as {@link #clearChildren()}) and additionally resets all table properties
+	 * and cell, column, and row defaults. */
+	public void reset () {
+<span class="nc" id="L334">		clearChildren();</span>
+<span class="nc" id="L335">		padTop = backgroundTop;</span>
+<span class="nc" id="L336">		padLeft = backgroundLeft;</span>
+<span class="nc" id="L337">		padBottom = backgroundBottom;</span>
+<span class="nc" id="L338">		padRight = backgroundRight;</span>
+<span class="nc" id="L339">		align = Align.center;</span>
+<span class="nc" id="L340">		debug(Debug.none);</span>
+<span class="nc" id="L341">		cellDefaults.reset();</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">		for (int i = 0, n = columnDefaults.size; i &lt; n; i++) {</span>
+<span class="nc" id="L343">			Cell columnCell = columnDefaults.get(i);</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">			if (columnCell != null) cellPool.free(columnCell);</span>
+		}
+<span class="nc" id="L346">		columnDefaults.clear();</span>
+<span class="nc" id="L347">	}</span>
+
+	/** Indicates that subsequent cells should be added to a new row and returns the cell values that will be used as the defaults
+	 * for all cells in the new row. */
+	public Cell row () {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">		if (cells.size &gt; 0) {</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">			if (!implicitEndRow) {</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">				if (cells.peek().endRow) return rowDefaults; // Row was already ended.</span>
+<span class="nc" id="L355">				endRow();</span>
+			}
+<span class="nc" id="L357">			invalidate();</span>
+		}
+<span class="nc" id="L359">		implicitEndRow = false;</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">		if (rowDefaults != null) cellPool.free(rowDefaults);</span>
+<span class="nc" id="L361">		rowDefaults = obtainCell();</span>
+<span class="nc" id="L362">		rowDefaults.clear();</span>
+<span class="nc" id="L363">		return rowDefaults;</span>
+	}
+
+	private void endRow () {
+<span class="nc" id="L367">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc" id="L368">		int rowColumns = 0;</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">		for (int i = cells.size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L370">			Cell cell = cells.get(i);</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">			if (cell.endRow) break;</span>
+<span class="nc" id="L372">			rowColumns += cell.colspan;</span>
+		}
+<span class="nc" id="L374">		columns = Math.max(columns, rowColumns);</span>
+<span class="nc" id="L375">		rows++;</span>
+<span class="nc" id="L376">		cells.peek().endRow = true;</span>
+<span class="nc" id="L377">	}</span>
+
+	/** Gets the cell values that will be used as the defaults for all cells in the specified column. Columns are indexed starting
+	 * at 0. */
+	public Cell columnDefaults (int column) {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">		Cell cell = columnDefaults.size &gt; column ? columnDefaults.get(column) : null;</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">		if (cell == null) {</span>
+<span class="nc" id="L384">			cell = obtainCell();</span>
+<span class="nc" id="L385">			cell.clear();</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">			if (column &gt;= columnDefaults.size) {</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">				for (int i = columnDefaults.size; i &lt; column; i++)</span>
+<span class="nc" id="L388">					columnDefaults.add(null);</span>
+<span class="nc" id="L389">				columnDefaults.add(cell);</span>
+			} else
+<span class="nc" id="L391">				columnDefaults.set(column, cell);</span>
+		}
+<span class="nc" id="L393">		return cell;</span>
+	}
+
+	/** Returns the cell for the specified actor in this table, or null. */
+	public &lt;T extends Actor&gt; Cell&lt;T&gt; getCell (T actor) {
+<span class="nc" id="L398">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">		for (int i = 0, n = cells.size; i &lt; n; i++) {</span>
+<span class="nc" id="L400">			Cell c = cells.get(i);</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">			if (c.actor == actor) return c;</span>
+		}
+<span class="nc" id="L403">		return null;</span>
+	}
+
+	/** Returns the cells for this table. */
+	public Array&lt;Cell&gt; getCells () {
+<span class="nc" id="L408">		return cells;</span>
+	}
+
+	public float getPrefWidth () {
+<span class="nc bnc" id="L412" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L413">		float width = tablePrefWidth;</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">		if (background != null) return Math.max(width, background.getMinWidth());</span>
+<span class="nc" id="L415">		return width;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L419" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L420">		float height = tablePrefHeight;</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">		if (background != null) return Math.max(height, background.getMinHeight());</span>
+<span class="nc" id="L422">		return height;</span>
+	}
+
+	public float getMinWidth () {
+<span class="nc bnc" id="L426" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L427">		return tableMinWidth;</span>
+	}
+
+	public float getMinHeight () {
+<span class="nc bnc" id="L431" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L432">		return tableMinHeight;</span>
+	}
+
+	/** The cell values that will be used as the defaults for all cells. */
+	public Cell defaults () {
+<span class="nc" id="L437">		return cellDefaults;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight around the table to the specified value. */
+	public Table pad (Value pad) {
+<span class="nc bnc" id="L442" title="All 2 branches missed.">		if (pad == null) throw new IllegalArgumentException(&quot;pad cannot be null.&quot;);</span>
+<span class="nc" id="L443">		padTop = pad;</span>
+<span class="nc" id="L444">		padLeft = pad;</span>
+<span class="nc" id="L445">		padBottom = pad;</span>
+<span class="nc" id="L446">		padRight = pad;</span>
+<span class="nc" id="L447">		sizeInvalid = true;</span>
+<span class="nc" id="L448">		return this;</span>
+	}
+
+	public Table pad (Value top, Value left, Value bottom, Value right) {
+<span class="nc bnc" id="L452" title="All 2 branches missed.">		if (top == null) throw new IllegalArgumentException(&quot;top cannot be null.&quot;);</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">		if (left == null) throw new IllegalArgumentException(&quot;left cannot be null.&quot;);</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">		if (bottom == null) throw new IllegalArgumentException(&quot;bottom cannot be null.&quot;);</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">		if (right == null) throw new IllegalArgumentException(&quot;right cannot be null.&quot;);</span>
+<span class="nc" id="L456">		padTop = top;</span>
+<span class="nc" id="L457">		padLeft = left;</span>
+<span class="nc" id="L458">		padBottom = bottom;</span>
+<span class="nc" id="L459">		padRight = right;</span>
+<span class="nc" id="L460">		sizeInvalid = true;</span>
+<span class="nc" id="L461">		return this;</span>
+	}
+
+	/** Padding at the top edge of the table. */
+	public Table padTop (Value padTop) {
+<span class="nc bnc" id="L466" title="All 2 branches missed.">		if (padTop == null) throw new IllegalArgumentException(&quot;padTop cannot be null.&quot;);</span>
+<span class="nc" id="L467">		this.padTop = padTop;</span>
+<span class="nc" id="L468">		sizeInvalid = true;</span>
+<span class="nc" id="L469">		return this;</span>
+	}
+
+	/** Padding at the left edge of the table. */
+	public Table padLeft (Value padLeft) {
+<span class="nc bnc" id="L474" title="All 2 branches missed.">		if (padLeft == null) throw new IllegalArgumentException(&quot;padLeft cannot be null.&quot;);</span>
+<span class="nc" id="L475">		this.padLeft = padLeft;</span>
+<span class="nc" id="L476">		sizeInvalid = true;</span>
+<span class="nc" id="L477">		return this;</span>
+	}
+
+	/** Padding at the bottom edge of the table. */
+	public Table padBottom (Value padBottom) {
+<span class="nc bnc" id="L482" title="All 2 branches missed.">		if (padBottom == null) throw new IllegalArgumentException(&quot;padBottom cannot be null.&quot;);</span>
+<span class="nc" id="L483">		this.padBottom = padBottom;</span>
+<span class="nc" id="L484">		sizeInvalid = true;</span>
+<span class="nc" id="L485">		return this;</span>
+	}
+
+	/** Padding at the right edge of the table. */
+	public Table padRight (Value padRight) {
+<span class="nc bnc" id="L490" title="All 2 branches missed.">		if (padRight == null) throw new IllegalArgumentException(&quot;padRight cannot be null.&quot;);</span>
+<span class="nc" id="L491">		this.padRight = padRight;</span>
+<span class="nc" id="L492">		sizeInvalid = true;</span>
+<span class="nc" id="L493">		return this;</span>
+	}
+
+	/** Sets the padTop, padLeft, padBottom, and padRight around the table to the specified value. */
+	public Table pad (float pad) {
+<span class="nc" id="L498">		pad(Fixed.valueOf(pad));</span>
+<span class="nc" id="L499">		return this;</span>
+	}
+
+	public Table pad (float top, float left, float bottom, float right) {
+<span class="nc" id="L503">		padTop = Fixed.valueOf(top);</span>
+<span class="nc" id="L504">		padLeft = Fixed.valueOf(left);</span>
+<span class="nc" id="L505">		padBottom = Fixed.valueOf(bottom);</span>
+<span class="nc" id="L506">		padRight = Fixed.valueOf(right);</span>
+<span class="nc" id="L507">		sizeInvalid = true;</span>
+<span class="nc" id="L508">		return this;</span>
+	}
+
+	/** Padding at the top edge of the table. */
+	public Table padTop (float padTop) {
+<span class="nc" id="L513">		this.padTop = Fixed.valueOf(padTop);</span>
+<span class="nc" id="L514">		sizeInvalid = true;</span>
+<span class="nc" id="L515">		return this;</span>
+	}
+
+	/** Padding at the left edge of the table. */
+	public Table padLeft (float padLeft) {
+<span class="nc" id="L520">		this.padLeft = Fixed.valueOf(padLeft);</span>
+<span class="nc" id="L521">		sizeInvalid = true;</span>
+<span class="nc" id="L522">		return this;</span>
+	}
+
+	/** Padding at the bottom edge of the table. */
+	public Table padBottom (float padBottom) {
+<span class="nc" id="L527">		this.padBottom = Fixed.valueOf(padBottom);</span>
+<span class="nc" id="L528">		sizeInvalid = true;</span>
+<span class="nc" id="L529">		return this;</span>
+	}
+
+	/** Padding at the right edge of the table. */
+	public Table padRight (float padRight) {
+<span class="nc" id="L534">		this.padRight = Fixed.valueOf(padRight);</span>
+<span class="nc" id="L535">		sizeInvalid = true;</span>
+<span class="nc" id="L536">		return this;</span>
+	}
+
+	/** Alignment of the logical table within the table actor. Set to {@link Align#center}, {@link Align#top}, {@link Align#bottom}
+	 * , {@link Align#left}, {@link Align#right}, or any combination of those. */
+	public Table align (int align) {
+<span class="nc" id="L542">		this.align = align;</span>
+<span class="nc" id="L543">		return this;</span>
+	}
+
+	/** Sets the alignment of the logical table within the table actor to {@link Align#center}. This clears any other alignment. */
+	public Table center () {
+<span class="nc" id="L548">		align = Align.center;</span>
+<span class="nc" id="L549">		return this;</span>
+	}
+
+	/** Adds {@link Align#top} and clears {@link Align#bottom} for the alignment of the logical table within the table actor. */
+	public Table top () {
+<span class="nc" id="L554">		align |= Align.top;</span>
+<span class="nc" id="L555">		align &amp;= ~Align.bottom;</span>
+<span class="nc" id="L556">		return this;</span>
+	}
+
+	/** Adds {@link Align#left} and clears {@link Align#right} for the alignment of the logical table within the table actor. */
+	public Table left () {
+<span class="nc" id="L561">		align |= Align.left;</span>
+<span class="nc" id="L562">		align &amp;= ~Align.right;</span>
+<span class="nc" id="L563">		return this;</span>
+	}
+
+	/** Adds {@link Align#bottom} and clears {@link Align#top} for the alignment of the logical table within the table actor. */
+	public Table bottom () {
+<span class="nc" id="L568">		align |= Align.bottom;</span>
+<span class="nc" id="L569">		align &amp;= ~Align.top;</span>
+<span class="nc" id="L570">		return this;</span>
+	}
+
+	/** Adds {@link Align#right} and clears {@link Align#left} for the alignment of the logical table within the table actor. */
+	public Table right () {
+<span class="nc" id="L575">		align |= Align.right;</span>
+<span class="nc" id="L576">		align &amp;= ~Align.left;</span>
+<span class="nc" id="L577">		return this;</span>
+	}
+
+	public void setDebug (boolean enabled) {
+<span class="nc bnc" id="L581" title="All 2 branches missed.">		debug(enabled ? Debug.all : Debug.none);</span>
+<span class="nc" id="L582">	}</span>
+
+	public Table debug () {
+<span class="nc" id="L585">		super.debug();</span>
+<span class="nc" id="L586">		return this;</span>
+	}
+
+	public Table debugAll () {
+<span class="nc" id="L590">		super.debugAll();</span>
+<span class="nc" id="L591">		return this;</span>
+	}
+
+	/** Turns on table debug lines. */
+	public Table debugTable () {
+<span class="nc" id="L596">		super.setDebug(true);</span>
+<span class="nc bnc" id="L597" title="All 2 branches missed.">		if (debug != Debug.table) {</span>
+<span class="nc" id="L598">			this.debug = Debug.table;</span>
+<span class="nc" id="L599">			invalidate();</span>
+		}
+<span class="nc" id="L601">		return this;</span>
+	}
+
+	/** Turns on cell debug lines. */
+	public Table debugCell () {
+<span class="nc" id="L606">		super.setDebug(true);</span>
+<span class="nc bnc" id="L607" title="All 2 branches missed.">		if (debug != Debug.cell) {</span>
+<span class="nc" id="L608">			this.debug = Debug.cell;</span>
+<span class="nc" id="L609">			invalidate();</span>
+		}
+<span class="nc" id="L611">		return this;</span>
+	}
+
+	/** Turns on actor debug lines. */
+	public Table debugActor () {
+<span class="nc" id="L616">		super.setDebug(true);</span>
+<span class="nc bnc" id="L617" title="All 2 branches missed.">		if (debug != Debug.actor) {</span>
+<span class="nc" id="L618">			this.debug = Debug.actor;</span>
+<span class="nc" id="L619">			invalidate();</span>
+		}
+<span class="nc" id="L621">		return this;</span>
+	}
+
+	/** Turns debug lines on or off. */
+	public Table debug (Debug debug) {
+<span class="nc bnc" id="L626" title="All 2 branches missed.">		super.setDebug(debug != Debug.none);</span>
+<span class="nc bnc" id="L627" title="All 2 branches missed.">		if (this.debug != debug) {</span>
+<span class="nc" id="L628">			this.debug = debug;</span>
+<span class="nc bnc" id="L629" title="All 2 branches missed.">			if (debug == Debug.none)</span>
+<span class="nc" id="L630">				clearDebugRects();</span>
+			else
+<span class="nc" id="L632">				invalidate();</span>
+		}
+<span class="nc" id="L634">		return this;</span>
+	}
+
+	public Debug getTableDebug () {
+<span class="nc" id="L638">		return debug;</span>
+	}
+
+	public Value getPadTopValue () {
+<span class="nc" id="L642">		return padTop;</span>
+	}
+
+	public float getPadTop () {
+<span class="nc" id="L646">		return padTop.get(this);</span>
+	}
+
+	public Value getPadLeftValue () {
+<span class="nc" id="L650">		return padLeft;</span>
+	}
+
+	public float getPadLeft () {
+<span class="nc" id="L654">		return padLeft.get(this);</span>
+	}
+
+	public Value getPadBottomValue () {
+<span class="nc" id="L658">		return padBottom;</span>
+	}
+
+	public float getPadBottom () {
+<span class="nc" id="L662">		return padBottom.get(this);</span>
+	}
+
+	public Value getPadRightValue () {
+<span class="nc" id="L666">		return padRight;</span>
+	}
+
+	public float getPadRight () {
+<span class="nc" id="L670">		return padRight.get(this);</span>
+	}
+
+	/** Returns {@link #getPadLeft()} plus {@link #getPadRight()}. */
+	public float getPadX () {
+<span class="nc" id="L675">		return padLeft.get(this) + padRight.get(this);</span>
+	}
+
+	/** Returns {@link #getPadTop()} plus {@link #getPadBottom()}. */
+	public float getPadY () {
+<span class="nc" id="L680">		return padTop.get(this) + padBottom.get(this);</span>
+	}
+
+	public int getAlign () {
+<span class="nc" id="L684">		return align;</span>
+	}
+
+	/** Returns the row index for the y coordinate, or -1 if there are no cells.
+	 * @param y The y coordinate, where 0 is the top of the table. */
+	public int getRow (float y) {
+<span class="nc" id="L690">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc" id="L691">		int row = 0;</span>
+<span class="nc" id="L692">		y += getPadTop();</span>
+<span class="nc" id="L693">		int i = 0, n = cells.size;</span>
+<span class="nc bnc" id="L694" title="All 2 branches missed.">		if (n == 0) return -1;</span>
+<span class="nc bnc" id="L695" title="All 2 branches missed.">		if (n == 1) return 0;</span>
+<span class="nc bnc" id="L696" title="All 2 branches missed.">		while (i &lt; n) {</span>
+<span class="nc" id="L697">			Cell c = cells.get(i++);</span>
+<span class="nc bnc" id="L698" title="All 2 branches missed.">			if (c.actorY + c.computedPadTop &lt; y) break;</span>
+<span class="nc bnc" id="L699" title="All 2 branches missed.">			if (c.endRow) row++;</span>
+<span class="nc" id="L700">		}</span>
+<span class="nc" id="L701">		return Math.min(row, rows - 1);</span>
+	}
+
+	public void setSkin (Skin skin) {
+<span class="nc" id="L705">		this.skin = skin;</span>
+<span class="nc" id="L706">	}</span>
+
+	/** If true (the default), positions and sizes of child actors are rounded to integers. */
+	public void setRound (boolean round) {
+<span class="nc" id="L710">		this.round = round;</span>
+<span class="nc" id="L711">	}</span>
+
+	public int getRows () {
+<span class="nc" id="L714">		return rows;</span>
+	}
+
+	public int getColumns () {
+<span class="nc" id="L718">		return columns;</span>
+	}
+
+	/** Returns the height of the specified row, or 0 if the table layout has not been validated. */
+	public float getRowHeight (int rowIndex) {
+<span class="nc bnc" id="L723" title="All 2 branches missed.">		if (rowHeight == null) return 0;</span>
+<span class="nc" id="L724">		return rowHeight[rowIndex];</span>
+	}
+
+	/** Returns the min height of the specified row. */
+	public float getRowMinHeight (int rowIndex) {
+<span class="nc bnc" id="L729" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L730">		return rowMinHeight[rowIndex];</span>
+	}
+
+	/** Returns the pref height of the specified row. */
+	public float getRowPrefHeight (int rowIndex) {
+<span class="nc bnc" id="L735" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L736">		return rowPrefHeight[rowIndex];</span>
+	}
+
+	/** Returns the width of the specified column, or 0 if the table layout has not been validated. */
+	public float getColumnWidth (int columnIndex) {
+<span class="nc bnc" id="L741" title="All 2 branches missed.">		if (columnWidth == null) return 0;</span>
+<span class="nc" id="L742">		return columnWidth[columnIndex];</span>
+	}
+
+	/** Returns the min height of the specified column. */
+	public float getColumnMinWidth (int columnIndex) {
+<span class="nc bnc" id="L747" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L748">		return columnMinWidth[columnIndex];</span>
+	}
+
+	/** Returns the pref height of the specified column. */
+	public float getColumnPrefWidth (int columnIndex) {
+<span class="nc bnc" id="L753" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+<span class="nc" id="L754">		return columnPrefWidth[columnIndex];</span>
+	}
+
+	private float[] ensureSize (float[] array, int size) {
+<span class="nc bnc" id="L758" title="All 4 branches missed.">		if (array == null || array.length &lt; size) return new float[size];</span>
+<span class="nc bnc" id="L759" title="All 2 branches missed.">		for (int i = 0, n = array.length; i &lt; n; i++)</span>
+<span class="nc" id="L760">			array[i] = 0;</span>
+<span class="nc" id="L761">		return array;</span>
+	}
+
+	public void layout () {
+<span class="nc" id="L765">		float width = getWidth();</span>
+<span class="nc" id="L766">		float height = getHeight();</span>
+
+<span class="nc" id="L768">		layout(0, 0, width, height);</span>
+
+<span class="nc" id="L770">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc bnc" id="L771" title="All 2 branches missed.">		if (round) {</span>
+<span class="nc bnc" id="L772" title="All 2 branches missed.">			for (int i = 0, n = cells.size; i &lt; n; i++) {</span>
+<span class="nc" id="L773">				Cell c = cells.get(i);</span>
+<span class="nc" id="L774">				float actorWidth = Math.round(c.actorWidth);</span>
+<span class="nc" id="L775">				float actorHeight = Math.round(c.actorHeight);</span>
+<span class="nc" id="L776">				float actorX = Math.round(c.actorX);</span>
+<span class="nc" id="L777">				float actorY = height - Math.round(c.actorY) - actorHeight;</span>
+<span class="nc" id="L778">				c.setActorBounds(actorX, actorY, actorWidth, actorHeight);</span>
+<span class="nc" id="L779">				Actor actor = c.actor;</span>
+<span class="nc bnc" id="L780" title="All 2 branches missed.">				if (actor != null) actor.setBounds(actorX, actorY, actorWidth, actorHeight);</span>
+			}
+		} else {
+<span class="nc bnc" id="L783" title="All 2 branches missed.">			for (int i = 0, n = cells.size; i &lt; n; i++) {</span>
+<span class="nc" id="L784">				Cell c = cells.get(i);</span>
+<span class="nc" id="L785">				float actorHeight = c.actorHeight;</span>
+<span class="nc" id="L786">				float actorY = height - c.actorY - actorHeight;</span>
+<span class="nc" id="L787">				c.setActorY(actorY);</span>
+<span class="nc" id="L788">				Actor actor = c.actor;</span>
+<span class="nc bnc" id="L789" title="All 2 branches missed.">				if (actor != null) actor.setBounds(c.actorX, actorY, c.actorWidth, actorHeight);</span>
+			}
+		}
+		// Validate children separately from sizing actors to ensure actors without a cell are validated.
+<span class="nc" id="L793">		Array&lt;Actor&gt; children = getChildren();</span>
+<span class="nc bnc" id="L794" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L795">			Actor child = children.get(i);</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">			if (child instanceof Layout) ((Layout)child).validate();</span>
+		}
+<span class="nc" id="L798">	}</span>
+
+	private void computeSize () {
+<span class="nc" id="L801">		sizeInvalid = false;</span>
+
+<span class="nc" id="L803">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc" id="L804">		int cellCount = cells.size;</span>
+
+		// Implicitly End the row for layout purposes.
+<span class="nc bnc" id="L807" title="All 4 branches missed.">		if (cellCount &gt; 0 &amp;&amp; !cells.peek().endRow) {</span>
+<span class="nc" id="L808">			endRow();</span>
+<span class="nc" id="L809">			implicitEndRow = true;</span>
+		}
+
+<span class="nc" id="L812">		int columns = this.columns, rows = this.rows;</span>
+<span class="nc" id="L813">		float[] columnMinWidth = this.columnMinWidth = ensureSize(this.columnMinWidth, columns);</span>
+<span class="nc" id="L814">		float[] rowMinHeight = this.rowMinHeight = ensureSize(this.rowMinHeight, rows);</span>
+<span class="nc" id="L815">		float[] columnPrefWidth = this.columnPrefWidth = ensureSize(this.columnPrefWidth, columns);</span>
+<span class="nc" id="L816">		float[] rowPrefHeight = this.rowPrefHeight = ensureSize(this.rowPrefHeight, rows);</span>
+<span class="nc" id="L817">		float[] columnWidth = this.columnWidth = ensureSize(this.columnWidth, columns);</span>
+<span class="nc" id="L818">		float[] rowHeight = this.rowHeight = ensureSize(this.rowHeight, rows);</span>
+<span class="nc" id="L819">		float[] expandWidth = this.expandWidth = ensureSize(this.expandWidth, columns);</span>
+<span class="nc" id="L820">		float[] expandHeight = this.expandHeight = ensureSize(this.expandHeight, rows);</span>
+
+<span class="nc" id="L822">		float spaceRightLast = 0;</span>
+<span class="nc bnc" id="L823" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L824">			Cell c = cells.get(i);</span>
+<span class="nc" id="L825">			int column = c.column, row = c.row, colspan = c.colspan;</span>
+<span class="nc" id="L826">			Actor a = c.actor;</span>
+
+			// Collect rows that expand and colspan=1 columns that expand.
+<span class="nc bnc" id="L829" title="All 4 branches missed.">			if (c.expandY != 0 &amp;&amp; expandHeight[row] == 0) expandHeight[row] = c.expandY;</span>
+<span class="nc bnc" id="L830" title="All 6 branches missed.">			if (colspan == 1 &amp;&amp; c.expandX != 0 &amp;&amp; expandWidth[column] == 0) expandWidth[column] = c.expandX;</span>
+
+			// Compute combined padding/spacing for cells.
+			// Spacing between actors isn't additive, the larger is used. Also, no spacing around edges.
+<span class="nc bnc" id="L834" title="All 2 branches missed.">			c.computedPadLeft = c.padLeft.get(a) + (column == 0 ? 0 : Math.max(0, c.spaceLeft.get(a) - spaceRightLast));</span>
+<span class="nc" id="L835">			c.computedPadTop = c.padTop.get(a);</span>
+<span class="nc bnc" id="L836" title="All 2 branches missed.">			if (c.cellAboveIndex != -1) {</span>
+<span class="nc" id="L837">				Cell above = cells.get(c.cellAboveIndex);</span>
+<span class="nc" id="L838">				c.computedPadTop += Math.max(0, c.spaceTop.get(a) - above.spaceBottom.get(a));</span>
+			}
+<span class="nc" id="L840">			float spaceRight = c.spaceRight.get(a);</span>
+<span class="nc bnc" id="L841" title="All 2 branches missed.">			c.computedPadRight = c.padRight.get(a) + ((column + colspan) == columns ? 0 : spaceRight);</span>
+<span class="nc bnc" id="L842" title="All 2 branches missed.">			c.computedPadBottom = c.padBottom.get(a) + (row == rows - 1 ? 0 : c.spaceBottom.get(a));</span>
+<span class="nc" id="L843">			spaceRightLast = spaceRight;</span>
+
+			// Determine minimum and preferred cell sizes.
+<span class="nc" id="L846">			float prefWidth = c.prefWidth.get(a);</span>
+<span class="nc" id="L847">			float prefHeight = c.prefHeight.get(a);</span>
+<span class="nc" id="L848">			float minWidth = c.minWidth.get(a);</span>
+<span class="nc" id="L849">			float minHeight = c.minHeight.get(a);</span>
+<span class="nc" id="L850">			float maxWidth = c.maxWidth.get(a);</span>
+<span class="nc" id="L851">			float maxHeight = c.maxHeight.get(a);</span>
+<span class="nc bnc" id="L852" title="All 2 branches missed.">			if (prefWidth &lt; minWidth) prefWidth = minWidth;</span>
+<span class="nc bnc" id="L853" title="All 2 branches missed.">			if (prefHeight &lt; minHeight) prefHeight = minHeight;</span>
+<span class="nc bnc" id="L854" title="All 4 branches missed.">			if (maxWidth &gt; 0 &amp;&amp; prefWidth &gt; maxWidth) prefWidth = maxWidth;</span>
+<span class="nc bnc" id="L855" title="All 4 branches missed.">			if (maxHeight &gt; 0 &amp;&amp; prefHeight &gt; maxHeight) prefHeight = maxHeight;</span>
+
+<span class="nc bnc" id="L857" title="All 2 branches missed.">			if (colspan == 1) { // Spanned column min and pref width is added later.</span>
+<span class="nc" id="L858">				float hpadding = c.computedPadLeft + c.computedPadRight;</span>
+<span class="nc" id="L859">				columnPrefWidth[column] = Math.max(columnPrefWidth[column], prefWidth + hpadding);</span>
+<span class="nc" id="L860">				columnMinWidth[column] = Math.max(columnMinWidth[column], minWidth + hpadding);</span>
+			}
+<span class="nc" id="L862">			float vpadding = c.computedPadTop + c.computedPadBottom;</span>
+<span class="nc" id="L863">			rowPrefHeight[row] = Math.max(rowPrefHeight[row], prefHeight + vpadding);</span>
+<span class="nc" id="L864">			rowMinHeight[row] = Math.max(rowMinHeight[row], minHeight + vpadding);</span>
+		}
+
+<span class="nc" id="L867">		float uniformMinWidth = 0, uniformMinHeight = 0;</span>
+<span class="nc" id="L868">		float uniformPrefWidth = 0, uniformPrefHeight = 0;</span>
+<span class="nc bnc" id="L869" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L870">			Cell c = cells.get(i);</span>
+<span class="nc" id="L871">			int column = c.column;</span>
+
+			// Colspan with expand will expand all spanned columns if none of the spanned columns have expand.
+<span class="nc" id="L874">			int expandX = c.expandX;</span>
+			outer:
+<span class="nc bnc" id="L876" title="All 2 branches missed.">			if (expandX != 0) {</span>
+<span class="nc" id="L877">				int nn = column + c.colspan;</span>
+<span class="nc bnc" id="L878" title="All 2 branches missed.">				for (int ii = column; ii &lt; nn; ii++)</span>
+<span class="nc bnc" id="L879" title="All 2 branches missed.">					if (expandWidth[ii] != 0) break outer;</span>
+<span class="nc bnc" id="L880" title="All 2 branches missed.">				for (int ii = column; ii &lt; nn; ii++)</span>
+<span class="nc" id="L881">					expandWidth[ii] = expandX;</span>
+			}
+
+			// Collect uniform sizes.
+<span class="nc bnc" id="L885" title="All 4 branches missed.">			if (c.uniformX == Boolean.TRUE &amp;&amp; c.colspan == 1) {</span>
+<span class="nc" id="L886">				float hpadding = c.computedPadLeft + c.computedPadRight;</span>
+<span class="nc" id="L887">				uniformMinWidth = Math.max(uniformMinWidth, columnMinWidth[column] - hpadding);</span>
+<span class="nc" id="L888">				uniformPrefWidth = Math.max(uniformPrefWidth, columnPrefWidth[column] - hpadding);</span>
+			}
+<span class="nc bnc" id="L890" title="All 2 branches missed.">			if (c.uniformY == Boolean.TRUE) {</span>
+<span class="nc" id="L891">				float vpadding = c.computedPadTop + c.computedPadBottom;</span>
+<span class="nc" id="L892">				uniformMinHeight = Math.max(uniformMinHeight, rowMinHeight[c.row] - vpadding);</span>
+<span class="nc" id="L893">				uniformPrefHeight = Math.max(uniformPrefHeight, rowPrefHeight[c.row] - vpadding);</span>
+			}
+		}
+
+		// Size uniform cells to the same width/height.
+<span class="nc bnc" id="L898" title="All 4 branches missed.">		if (uniformPrefWidth &gt; 0 || uniformPrefHeight &gt; 0) {</span>
+<span class="nc bnc" id="L899" title="All 2 branches missed.">			for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L900">				Cell c = cells.get(i);</span>
+<span class="nc bnc" id="L901" title="All 6 branches missed.">				if (uniformPrefWidth &gt; 0 &amp;&amp; c.uniformX == Boolean.TRUE &amp;&amp; c.colspan == 1) {</span>
+<span class="nc" id="L902">					float hpadding = c.computedPadLeft + c.computedPadRight;</span>
+<span class="nc" id="L903">					columnMinWidth[c.column] = uniformMinWidth + hpadding;</span>
+<span class="nc" id="L904">					columnPrefWidth[c.column] = uniformPrefWidth + hpadding;</span>
+				}
+<span class="nc bnc" id="L906" title="All 4 branches missed.">				if (uniformPrefHeight &gt; 0 &amp;&amp; c.uniformY == Boolean.TRUE) {</span>
+<span class="nc" id="L907">					float vpadding = c.computedPadTop + c.computedPadBottom;</span>
+<span class="nc" id="L908">					rowMinHeight[c.row] = uniformMinHeight + vpadding;</span>
+<span class="nc" id="L909">					rowPrefHeight[c.row] = uniformPrefHeight + vpadding;</span>
+				}
+			}
+		}
+
+		// Distribute any additional min and pref width added by colspanned cells to the columns spanned.
+<span class="nc bnc" id="L915" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L916">			Cell c = cells.get(i);</span>
+<span class="nc" id="L917">			int colspan = c.colspan;</span>
+<span class="nc bnc" id="L918" title="All 2 branches missed.">			if (colspan == 1) continue;</span>
+<span class="nc" id="L919">			int column = c.column;</span>
+
+<span class="nc" id="L921">			Actor a = c.actor;</span>
+<span class="nc" id="L922">			float minWidth = c.minWidth.get(a);</span>
+<span class="nc" id="L923">			float prefWidth = c.prefWidth.get(a);</span>
+<span class="nc" id="L924">			float maxWidth = c.maxWidth.get(a);</span>
+<span class="nc bnc" id="L925" title="All 2 branches missed.">			if (prefWidth &lt; minWidth) prefWidth = minWidth;</span>
+<span class="nc bnc" id="L926" title="All 4 branches missed.">			if (maxWidth &gt; 0 &amp;&amp; prefWidth &gt; maxWidth) prefWidth = maxWidth;</span>
+
+<span class="nc" id="L928">			float spannedMinWidth = -(c.computedPadLeft + c.computedPadRight), spannedPrefWidth = spannedMinWidth;</span>
+<span class="nc" id="L929">			float totalExpandWidth = 0;</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">			for (int ii = column, nn = ii + colspan; ii &lt; nn; ii++) {</span>
+<span class="nc" id="L931">				spannedMinWidth += columnMinWidth[ii];</span>
+<span class="nc" id="L932">				spannedPrefWidth += columnPrefWidth[ii];</span>
+<span class="nc" id="L933">				totalExpandWidth += expandWidth[ii]; // Distribute extra space using expand, if any columns have expand.</span>
+			}
+
+<span class="nc" id="L936">			float extraMinWidth = Math.max(0, minWidth - spannedMinWidth);</span>
+<span class="nc" id="L937">			float extraPrefWidth = Math.max(0, prefWidth - spannedPrefWidth);</span>
+<span class="nc bnc" id="L938" title="All 2 branches missed.">			for (int ii = column, nn = ii + colspan; ii &lt; nn; ii++) {</span>
+<span class="nc bnc" id="L939" title="All 2 branches missed.">				float ratio = totalExpandWidth == 0 ? 1f / colspan : expandWidth[ii] / totalExpandWidth;</span>
+<span class="nc" id="L940">				columnMinWidth[ii] += extraMinWidth * ratio;</span>
+<span class="nc" id="L941">				columnPrefWidth[ii] += extraPrefWidth * ratio;</span>
+			}
+		}
+
+		// Determine table min and pref size.
+<span class="nc" id="L946">		tableMinWidth = 0;</span>
+<span class="nc" id="L947">		tableMinHeight = 0;</span>
+<span class="nc" id="L948">		tablePrefWidth = 0;</span>
+<span class="nc" id="L949">		tablePrefHeight = 0;</span>
+<span class="nc bnc" id="L950" title="All 2 branches missed.">		for (int i = 0; i &lt; columns; i++) {</span>
+<span class="nc" id="L951">			tableMinWidth += columnMinWidth[i];</span>
+<span class="nc" id="L952">			tablePrefWidth += columnPrefWidth[i];</span>
+		}
+<span class="nc bnc" id="L954" title="All 2 branches missed.">		for (int i = 0; i &lt; rows; i++) {</span>
+<span class="nc" id="L955">			tableMinHeight += rowMinHeight[i];</span>
+<span class="nc" id="L956">			tablePrefHeight += Math.max(rowMinHeight[i], rowPrefHeight[i]);</span>
+		}
+<span class="nc" id="L958">		float hpadding = padLeft.get(this) + padRight.get(this);</span>
+<span class="nc" id="L959">		float vpadding = padTop.get(this) + padBottom.get(this);</span>
+<span class="nc" id="L960">		tableMinWidth = tableMinWidth + hpadding;</span>
+<span class="nc" id="L961">		tableMinHeight = tableMinHeight + vpadding;</span>
+<span class="nc" id="L962">		tablePrefWidth = Math.max(tablePrefWidth + hpadding, tableMinWidth);</span>
+<span class="nc" id="L963">		tablePrefHeight = Math.max(tablePrefHeight + vpadding, tableMinHeight);</span>
+<span class="nc" id="L964">	}</span>
+
+	/** Positions and sizes children of the table using the cell associated with each child. The values given are the position
+	 * within the parent and size of the table. */
+	private void layout (float layoutX, float layoutY, float layoutWidth, float layoutHeight) {
+<span class="nc" id="L969">		Array&lt;Cell&gt; cells = this.cells;</span>
+<span class="nc" id="L970">		int cellCount = cells.size;</span>
+
+<span class="nc bnc" id="L972" title="All 2 branches missed.">		if (sizeInvalid) computeSize();</span>
+
+<span class="nc" id="L974">		float padLeft = this.padLeft.get(this);</span>
+<span class="nc" id="L975">		float hpadding = padLeft + padRight.get(this);</span>
+<span class="nc" id="L976">		float padTop = this.padTop.get(this);</span>
+<span class="nc" id="L977">		float vpadding = padTop + padBottom.get(this);</span>
+
+<span class="nc" id="L979">		int columns = this.columns, rows = this.rows;</span>
+<span class="nc" id="L980">		float[] expandWidth = this.expandWidth, expandHeight = this.expandHeight;</span>
+<span class="nc" id="L981">		float[] columnWidth = this.columnWidth, rowHeight = this.rowHeight;</span>
+
+<span class="nc" id="L983">		float totalExpandWidth = 0, totalExpandHeight = 0;</span>
+<span class="nc bnc" id="L984" title="All 2 branches missed.">		for (int i = 0; i &lt; columns; i++)</span>
+<span class="nc" id="L985">			totalExpandWidth += expandWidth[i];</span>
+<span class="nc bnc" id="L986" title="All 2 branches missed.">		for (int i = 0; i &lt; rows; i++)</span>
+<span class="nc" id="L987">			totalExpandHeight += expandHeight[i];</span>
+
+		// Size columns and rows between min and pref size using (preferred - min) size to weight distribution of extra space.
+		float[] columnWeightedWidth;
+<span class="nc" id="L991">		float totalGrowWidth = tablePrefWidth - tableMinWidth;</span>
+<span class="nc bnc" id="L992" title="All 2 branches missed.">		if (totalGrowWidth == 0)</span>
+<span class="nc" id="L993">			columnWeightedWidth = columnMinWidth;</span>
+		else {
+<span class="nc" id="L995">			float extraWidth = Math.min(totalGrowWidth, Math.max(0, layoutWidth - tableMinWidth));</span>
+<span class="nc" id="L996">			columnWeightedWidth = Table.columnWeightedWidth = ensureSize(Table.columnWeightedWidth, columns);</span>
+<span class="nc" id="L997">			float[] columnMinWidth = this.columnMinWidth, columnPrefWidth = this.columnPrefWidth;</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">			for (int i = 0; i &lt; columns; i++) {</span>
+<span class="nc" id="L999">				float growWidth = columnPrefWidth[i] - columnMinWidth[i];</span>
+<span class="nc" id="L1000">				float growRatio = growWidth / totalGrowWidth;</span>
+<span class="nc" id="L1001">				columnWeightedWidth[i] = columnMinWidth[i] + extraWidth * growRatio;</span>
+			}
+		}
+
+		float[] rowWeightedHeight;
+<span class="nc" id="L1006">		float totalGrowHeight = tablePrefHeight - tableMinHeight;</span>
+<span class="nc bnc" id="L1007" title="All 2 branches missed.">		if (totalGrowHeight == 0)</span>
+<span class="nc" id="L1008">			rowWeightedHeight = rowMinHeight;</span>
+		else {
+<span class="nc" id="L1010">			rowWeightedHeight = Table.rowWeightedHeight = ensureSize(Table.rowWeightedHeight, rows);</span>
+<span class="nc" id="L1011">			float extraHeight = Math.min(totalGrowHeight, Math.max(0, layoutHeight - tableMinHeight));</span>
+<span class="nc" id="L1012">			float[] rowMinHeight = this.rowMinHeight, rowPrefHeight = this.rowPrefHeight;</span>
+<span class="nc bnc" id="L1013" title="All 2 branches missed.">			for (int i = 0; i &lt; rows; i++) {</span>
+<span class="nc" id="L1014">				float growHeight = rowPrefHeight[i] - rowMinHeight[i];</span>
+<span class="nc" id="L1015">				float growRatio = growHeight / totalGrowHeight;</span>
+<span class="nc" id="L1016">				rowWeightedHeight[i] = rowMinHeight[i] + extraHeight * growRatio;</span>
+			}
+		}
+
+		// Determine actor and cell sizes (before expand or fill).
+<span class="nc bnc" id="L1021" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L1022">			Cell c = cells.get(i);</span>
+<span class="nc" id="L1023">			int column = c.column, row = c.row;</span>
+<span class="nc" id="L1024">			Actor a = c.actor;</span>
+
+<span class="nc" id="L1026">			float spannedWeightedWidth = 0;</span>
+<span class="nc" id="L1027">			int colspan = c.colspan;</span>
+<span class="nc bnc" id="L1028" title="All 2 branches missed.">			for (int ii = column, nn = ii + colspan; ii &lt; nn; ii++)</span>
+<span class="nc" id="L1029">				spannedWeightedWidth += columnWeightedWidth[ii];</span>
+<span class="nc" id="L1030">			float weightedHeight = rowWeightedHeight[row];</span>
+
+<span class="nc" id="L1032">			float prefWidth = c.prefWidth.get(a);</span>
+<span class="nc" id="L1033">			float prefHeight = c.prefHeight.get(a);</span>
+<span class="nc" id="L1034">			float minWidth = c.minWidth.get(a);</span>
+<span class="nc" id="L1035">			float minHeight = c.minHeight.get(a);</span>
+<span class="nc" id="L1036">			float maxWidth = c.maxWidth.get(a);</span>
+<span class="nc" id="L1037">			float maxHeight = c.maxHeight.get(a);</span>
+<span class="nc bnc" id="L1038" title="All 2 branches missed.">			if (prefWidth &lt; minWidth) prefWidth = minWidth;</span>
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">			if (prefHeight &lt; minHeight) prefHeight = minHeight;</span>
+<span class="nc bnc" id="L1040" title="All 4 branches missed.">			if (maxWidth &gt; 0 &amp;&amp; prefWidth &gt; maxWidth) prefWidth = maxWidth;</span>
+<span class="nc bnc" id="L1041" title="All 4 branches missed.">			if (maxHeight &gt; 0 &amp;&amp; prefHeight &gt; maxHeight) prefHeight = maxHeight;</span>
+
+<span class="nc" id="L1043">			c.actorWidth = Math.min(spannedWeightedWidth - c.computedPadLeft - c.computedPadRight, prefWidth);</span>
+<span class="nc" id="L1044">			c.actorHeight = Math.min(weightedHeight - c.computedPadTop - c.computedPadBottom, prefHeight);</span>
+
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">			if (colspan == 1) columnWidth[column] = Math.max(columnWidth[column], spannedWeightedWidth);</span>
+<span class="nc" id="L1047">			rowHeight[row] = Math.max(rowHeight[row], weightedHeight);</span>
+		}
+
+		// Distribute remaining space to any expanding columns/rows.
+<span class="nc bnc" id="L1051" title="All 2 branches missed.">		if (totalExpandWidth &gt; 0) {</span>
+<span class="nc" id="L1052">			float extra = layoutWidth - hpadding;</span>
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">			for (int i = 0; i &lt; columns; i++)</span>
+<span class="nc" id="L1054">				extra -= columnWidth[i];</span>
+<span class="nc bnc" id="L1055" title="All 2 branches missed.">			if (extra &gt; 0) { // layoutWidth &lt; tableMinWidth.</span>
+<span class="nc" id="L1056">				float used = 0;</span>
+<span class="nc" id="L1057">				int lastIndex = 0;</span>
+<span class="nc bnc" id="L1058" title="All 2 branches missed.">				for (int i = 0; i &lt; columns; i++) {</span>
+<span class="nc bnc" id="L1059" title="All 2 branches missed.">					if (expandWidth[i] == 0) continue;</span>
+<span class="nc" id="L1060">					float amount = extra * expandWidth[i] / totalExpandWidth;</span>
+<span class="nc" id="L1061">					columnWidth[i] += amount;</span>
+<span class="nc" id="L1062">					used += amount;</span>
+<span class="nc" id="L1063">					lastIndex = i;</span>
+				}
+<span class="nc" id="L1065">				columnWidth[lastIndex] += extra - used;</span>
+			}
+		}
+<span class="nc bnc" id="L1068" title="All 2 branches missed.">		if (totalExpandHeight &gt; 0) {</span>
+<span class="nc" id="L1069">			float extra = layoutHeight - vpadding;</span>
+<span class="nc bnc" id="L1070" title="All 2 branches missed.">			for (int i = 0; i &lt; rows; i++)</span>
+<span class="nc" id="L1071">				extra -= rowHeight[i];</span>
+<span class="nc bnc" id="L1072" title="All 2 branches missed.">			if (extra &gt; 0) { // layoutHeight &lt; tableMinHeight.</span>
+<span class="nc" id="L1073">				float used = 0;</span>
+<span class="nc" id="L1074">				int lastIndex = 0;</span>
+<span class="nc bnc" id="L1075" title="All 2 branches missed.">				for (int i = 0; i &lt; rows; i++) {</span>
+<span class="nc bnc" id="L1076" title="All 2 branches missed.">					if (expandHeight[i] == 0) continue;</span>
+<span class="nc" id="L1077">					float amount = extra * expandHeight[i] / totalExpandHeight;</span>
+<span class="nc" id="L1078">					rowHeight[i] += amount;</span>
+<span class="nc" id="L1079">					used += amount;</span>
+<span class="nc" id="L1080">					lastIndex = i;</span>
+				}
+<span class="nc" id="L1082">				rowHeight[lastIndex] += extra - used;</span>
+			}
+		}
+
+		// Distribute any additional width added by colspanned cells to the columns spanned.
+<span class="nc bnc" id="L1087" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L1088">			Cell c = cells.get(i);</span>
+<span class="nc" id="L1089">			int colspan = c.colspan;</span>
+<span class="nc bnc" id="L1090" title="All 2 branches missed.">			if (colspan == 1) continue;</span>
+
+<span class="nc" id="L1092">			float extraWidth = 0;</span>
+<span class="nc bnc" id="L1093" title="All 2 branches missed.">			for (int column = c.column, nn = column + colspan; column &lt; nn; column++)</span>
+<span class="nc" id="L1094">				extraWidth += columnWeightedWidth[column] - columnWidth[column];</span>
+<span class="nc" id="L1095">			extraWidth -= Math.max(0, c.computedPadLeft + c.computedPadRight);</span>
+
+<span class="nc" id="L1097">			extraWidth /= colspan;</span>
+<span class="nc bnc" id="L1098" title="All 2 branches missed.">			if (extraWidth &gt; 0) {</span>
+<span class="nc bnc" id="L1099" title="All 2 branches missed.">				for (int column = c.column, nn = column + colspan; column &lt; nn; column++)</span>
+<span class="nc" id="L1100">					columnWidth[column] += extraWidth;</span>
+			}
+		}
+
+		// Determine table size.
+<span class="nc" id="L1105">		float tableWidth = hpadding, tableHeight = vpadding;</span>
+<span class="nc bnc" id="L1106" title="All 2 branches missed.">		for (int i = 0; i &lt; columns; i++)</span>
+<span class="nc" id="L1107">			tableWidth += columnWidth[i];</span>
+<span class="nc bnc" id="L1108" title="All 2 branches missed.">		for (int i = 0; i &lt; rows; i++)</span>
+<span class="nc" id="L1109">			tableHeight += rowHeight[i];</span>
+
+		// Position table within the container.
+<span class="nc" id="L1112">		int align = this.align;</span>
+<span class="nc" id="L1113">		float x = layoutX + padLeft;</span>
+<span class="nc bnc" id="L1114" title="All 2 branches missed.">		if ((align &amp; Align.right) != 0)</span>
+<span class="nc" id="L1115">			x += layoutWidth - tableWidth;</span>
+<span class="nc bnc" id="L1116" title="All 2 branches missed.">		else if ((align &amp; Align.left) == 0) // Center</span>
+<span class="nc" id="L1117">			x += (layoutWidth - tableWidth) / 2;</span>
+
+<span class="nc" id="L1119">		float y = layoutY + padTop;</span>
+<span class="nc bnc" id="L1120" title="All 2 branches missed.">		if ((align &amp; Align.bottom) != 0)</span>
+<span class="nc" id="L1121">			y += layoutHeight - tableHeight;</span>
+<span class="nc bnc" id="L1122" title="All 2 branches missed.">		else if ((align &amp; Align.top) == 0) // Center</span>
+<span class="nc" id="L1123">			y += (layoutHeight - tableHeight) / 2;</span>
+
+		// Position actors within cells.
+<span class="nc" id="L1126">		float currentX = x, currentY = y;</span>
+<span class="nc bnc" id="L1127" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L1128">			Cell c = cells.get(i);</span>
+
+<span class="nc" id="L1130">			float spannedCellWidth = 0;</span>
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">			for (int column = c.column, nn = column + c.colspan; column &lt; nn; column++)</span>
+<span class="nc" id="L1132">				spannedCellWidth += columnWidth[column];</span>
+<span class="nc" id="L1133">			spannedCellWidth -= c.computedPadLeft + c.computedPadRight;</span>
+
+<span class="nc" id="L1135">			currentX += c.computedPadLeft;</span>
+
+<span class="nc" id="L1137">			float fillX = c.fillX, fillY = c.fillY;</span>
+<span class="nc bnc" id="L1138" title="All 2 branches missed.">			if (fillX &gt; 0) {</span>
+<span class="nc" id="L1139">				c.actorWidth = Math.max(spannedCellWidth * fillX, c.minWidth.get(c.actor));</span>
+<span class="nc" id="L1140">				float maxWidth = c.maxWidth.get(c.actor);</span>
+<span class="nc bnc" id="L1141" title="All 2 branches missed.">				if (maxWidth &gt; 0) c.actorWidth = Math.min(c.actorWidth, maxWidth);</span>
+			}
+<span class="nc bnc" id="L1143" title="All 2 branches missed.">			if (fillY &gt; 0) {</span>
+<span class="nc" id="L1144">				c.actorHeight = Math.max(rowHeight[c.row] * fillY - c.computedPadTop - c.computedPadBottom, c.minHeight.get(c.actor));</span>
+<span class="nc" id="L1145">				float maxHeight = c.maxHeight.get(c.actor);</span>
+<span class="nc bnc" id="L1146" title="All 2 branches missed.">				if (maxHeight &gt; 0) c.actorHeight = Math.min(c.actorHeight, maxHeight);</span>
+			}
+
+<span class="nc" id="L1149">			align = c.align;</span>
+<span class="nc bnc" id="L1150" title="All 2 branches missed.">			if ((align &amp; Align.left) != 0)</span>
+<span class="nc" id="L1151">				c.actorX = currentX;</span>
+<span class="nc bnc" id="L1152" title="All 2 branches missed.">			else if ((align &amp; Align.right) != 0)</span>
+<span class="nc" id="L1153">				c.actorX = currentX + spannedCellWidth - c.actorWidth;</span>
+			else
+<span class="nc" id="L1155">				c.actorX = currentX + (spannedCellWidth - c.actorWidth) / 2;</span>
+
+<span class="nc bnc" id="L1157" title="All 2 branches missed.">			if ((align &amp; Align.top) != 0)</span>
+<span class="nc" id="L1158">				c.actorY = currentY + c.computedPadTop;</span>
+<span class="nc bnc" id="L1159" title="All 2 branches missed.">			else if ((align &amp; Align.bottom) != 0)</span>
+<span class="nc" id="L1160">				c.actorY = currentY + rowHeight[c.row] - c.actorHeight - c.computedPadBottom;</span>
+			else
+<span class="nc" id="L1162">				c.actorY = currentY + (rowHeight[c.row] - c.actorHeight + c.computedPadTop - c.computedPadBottom) / 2;</span>
+
+<span class="nc bnc" id="L1164" title="All 2 branches missed.">			if (c.endRow) {</span>
+<span class="nc" id="L1165">				currentX = x;</span>
+<span class="nc" id="L1166">				currentY += rowHeight[c.row];</span>
+			} else
+<span class="nc" id="L1168">				currentX += spannedCellWidth + c.computedPadRight;</span>
+		}
+
+		// Store debug rectangles.
+<span class="nc bnc" id="L1172" title="All 2 branches missed.">		if (debug == Debug.none) return;</span>
+<span class="nc" id="L1173">		clearDebugRects();</span>
+<span class="nc" id="L1174">		currentX = x;</span>
+<span class="nc" id="L1175">		currentY = y;</span>
+<span class="nc bnc" id="L1176" title="All 4 branches missed.">		if (debug == Debug.table || debug == Debug.all) {</span>
+<span class="nc" id="L1177">			addDebugRect(layoutX, layoutY, layoutWidth, layoutHeight, debugTableColor);</span>
+<span class="nc" id="L1178">			addDebugRect(x, y, tableWidth - hpadding, tableHeight - vpadding, debugTableColor);</span>
+		}
+<span class="nc bnc" id="L1180" title="All 2 branches missed.">		for (int i = 0; i &lt; cellCount; i++) {</span>
+<span class="nc" id="L1181">			Cell c = cells.get(i);</span>
+
+			// Actor bounds.
+<span class="nc bnc" id="L1184" title="All 4 branches missed.">			if (debug == Debug.actor || debug == Debug.all)</span>
+<span class="nc" id="L1185">				addDebugRect(c.actorX, c.actorY, c.actorWidth, c.actorHeight, debugActorColor);</span>
+
+			// Cell bounds.
+<span class="nc" id="L1188">			float spannedCellWidth = 0;</span>
+<span class="nc bnc" id="L1189" title="All 2 branches missed.">			for (int column = c.column, nn = column + c.colspan; column &lt; nn; column++)</span>
+<span class="nc" id="L1190">				spannedCellWidth += columnWidth[column];</span>
+<span class="nc" id="L1191">			spannedCellWidth -= c.computedPadLeft + c.computedPadRight;</span>
+<span class="nc" id="L1192">			currentX += c.computedPadLeft;</span>
+<span class="nc bnc" id="L1193" title="All 4 branches missed.">			if (debug == Debug.cell || debug == Debug.all) {</span>
+<span class="nc" id="L1194">				addDebugRect(currentX, currentY + c.computedPadTop, spannedCellWidth,</span>
+					rowHeight[c.row] - c.computedPadTop - c.computedPadBottom, debugCellColor);
+			}
+
+<span class="nc bnc" id="L1198" title="All 2 branches missed.">			if (c.endRow) {</span>
+<span class="nc" id="L1199">				currentX = x;</span>
+<span class="nc" id="L1200">				currentY += rowHeight[c.row];</span>
+			} else
+<span class="nc" id="L1202">				currentX += spannedCellWidth + c.computedPadRight;</span>
+		}
+<span class="nc" id="L1204">	}</span>
+
+	private void clearDebugRects () {
+<span class="nc bnc" id="L1207" title="All 2 branches missed.">		if (debugRects == null) return;</span>
+<span class="nc" id="L1208">		DebugRect.pool.freeAll(debugRects);</span>
+<span class="nc" id="L1209">		debugRects.clear();</span>
+<span class="nc" id="L1210">	}</span>
+
+	private void addDebugRect (float x, float y, float w, float h, Color color) {
+<span class="nc bnc" id="L1213" title="All 2 branches missed.">		if (debugRects == null) debugRects = new Array();</span>
+<span class="nc" id="L1214">		DebugRect rect = DebugRect.pool.obtain();</span>
+<span class="nc" id="L1215">		rect.color = color;</span>
+<span class="nc" id="L1216">		rect.set(x, getHeight() - y - h, w, h);</span>
+<span class="nc" id="L1217">		debugRects.add(rect);</span>
+<span class="nc" id="L1218">	}</span>
+
+	public void drawDebug (ShapeRenderer shapes) {
+<span class="nc bnc" id="L1221" title="All 2 branches missed.">		if (isTransform()) {</span>
+<span class="nc" id="L1222">			applyTransform(shapes, computeTransform());</span>
+<span class="nc" id="L1223">			drawDebugRects(shapes);</span>
+<span class="nc bnc" id="L1224" title="All 2 branches missed.">			if (clip) {</span>
+<span class="nc" id="L1225">				shapes.flush();</span>
+<span class="nc" id="L1226">				float x = 0, y = 0, width = getWidth(), height = getHeight();</span>
+<span class="nc bnc" id="L1227" title="All 2 branches missed.">				if (background != null) {</span>
+<span class="nc" id="L1228">					x = padLeft.get(this);</span>
+<span class="nc" id="L1229">					y = padBottom.get(this);</span>
+<span class="nc" id="L1230">					width -= x + padRight.get(this);</span>
+<span class="nc" id="L1231">					height -= y + padTop.get(this);</span>
+				}
+<span class="nc bnc" id="L1233" title="All 2 branches missed.">				if (clipBegin(x, y, width, height)) {</span>
+<span class="nc" id="L1234">					drawDebugChildren(shapes);</span>
+<span class="nc" id="L1235">					clipEnd();</span>
+				}
+<span class="nc" id="L1237">			} else</span>
+<span class="nc" id="L1238">				drawDebugChildren(shapes);</span>
+<span class="nc" id="L1239">			resetTransform(shapes);</span>
+		} else {
+<span class="nc" id="L1241">			drawDebugRects(shapes);</span>
+<span class="nc" id="L1242">			super.drawDebug(shapes);</span>
+		}
+<span class="nc" id="L1244">	}</span>
+
+	protected void drawDebugBounds (ShapeRenderer shapes) {
+<span class="nc" id="L1247">	}</span>
+
+	private void drawDebugRects (ShapeRenderer shapes) {
+<span class="nc bnc" id="L1250" title="All 4 branches missed.">		if (debugRects == null || !getDebug()) return;</span>
+<span class="nc" id="L1251">		shapes.set(ShapeType.Line);</span>
+<span class="nc bnc" id="L1252" title="All 2 branches missed.">		if (getStage() != null) shapes.setColor(getStage().getDebugColor());</span>
+<span class="nc" id="L1253">		float x = 0, y = 0;</span>
+<span class="nc bnc" id="L1254" title="All 2 branches missed.">		if (!isTransform()) {</span>
+<span class="nc" id="L1255">			x = getX();</span>
+<span class="nc" id="L1256">			y = getY();</span>
+		}
+<span class="nc bnc" id="L1258" title="All 2 branches missed.">		for (int i = 0, n = debugRects.size; i &lt; n; i++) {</span>
+<span class="nc" id="L1259">			DebugRect debugRect = debugRects.get(i);</span>
+<span class="nc" id="L1260">			shapes.setColor(debugRect.color);</span>
+<span class="nc" id="L1261">			shapes.rect(x + debugRect.x, y + debugRect.y, debugRect.width, debugRect.height);</span>
+		}
+<span class="nc" id="L1263">	}</span>
+
+	/** @return The skin that was passed to this table in its constructor, or null if none was given. */
+	public Skin getSkin () {
+<span class="nc" id="L1267">		return skin;</span>
+	}
+
+	/** @author Nathan Sweet */
+<span class="nc" id="L1271">	static public class DebugRect extends Rectangle {</span>
+<span class="nc" id="L1272">		static Pool&lt;DebugRect&gt; pool = Pools.get(DebugRect.class);</span>
+		Color color;
+	}
+
+	/** @author Nathan Sweet */
+<span class="nc" id="L1277">	static public enum Debug {</span>
+<span class="nc" id="L1278">		none, all, table, cell, actor</span>
+	}
+
+	/** Value that is the top padding of the table's background.
+	 * @author Nathan Sweet */
+<span class="nc" id="L1283">	static public Value backgroundTop = new Value() {</span>
+		public float get (Actor context) {
+<span class="nc" id="L1285">			Drawable background = ((Table)context).background;</span>
+<span class="nc bnc" id="L1286" title="All 2 branches missed.">			return background == null ? 0 : background.getTopHeight();</span>
+		}
+	};
+
+	/** Value that is the left padding of the table's background.
+	 * @author Nathan Sweet */
+<span class="nc" id="L1292">	static public Value backgroundLeft = new Value() {</span>
+		public float get (Actor context) {
+<span class="nc" id="L1294">			Drawable background = ((Table)context).background;</span>
+<span class="nc bnc" id="L1295" title="All 2 branches missed.">			return background == null ? 0 : background.getLeftWidth();</span>
+		}
+	};
+
+	/** Value that is the bottom padding of the table's background.
+	 * @author Nathan Sweet */
+<span class="nc" id="L1301">	static public Value backgroundBottom = new Value() {</span>
+		public float get (Actor context) {
+<span class="nc" id="L1303">			Drawable background = ((Table)context).background;</span>
+<span class="nc bnc" id="L1304" title="All 2 branches missed.">			return background == null ? 0 : background.getBottomHeight();</span>
+		}
+	};
+
+	/** Value that is the right padding of the table's background.
+	 * @author Nathan Sweet */
+<span class="nc" id="L1310">	static public Value backgroundRight = new Value() {</span>
+		public float get (Actor context) {
+<span class="nc" id="L1312">			Drawable background = ((Table)context).background;</span>
+<span class="nc bnc" id="L1313" title="All 2 branches missed.">			return background == null ? 0 : background.getRightWidth();</span>
+		}
+	};
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

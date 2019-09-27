@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleControllerInfluencer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">ParticleControllerInfluencer.java</span></div><h1>ParticleControllerInfluencer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import java.util.Iterator;
+
+import com.badlogic.gdx.assets.AssetDescriptor;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.ObjectChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleController;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleEffect;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData;
+import com.badlogic.gdx.graphics.g3d.particles.ResourceData.SaveData;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.Pool;
+
+/** It's an {@link Influencer} which controls which {@link ParticleController} will be assigned to a particle.
+ * @author Inferno */
+public abstract class ParticleControllerInfluencer extends Influencer {
+
+	/** Assigns the first controller of {@link ParticleControllerInfluencer#templates} to the particles. */
+	public static class Single extends ParticleControllerInfluencer {
+
+		public Single (ParticleController... templates) {
+<span class="nc" id="L41">			super(templates);</span>
+<span class="nc" id="L42">		}</span>
+
+		public Single () {
+<span class="nc" id="L45">			super();</span>
+<span class="nc" id="L46">		}</span>
+
+		public Single (Single particleControllerSingle) {
+<span class="nc" id="L49">			super(particleControllerSingle);</span>
+<span class="nc" id="L50">		}</span>
+
+		@Override
+		public void init () {
+<span class="nc" id="L54">			ParticleController first = templates.first();</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">			for (int i = 0, c = controller.particles.capacity; i &lt; c; ++i) {</span>
+<span class="nc" id="L56">				ParticleController copy = first.copy();</span>
+<span class="nc" id="L57">				copy.init();</span>
+<span class="nc" id="L58">				particleControllerChannel.data[i] = copy;</span>
+			}
+<span class="nc" id="L60">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L64" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L65">				particleControllerChannel.data[i].start();</span>
+			}
+<span class="nc" id="L67">		}</span>
+
+		@Override
+		public void killParticles (int startIndex, int count) {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L72">				particleControllerChannel.data[i].end();</span>
+			}
+<span class="nc" id="L74">		}</span>
+
+		@Override
+		public Single copy () {
+<span class="nc" id="L78">			return new Single(this);</span>
+		}
+	}
+
+	/** Assigns a random controller of {@link ParticleControllerInfluencer#templates} to the particles. */
+	public static class Random extends ParticleControllerInfluencer {
+		private class ParticleControllerPool extends Pool&lt;ParticleController&gt; {
+<span class="nc" id="L85">			public ParticleControllerPool () {</span>
+<span class="nc" id="L86">			}</span>
+
+			@Override
+			public ParticleController newObject () {
+<span class="nc" id="L90">				ParticleController controller = templates.random().copy();</span>
+<span class="nc" id="L91">				controller.init();</span>
+<span class="nc" id="L92">				return controller;</span>
+			}
+
+			@Override
+			public void clear () {
+				// Dispose every allocated instance because the templates may be changed
+<span class="nc bnc" id="L98" title="All 2 branches missed.">				for (int i = 0, free = pool.getFree(); i &lt; free; ++i) {</span>
+<span class="nc" id="L99">					pool.obtain().dispose();</span>
+				}
+<span class="nc" id="L101">				super.clear();</span>
+<span class="nc" id="L102">			}</span>
+		}
+
+		ParticleControllerPool pool;
+
+		public Random () {
+<span class="nc" id="L108">			super();</span>
+<span class="nc" id="L109">			pool = new ParticleControllerPool();</span>
+<span class="nc" id="L110">		}</span>
+
+		public Random (ParticleController... templates) {
+<span class="nc" id="L113">			super(templates);</span>
+<span class="nc" id="L114">			pool = new ParticleControllerPool();</span>
+<span class="nc" id="L115">		}</span>
+
+		public Random (Random particleControllerRandom) {
+<span class="nc" id="L118">			super(particleControllerRandom);</span>
+<span class="nc" id="L119">			pool = new ParticleControllerPool();</span>
+<span class="nc" id="L120">		}</span>
+
+		@Override
+		public void init () {
+<span class="nc" id="L124">			pool.clear();</span>
+			// Allocate the new instances
+<span class="nc bnc" id="L126" title="All 2 branches missed.">			for (int i = 0; i &lt; controller.emitter.maxParticleCount; ++i) {</span>
+<span class="nc" id="L127">				pool.free(pool.newObject());</span>
+			}
+<span class="nc" id="L129">		}</span>
+
+		@Override
+		public void dispose () {
+<span class="nc" id="L133">			pool.clear();</span>
+<span class="nc" id="L134">			super.dispose();</span>
+<span class="nc" id="L135">		}</span>
+
+		@Override
+		public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L140">				ParticleController controller = pool.obtain();</span>
+<span class="nc" id="L141">				controller.start();</span>
+<span class="nc" id="L142">				particleControllerChannel.data[i] = controller;</span>
+			}
+<span class="nc" id="L144">		}</span>
+
+		@Override
+		public void killParticles (int startIndex, int count) {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">			for (int i = startIndex, c = startIndex + count; i &lt; c; ++i) {</span>
+<span class="nc" id="L149">				ParticleController controller = particleControllerChannel.data[i];</span>
+<span class="nc" id="L150">				controller.end();</span>
+<span class="nc" id="L151">				pool.free(controller);</span>
+<span class="nc" id="L152">				particleControllerChannel.data[i] = null;</span>
+			}
+<span class="nc" id="L154">		}</span>
+
+		@Override
+		public Random copy () {
+<span class="nc" id="L158">			return new Random(this);</span>
+		}
+	}
+
+	public Array&lt;ParticleController&gt; templates;
+	ObjectChannel&lt;ParticleController&gt; particleControllerChannel;
+
+<span class="nc" id="L165">	public ParticleControllerInfluencer () {</span>
+<span class="nc" id="L166">		this.templates = new Array&lt;ParticleController&gt;(true, 1, ParticleController.class);</span>
+<span class="nc" id="L167">	}</span>
+
+<span class="nc" id="L169">	public ParticleControllerInfluencer (ParticleController... templates) {</span>
+<span class="nc" id="L170">		this.templates = new Array&lt;ParticleController&gt;(templates);</span>
+<span class="nc" id="L171">	}</span>
+
+	public ParticleControllerInfluencer (ParticleControllerInfluencer influencer) {
+<span class="nc" id="L174">		this(influencer.templates.items);</span>
+<span class="nc" id="L175">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L179">		particleControllerChannel = controller.particles.addChannel(ParticleChannels.ParticleController);</span>
+<span class="nc" id="L180">	}</span>
+
+	@Override
+	public void end () {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">		for (int i = 0; i &lt; controller.particles.size; ++i) {</span>
+<span class="nc" id="L185">			particleControllerChannel.data[i].end();</span>
+		}
+<span class="nc" id="L187">	}</span>
+
+	@Override
+	public void dispose () {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">		if (controller != null) {</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">			for (int i = 0; i &lt; controller.particles.size; ++i) {</span>
+<span class="nc" id="L193">				ParticleController controller = particleControllerChannel.data[i];</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">				if (controller != null) {</span>
+<span class="nc" id="L195">					controller.dispose();</span>
+<span class="nc" id="L196">					particleControllerChannel.data[i] = null;</span>
+				}
+			}
+		}
+<span class="nc" id="L200">	}</span>
+
+	@Override
+	public void save (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L204">		SaveData data = resources.createSaveData();</span>
+<span class="nc" id="L205">		Array&lt;ParticleEffect&gt; effects = manager.getAll(ParticleEffect.class, new Array&lt;ParticleEffect&gt;());</span>
+
+<span class="nc" id="L207">		Array&lt;ParticleController&gt; controllers = new Array&lt;ParticleController&gt;(templates);</span>
+<span class="nc" id="L208">		Array&lt;IntArray&gt; effectsIndices = new Array&lt;IntArray&gt;();</span>
+
+<span class="nc bnc" id="L210" title="All 4 branches missed.">		for (int i = 0; i &lt; effects.size &amp;&amp; controllers.size &gt; 0; ++i) {</span>
+<span class="nc" id="L211">			ParticleEffect effect = effects.get(i);</span>
+<span class="nc" id="L212">			Array&lt;ParticleController&gt; effectControllers = effect.getControllers();</span>
+<span class="nc" id="L213">			Iterator&lt;ParticleController&gt; iterator = controllers.iterator();</span>
+<span class="nc" id="L214">			IntArray indices = null;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">			while (iterator.hasNext()) {</span>
+<span class="nc" id="L216">				ParticleController controller = iterator.next();</span>
+<span class="nc" id="L217">				int index = -1;</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">				if ((index = effectControllers.indexOf(controller, true)) &gt; -1) {</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">					if (indices == null) {</span>
+<span class="nc" id="L220">						indices = new IntArray();</span>
+					}
+<span class="nc" id="L222">					iterator.remove();</span>
+<span class="nc" id="L223">					indices.add(index);</span>
+				}
+<span class="nc" id="L225">			}</span>
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">			if (indices != null) {</span>
+<span class="nc" id="L228">				data.saveAsset(manager.getAssetFileName(effect), ParticleEffect.class);</span>
+<span class="nc" id="L229">				effectsIndices.add(indices);</span>
+			}
+		}
+<span class="nc" id="L232">		data.save(&quot;indices&quot;, effectsIndices);</span>
+<span class="nc" id="L233">	}</span>
+
+	@Override
+	public void load (AssetManager manager, ResourceData resources) {
+<span class="nc" id="L237">		SaveData data = resources.getSaveData();</span>
+<span class="nc" id="L238">		Array&lt;IntArray&gt; effectsIndices = data.load(&quot;indices&quot;);</span>
+		AssetDescriptor descriptor;
+<span class="nc" id="L240">		Iterator&lt;IntArray&gt; iterator = effectsIndices.iterator();</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">		while ((descriptor = data.loadAsset()) != null) {</span>
+<span class="nc" id="L242">			ParticleEffect effect = (ParticleEffect)manager.get(descriptor);</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">			if (effect == null) throw new RuntimeException(&quot;Template is null&quot;);</span>
+<span class="nc" id="L244">			Array&lt;ParticleController&gt; effectControllers = effect.getControllers();</span>
+<span class="nc" id="L245">			IntArray effectIndices = iterator.next();</span>
+
+<span class="nc bnc" id="L247" title="All 2 branches missed.">			for (int i = 0, n = effectIndices.size; i &lt; n; i++) {</span>
+<span class="nc" id="L248">				templates.add(effectControllers.get(effectIndices.get(i)));</span>
+			}
+<span class="nc" id="L250">		}</span>
+<span class="nc" id="L251">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

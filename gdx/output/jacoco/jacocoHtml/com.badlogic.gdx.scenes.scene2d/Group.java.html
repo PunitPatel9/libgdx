@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Group.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d</a> &gt; <span class="el_source">Group.java</span></div><h1>Group.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d;
+
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Affine2;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.utils.Cullable;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.SnapshotArray;
+
+/** 2D scene graph node that may contain other actors.
+ * &lt;p&gt;
+ * Actors have a z-order equal to the order they were inserted into the group. Actors inserted later will be drawn on top of
+ * actors added earlier. Touch events that hit more than one actor are distributed to topmost actors first.
+ * @author mzechner
+ * @author Nathan Sweet */
+<span class="nc" id="L35">public class Group extends Actor implements Cullable {</span>
+<span class="nc" id="L36">	static private final Vector2 tmp = new Vector2();</span>
+
+<span class="nc" id="L38">	final SnapshotArray&lt;Actor&gt; children = new SnapshotArray(true, 4, Actor.class);</span>
+<span class="nc" id="L39">	private final Affine2 worldTransform = new Affine2();</span>
+<span class="nc" id="L40">	private final Matrix4 computedTransform = new Matrix4();</span>
+<span class="nc" id="L41">	private final Matrix4 oldTransform = new Matrix4();</span>
+<span class="nc" id="L42">	boolean transform = true;</span>
+	private Rectangle cullingArea;
+
+	public void act (float delta) {
+<span class="nc" id="L46">		super.act(delta);</span>
+<span class="nc" id="L47">		Actor[] actors = children.begin();</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++)</span>
+<span class="nc" id="L49">			actors[i].act(delta);</span>
+<span class="nc" id="L50">		children.end();</span>
+<span class="nc" id="L51">	}</span>
+
+	/** Draws the group and its children. The default implementation calls {@link #applyTransform(Batch, Matrix4)} if needed, then
+	 * {@link #drawChildren(Batch, float)}, then {@link #resetTransform(Batch)} if needed. */
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">		if (transform) applyTransform(batch, computeTransform());</span>
+<span class="nc" id="L57">		drawChildren(batch, parentAlpha);</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">		if (transform) resetTransform(batch);</span>
+<span class="nc" id="L59">	}</span>
+
+	/** Draws all children. {@link #applyTransform(Batch, Matrix4)} should be called before and {@link #resetTransform(Batch)}
+	 * after this method if {@link #setTransform(boolean) transform} is true. If {@link #setTransform(boolean) transform} is false
+	 * these methods don't need to be called, children positions are temporarily offset by the group position when drawn. This
+	 * method avoids drawing children completely outside the {@link #setCullingArea(Rectangle) culling area}, if set. */
+	protected void drawChildren (Batch batch, float parentAlpha) {
+<span class="nc" id="L66">		parentAlpha *= this.color.a;</span>
+<span class="nc" id="L67">		SnapshotArray&lt;Actor&gt; children = this.children;</span>
+<span class="nc" id="L68">		Actor[] actors = children.begin();</span>
+<span class="nc" id="L69">		Rectangle cullingArea = this.cullingArea;</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">		if (cullingArea != null) {</span>
+			// Draw children only if inside culling area.
+<span class="nc" id="L72">			float cullLeft = cullingArea.x;</span>
+<span class="nc" id="L73">			float cullRight = cullLeft + cullingArea.width;</span>
+<span class="nc" id="L74">			float cullBottom = cullingArea.y;</span>
+<span class="nc" id="L75">			float cullTop = cullBottom + cullingArea.height;</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">			if (transform) {</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">				for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L78">					Actor child = actors[i];</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">					if (!child.isVisible()) continue;</span>
+<span class="nc" id="L80">					float cx = child.x, cy = child.y;</span>
+<span class="nc bnc" id="L81" title="All 8 branches missed.">					if (cx &lt;= cullRight &amp;&amp; cy &lt;= cullTop &amp;&amp; cx + child.width &gt;= cullLeft &amp;&amp; cy + child.height &gt;= cullBottom)</span>
+<span class="nc" id="L82">						child.draw(batch, parentAlpha);</span>
+				}
+			} else {
+				// No transform for this group, offset each child.
+<span class="nc" id="L86">				float offsetX = x, offsetY = y;</span>
+<span class="nc" id="L87">				x = 0;</span>
+<span class="nc" id="L88">				y = 0;</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">				for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L90">					Actor child = actors[i];</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">					if (!child.isVisible()) continue;</span>
+<span class="nc" id="L92">					float cx = child.x, cy = child.y;</span>
+<span class="nc bnc" id="L93" title="All 8 branches missed.">					if (cx &lt;= cullRight &amp;&amp; cy &lt;= cullTop &amp;&amp; cx + child.width &gt;= cullLeft &amp;&amp; cy + child.height &gt;= cullBottom) {</span>
+<span class="nc" id="L94">						child.x = cx + offsetX;</span>
+<span class="nc" id="L95">						child.y = cy + offsetY;</span>
+<span class="nc" id="L96">						child.draw(batch, parentAlpha);</span>
+<span class="nc" id="L97">						child.x = cx;</span>
+<span class="nc" id="L98">						child.y = cy;</span>
+					}
+				}
+<span class="nc" id="L101">				x = offsetX;</span>
+<span class="nc" id="L102">				y = offsetY;</span>
+			}
+<span class="nc" id="L104">		} else {</span>
+			// No culling, draw all children.
+<span class="nc bnc" id="L106" title="All 2 branches missed.">			if (transform) {</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">				for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L108">					Actor child = actors[i];</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">					if (!child.isVisible()) continue;</span>
+<span class="nc" id="L110">					child.draw(batch, parentAlpha);</span>
+				}
+			} else {
+				// No transform for this group, offset each child.
+<span class="nc" id="L114">				float offsetX = x, offsetY = y;</span>
+<span class="nc" id="L115">				x = 0;</span>
+<span class="nc" id="L116">				y = 0;</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">				for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L118">					Actor child = actors[i];</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">					if (!child.isVisible()) continue;</span>
+<span class="nc" id="L120">					float cx = child.x, cy = child.y;</span>
+<span class="nc" id="L121">					child.x = cx + offsetX;</span>
+<span class="nc" id="L122">					child.y = cy + offsetY;</span>
+<span class="nc" id="L123">					child.draw(batch, parentAlpha);</span>
+<span class="nc" id="L124">					child.x = cx;</span>
+<span class="nc" id="L125">					child.y = cy;</span>
+				}
+<span class="nc" id="L127">				x = offsetX;</span>
+<span class="nc" id="L128">				y = offsetY;</span>
+			}
+		}
+<span class="nc" id="L131">		children.end();</span>
+<span class="nc" id="L132">	}</span>
+
+	/** Draws this actor's debug lines if {@link #getDebug()} is true and, regardless of {@link #getDebug()}, calls
+	 * {@link Actor#drawDebug(ShapeRenderer)} on each child. */
+	public void drawDebug (ShapeRenderer shapes) {
+<span class="nc" id="L137">		drawDebugBounds(shapes);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (transform) applyTransform(shapes, computeTransform());</span>
+<span class="nc" id="L139">		drawDebugChildren(shapes);</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">		if (transform) resetTransform(shapes);</span>
+<span class="nc" id="L141">	}</span>
+
+	/** Draws all children. {@link #applyTransform(Batch, Matrix4)} should be called before and {@link #resetTransform(Batch)}
+	 * after this method if {@link #setTransform(boolean) transform} is true. If {@link #setTransform(boolean) transform} is false
+	 * these methods don't need to be called, children positions are temporarily offset by the group position when drawn. This
+	 * method avoids drawing children completely outside the {@link #setCullingArea(Rectangle) culling area}, if set. */
+	protected void drawDebugChildren (ShapeRenderer shapes) {
+<span class="nc" id="L148">		SnapshotArray&lt;Actor&gt; children = this.children;</span>
+<span class="nc" id="L149">		Actor[] actors = children.begin();</span>
+		// No culling, draw all children.
+<span class="nc bnc" id="L151" title="All 2 branches missed.">		if (transform) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L153">				Actor child = actors[i];</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">				if (!child.isVisible()) continue;</span>
+<span class="nc bnc" id="L155" title="All 4 branches missed.">				if (!child.getDebug() &amp;&amp; !(child instanceof Group)) continue;</span>
+<span class="nc" id="L156">				child.drawDebug(shapes);</span>
+			}
+<span class="nc" id="L158">			shapes.flush();</span>
+		} else {
+			// No transform for this group, offset each child.
+<span class="nc" id="L161">			float offsetX = x, offsetY = y;</span>
+<span class="nc" id="L162">			x = 0;</span>
+<span class="nc" id="L163">			y = 0;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">			for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L165">				Actor child = actors[i];</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">				if (!child.isVisible()) continue;</span>
+<span class="nc bnc" id="L167" title="All 4 branches missed.">				if (!child.getDebug() &amp;&amp; !(child instanceof Group)) continue;</span>
+<span class="nc" id="L168">				float cx = child.x, cy = child.y;</span>
+<span class="nc" id="L169">				child.x = cx + offsetX;</span>
+<span class="nc" id="L170">				child.y = cy + offsetY;</span>
+<span class="nc" id="L171">				child.drawDebug(shapes);</span>
+<span class="nc" id="L172">				child.x = cx;</span>
+<span class="nc" id="L173">				child.y = cy;</span>
+			}
+<span class="nc" id="L175">			x = offsetX;</span>
+<span class="nc" id="L176">			y = offsetY;</span>
+		}
+<span class="nc" id="L178">		children.end();</span>
+<span class="nc" id="L179">	}</span>
+
+	/** Returns the transform for this group's coordinate system. */
+	protected Matrix4 computeTransform () {
+<span class="nc" id="L183">		Affine2 worldTransform = this.worldTransform;</span>
+<span class="nc" id="L184">		float originX = this.originX, originY = this.originY;</span>
+<span class="nc" id="L185">		worldTransform.setToTrnRotScl(x + originX, y + originY, rotation, scaleX, scaleY);</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">		if (originX != 0 || originY != 0) worldTransform.translate(-originX, -originY);</span>
+
+		// Find the first parent that transforms.
+<span class="nc" id="L189">		Group parentGroup = parent;</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">		while (parentGroup != null) {</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			if (parentGroup.transform) break;</span>
+<span class="nc" id="L192">			parentGroup = parentGroup.parent;</span>
+		}
+<span class="nc bnc" id="L194" title="All 2 branches missed.">		if (parentGroup != null) worldTransform.preMul(parentGroup.worldTransform);</span>
+
+<span class="nc" id="L196">		computedTransform.set(worldTransform);</span>
+<span class="nc" id="L197">		return computedTransform;</span>
+	}
+
+	/** Set the batch's transformation matrix, often with the result of {@link #computeTransform()}. Note this causes the batch to
+	 * be flushed. {@link #resetTransform(Batch)} will restore the transform to what it was before this call. */
+	protected void applyTransform (Batch batch, Matrix4 transform) {
+<span class="nc" id="L203">		oldTransform.set(batch.getTransformMatrix());</span>
+<span class="nc" id="L204">		batch.setTransformMatrix(transform);</span>
+<span class="nc" id="L205">	}</span>
+
+	/** Restores the batch transform to what it was before {@link #applyTransform(Batch, Matrix4)}. Note this causes the batch to
+	 * be flushed. */
+	protected void resetTransform (Batch batch) {
+<span class="nc" id="L210">		batch.setTransformMatrix(oldTransform);</span>
+<span class="nc" id="L211">	}</span>
+
+	/** Set the shape renderer transformation matrix, often with the result of {@link #computeTransform()}. Note this causes the
+	 * shape renderer to be flushed. {@link #resetTransform(ShapeRenderer)} will restore the transform to what it was before this
+	 * call. */
+	protected void applyTransform (ShapeRenderer shapes, Matrix4 transform) {
+<span class="nc" id="L217">		oldTransform.set(shapes.getTransformMatrix());</span>
+<span class="nc" id="L218">		shapes.setTransformMatrix(transform);</span>
+<span class="nc" id="L219">		shapes.flush();</span>
+<span class="nc" id="L220">	}</span>
+
+	/** Restores the shape renderer transform to what it was before {@link #applyTransform(Batch, Matrix4)}. Note this causes the
+	 * shape renderer to be flushed. */
+	protected void resetTransform (ShapeRenderer shapes) {
+<span class="nc" id="L225">		shapes.setTransformMatrix(oldTransform);</span>
+<span class="nc" id="L226">	}</span>
+
+	/** Children completely outside of this rectangle will not be drawn. This is only valid for use with unrotated and unscaled
+	 * actors.
+	 * @param cullingArea May be null. */
+	public void setCullingArea (Rectangle cullingArea) {
+<span class="nc" id="L232">		this.cullingArea = cullingArea;</span>
+<span class="nc" id="L233">	}</span>
+
+	/** @return May be null.
+	 * @see #setCullingArea(Rectangle) */
+	public Rectangle getCullingArea () {
+<span class="nc" id="L238">		return cullingArea;</span>
+	}
+
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L242" title="All 4 branches missed.">		if (touchable &amp;&amp; getTouchable() == Touchable.disabled) return null;</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">		if (!isVisible()) return null;</span>
+<span class="nc" id="L244">		Vector2 point = tmp;</span>
+<span class="nc" id="L245">		Actor[] childrenArray = children.items;</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">		for (int i = children.size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L247">			Actor child = childrenArray[i];</span>
+<span class="nc" id="L248">			child.parentToLocalCoordinates(point.set(x, y));</span>
+<span class="nc" id="L249">			Actor hit = child.hit(point.x, point.y, touchable);</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">			if (hit != null) return hit;</span>
+		}
+<span class="nc" id="L252">		return super.hit(x, y, touchable);</span>
+	}
+
+	/** Called when actors are added to or removed from the group. */
+	protected void childrenChanged () {
+<span class="nc" id="L257">	}</span>
+
+	/** Adds an actor as a child of this group, removing it from its previous parent. If the actor is already a child of this
+	 * group, no changes are made. */
+	public void addActor (Actor actor) {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">		if (actor.parent != null) {</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">			if (actor.parent == this) return;</span>
+<span class="nc" id="L264">			actor.parent.removeActor(actor, false);</span>
+		}
+<span class="nc" id="L266">		children.add(actor);</span>
+<span class="nc" id="L267">		actor.setParent(this);</span>
+<span class="nc" id="L268">		actor.setStage(getStage());</span>
+<span class="nc" id="L269">		childrenChanged();</span>
+<span class="nc" id="L270">	}</span>
+
+	/** Adds an actor as a child of this group at a specific index, removing it from its previous parent. If the actor is already a
+	 * child of this group, no changes are made.
+	 * @param index May be greater than the number of children. */
+	public void addActorAt (int index, Actor actor) {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">		if (actor.parent != null) {</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">			if (actor.parent == this) return;</span>
+<span class="nc" id="L278">			actor.parent.removeActor(actor, false);</span>
+		}
+<span class="nc bnc" id="L280" title="All 2 branches missed.">		if (index &gt;= children.size)</span>
+<span class="nc" id="L281">			children.add(actor);</span>
+		else
+<span class="nc" id="L283">			children.insert(index, actor);</span>
+<span class="nc" id="L284">		actor.setParent(this);</span>
+<span class="nc" id="L285">		actor.setStage(getStage());</span>
+<span class="nc" id="L286">		childrenChanged();</span>
+<span class="nc" id="L287">	}</span>
+
+	/** Adds an actor as a child of this group immediately before another child actor, removing it from its previous parent. If the
+	 * actor is already a child of this group, no changes are made. */
+	public void addActorBefore (Actor actorBefore, Actor actor) {
+<span class="nc bnc" id="L292" title="All 2 branches missed.">		if (actor.parent != null) {</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">			if (actor.parent == this) return;</span>
+<span class="nc" id="L294">			actor.parent.removeActor(actor, false);</span>
+		}
+<span class="nc" id="L296">		int index = children.indexOf(actorBefore, true);</span>
+<span class="nc" id="L297">		children.insert(index, actor);</span>
+<span class="nc" id="L298">		actor.setParent(this);</span>
+<span class="nc" id="L299">		actor.setStage(getStage());</span>
+<span class="nc" id="L300">		childrenChanged();</span>
+<span class="nc" id="L301">	}</span>
+
+	/** Adds an actor as a child of this group immediately after another child actor, removing it from its previous parent. If the
+	 * actor is already a child of this group, no changes are made. If &lt;code&gt;actorAfter&lt;/code&gt; is not in this group, the actor is
+	 * added as the last child. */
+	public void addActorAfter (Actor actorAfter, Actor actor) {
+<span class="nc bnc" id="L307" title="All 2 branches missed.">		if (actor.parent != null) {</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">			if (actor.parent == this) return;</span>
+<span class="nc" id="L309">			actor.parent.removeActor(actor, false);</span>
+		}
+<span class="nc" id="L311">		int index = children.indexOf(actorAfter, true);</span>
+<span class="nc bnc" id="L312" title="All 4 branches missed.">		if (index == children.size || index == -1)</span>
+<span class="nc" id="L313">			children.add(actor);</span>
+		else
+<span class="nc" id="L315">			children.insert(index + 1, actor);</span>
+<span class="nc" id="L316">		actor.setParent(this);</span>
+<span class="nc" id="L317">		actor.setStage(getStage());</span>
+<span class="nc" id="L318">		childrenChanged();</span>
+<span class="nc" id="L319">	}</span>
+
+	/** Removes an actor from this group and unfocuses it. Calls {@link #removeActor(Actor, boolean)} with true. */
+	public boolean removeActor (Actor actor) {
+<span class="nc" id="L323">		return removeActor(actor, true);</span>
+	}
+
+	/** Removes an actor from this group. Calls {@link #removeActorAt(int, boolean)} with the actor's child index. */
+	public boolean removeActor (Actor actor, boolean unfocus) {
+<span class="nc" id="L328">		int index = children.indexOf(actor, true);</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">		if (index == -1) return false;</span>
+<span class="nc" id="L330">		removeActorAt(index, unfocus);</span>
+<span class="nc" id="L331">		return true;</span>
+	}
+
+	/** Removes an actor from this group. If the actor will not be used again and has actions, they should be
+	 * {@link Actor#clearActions() cleared} so the actions will be returned to their
+	 * {@link Action#setPool(com.badlogic.gdx.utils.Pool) pool}, if any. This is not done automatically.
+	 * @param unfocus If true, {@link Stage#unfocus(Actor)} is called.
+	 * @return the actor removed from this group or null. */
+	public Actor removeActorAt (int index, boolean unfocus) {
+<span class="nc" id="L340">		Actor actor = children.removeIndex(index);</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">		if (unfocus) {</span>
+<span class="nc" id="L342">			Stage stage = getStage();</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">			if (stage != null) stage.unfocus(actor);</span>
+		}
+<span class="nc" id="L345">		actor.setParent(null);</span>
+<span class="nc" id="L346">		actor.setStage(null);</span>
+<span class="nc" id="L347">		childrenChanged();</span>
+<span class="nc" id="L348">		return actor;</span>
+	}
+
+	/** Removes all actors from this group. */
+	public void clearChildren () {
+<span class="nc" id="L353">		Actor[] actors = children.begin();</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L355">			Actor child = actors[i];</span>
+<span class="nc" id="L356">			child.setStage(null);</span>
+<span class="nc" id="L357">			child.setParent(null);</span>
+		}
+<span class="nc" id="L359">		children.end();</span>
+<span class="nc" id="L360">		children.clear();</span>
+<span class="nc" id="L361">		childrenChanged();</span>
+<span class="nc" id="L362">	}</span>
+
+	/** Removes all children, actions, and listeners from this group. */
+	public void clear () {
+<span class="nc" id="L366">		super.clear();</span>
+<span class="nc" id="L367">		clearChildren();</span>
+<span class="nc" id="L368">	}</span>
+
+	/** Returns the first actor found with the specified name. Note this recursively compares the name of every actor in the
+	 * group. */
+	public &lt;T extends Actor&gt; T findActor (String name) {
+<span class="nc" id="L373">		Array&lt;Actor&gt; children = this.children;</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">			if (name.equals(children.get(i).getName())) return (T)children.get(i);</span>
+<span class="nc bnc" id="L376" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc" id="L377">			Actor child = children.get(i);</span>
+<span class="nc bnc" id="L378" title="All 2 branches missed.">			if (child instanceof Group) {</span>
+<span class="nc" id="L379">				Actor actor = ((Group)child).findActor(name);</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">				if (actor != null) return (T)actor;</span>
+			}
+		}
+<span class="nc" id="L383">		return null;</span>
+	}
+
+	protected void setStage (Stage stage) {
+<span class="nc" id="L387">		super.setStage(stage);</span>
+<span class="nc" id="L388">		Actor[] childrenArray = children.items;</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++)</span>
+<span class="nc" id="L390">			childrenArray[i].setStage(stage); // StackOverflowError here means the group is its own ancestor.</span>
+<span class="nc" id="L391">	}</span>
+
+	/** Swaps two actors by index. Returns false if the swap did not occur because the indexes were out of bounds. */
+	public boolean swapActor (int first, int second) {
+<span class="nc" id="L395">		int maxIndex = children.size;</span>
+<span class="nc bnc" id="L396" title="All 4 branches missed.">		if (first &lt; 0 || first &gt;= maxIndex) return false;</span>
+<span class="nc bnc" id="L397" title="All 4 branches missed.">		if (second &lt; 0 || second &gt;= maxIndex) return false;</span>
+<span class="nc" id="L398">		children.swap(first, second);</span>
+<span class="nc" id="L399">		return true;</span>
+	}
+
+	/** Swaps two actors. Returns false if the swap did not occur because the actors are not children of this group. */
+	public boolean swapActor (Actor first, Actor second) {
+<span class="nc" id="L404">		int firstIndex = children.indexOf(first, true);</span>
+<span class="nc" id="L405">		int secondIndex = children.indexOf(second, true);</span>
+<span class="nc bnc" id="L406" title="All 4 branches missed.">		if (firstIndex == -1 || secondIndex == -1) return false;</span>
+<span class="nc" id="L407">		children.swap(firstIndex, secondIndex);</span>
+<span class="nc" id="L408">		return true;</span>
+	}
+
+	/** Returns the child at the specified index. */
+	public Actor getChild (int index) {
+<span class="nc" id="L413">		return children.get(index);</span>
+	}
+
+	/** Returns an ordered list of child actors in this group. */
+	public SnapshotArray&lt;Actor&gt; getChildren () {
+<span class="nc" id="L418">		return children;</span>
+	}
+
+	public boolean hasChildren () {
+<span class="nc bnc" id="L422" title="All 2 branches missed.">		return children.size &gt; 0;</span>
+	}
+
+	/** When true (the default), the Batch is transformed so children are drawn in their parent's coordinate system. This has a
+	 * performance impact because {@link Batch#flush()} must be done before and after the transform. If the actors in a group are
+	 * not rotated or scaled, then the transform for the group can be set to false. In this case, each child's position will be
+	 * offset by the group's position for drawing, causing the children to appear in the correct location even though the Batch has
+	 * not been transformed. */
+	public void setTransform (boolean transform) {
+<span class="nc" id="L431">		this.transform = transform;</span>
+<span class="nc" id="L432">	}</span>
+
+	public boolean isTransform () {
+<span class="nc" id="L435">		return transform;</span>
+	}
+
+	/** Converts coordinates for this group to those of a descendant actor. The descendant does not need to be a direct child.
+	 * @throws IllegalArgumentException if the specified actor is not a descendant of this group. */
+	public Vector2 localToDescendantCoordinates (Actor descendant, Vector2 localCoords) {
+<span class="nc" id="L441">		Group parent = descendant.parent;</span>
+<span class="nc bnc" id="L442" title="All 2 branches missed.">		if (parent == null) throw new IllegalArgumentException(&quot;Child is not a descendant: &quot; + descendant);</span>
+		// First convert to the actor's parent coordinates.
+<span class="nc bnc" id="L444" title="All 2 branches missed.">		if (parent != this) localToDescendantCoordinates(parent, localCoords);</span>
+		// Then from each parent down to the descendant.
+<span class="nc" id="L446">		descendant.parentToLocalCoordinates(localCoords);</span>
+<span class="nc" id="L447">		return localCoords;</span>
+	}
+
+	/** If true, {@link #drawDebug(ShapeRenderer)} will be called for this group and, optionally, all children recursively. */
+	public void setDebug (boolean enabled, boolean recursively) {
+<span class="nc" id="L452">		setDebug(enabled);</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">		if (recursively) {</span>
+<span class="nc bnc" id="L454" title="All 2 branches missed.">			for (Actor child : children) {</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">				if (child instanceof Group) {</span>
+<span class="nc" id="L456">					((Group)child).setDebug(enabled, recursively);</span>
+				} else {
+<span class="nc" id="L458">					child.setDebug(enabled);</span>
+				}
+<span class="nc" id="L460">			}</span>
+		}
+<span class="nc" id="L462">	}</span>
+
+	/** Calls {@link #setDebug(boolean, boolean)} with {@code true, true}. */
+	public Group debugAll () {
+<span class="nc" id="L466">		setDebug(true, true);</span>
+<span class="nc" id="L467">		return this;</span>
+	}
+
+	/** Returns a description of the actor hierarchy, recursively. */
+	public String toString () {
+<span class="nc" id="L472">		StringBuilder buffer = new StringBuilder(128);</span>
+<span class="nc" id="L473">		toString(buffer, 1);</span>
+<span class="nc" id="L474">		buffer.setLength(buffer.length() - 1);</span>
+<span class="nc" id="L475">		return buffer.toString();</span>
+	}
+
+	void toString (StringBuilder buffer, int indent) {
+<span class="nc" id="L479">		buffer.append(super.toString());</span>
+<span class="nc" id="L480">		buffer.append('\n');</span>
+
+<span class="nc" id="L482">		Actor[] actors = children.begin();</span>
+<span class="nc bnc" id="L483" title="All 2 branches missed.">		for (int i = 0, n = children.size; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L484" title="All 2 branches missed.">			for (int ii = 0; ii &lt; indent; ii++)</span>
+<span class="nc" id="L485">				buffer.append(&quot;|  &quot;);</span>
+<span class="nc" id="L486">			Actor actor = actors[i];</span>
+<span class="nc bnc" id="L487" title="All 2 branches missed.">			if (actor instanceof Group)</span>
+<span class="nc" id="L488">				((Group)actor).toString(buffer, indent + 1);</span>
+			else {
+<span class="nc" id="L490">				buffer.append(actor);</span>
+<span class="nc" id="L491">				buffer.append('\n');</span>
+			}
+		}
+<span class="nc" id="L494">		children.end();</span>
+<span class="nc" id="L495">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

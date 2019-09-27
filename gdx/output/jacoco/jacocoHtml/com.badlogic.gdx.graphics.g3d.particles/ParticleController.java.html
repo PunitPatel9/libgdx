@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles</a> &gt; <span class="el_source">ParticleController.java</span></div><h1>ParticleController.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.emitters.Emitter;
+import com.badlogic.gdx.graphics.g3d.particles.influencers.Influencer;
+import com.badlogic.gdx.graphics.g3d.particles.renderers.ParticleControllerRenderer;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Quaternion;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+import com.badlogic.gdx.utils.reflect.ClassReflection;
+
+/** Base class of all the particle controllers. Encapsulate the generic structure of a controller and methods to update the
+ * particles simulation.
+ * @author Inferno */
+public class ParticleController implements Json.Serializable, ResourceData.Configurable {
+
+	/** the default time step used to update the simulation */
+	protected static final float DEFAULT_TIME_STEP = 1f / 60;
+
+	/** Name of the controller */
+	public String name;
+
+	/** Controls the emission of the particles */
+	public Emitter emitter;
+
+	/** Update the properties of the particles */
+	public Array&lt;Influencer&gt; influencers;
+
+	/** Controls the graphical representation of the particles */
+	public ParticleControllerRenderer&lt;?, ?&gt; renderer;
+
+	/** Particles components */
+	public ParallelArray particles;
+	public ParticleChannels particleChannels;
+
+	/** Current transform of the controller DO NOT CHANGE MANUALLY */
+	public Matrix4 transform;
+
+	/** Transform flags */
+	public Vector3 scale;
+
+	/** Not used by the simulation, it should represent the bounding box containing all the particles */
+	protected BoundingBox boundingBox;
+
+	/** Time step, DO NOT CHANGE MANUALLY */
+	public float deltaTime, deltaTimeSqr;
+
+<span class="nc" id="L70">	public ParticleController () {</span>
+<span class="nc" id="L71">		transform = new Matrix4();</span>
+<span class="nc" id="L72">		scale = new Vector3(1, 1, 1);</span>
+<span class="nc" id="L73">		influencers = new Array&lt;Influencer&gt;(true, 3, Influencer.class);</span>
+<span class="nc" id="L74">		setTimeStep(DEFAULT_TIME_STEP);</span>
+<span class="nc" id="L75">	}</span>
+
+	public ParticleController (String name, Emitter emitter, ParticleControllerRenderer&lt;?, ?&gt; renderer, Influencer... influencers) {
+<span class="nc" id="L78">		this();</span>
+<span class="nc" id="L79">		this.name = name;</span>
+<span class="nc" id="L80">		this.emitter = emitter;</span>
+<span class="nc" id="L81">		this.renderer = renderer;</span>
+<span class="nc" id="L82">		this.particleChannels = new ParticleChannels();</span>
+<span class="nc" id="L83">		this.influencers = new Array&lt;Influencer&gt;(influencers);</span>
+<span class="nc" id="L84">	}</span>
+
+	/** Sets the delta used to step the simulation */
+	private void setTimeStep (float timeStep) {
+<span class="nc" id="L88">		deltaTime = timeStep;</span>
+<span class="nc" id="L89">		deltaTimeSqr = deltaTime * deltaTime;</span>
+<span class="nc" id="L90">	}</span>
+
+	/** Sets the current transformation to the given one.
+	 * @param transform the new transform matrix */
+	public void setTransform (Matrix4 transform) {
+<span class="nc" id="L95">		this.transform.set(transform);</span>
+<span class="nc" id="L96">		transform.getScale(scale);</span>
+<span class="nc" id="L97">	}</span>
+
+	/** Sets the current transformation. */
+	public void setTransform (float x, float y, float z, float qx, float qy, float qz, float qw, float scale) {
+<span class="nc" id="L101">		transform.set(x, y, z, qx, qy, qz, qw, scale, scale, scale);</span>
+<span class="nc" id="L102">		this.scale.set(scale, scale, scale);</span>
+<span class="nc" id="L103">	}</span>
+
+	/** Post-multiplies the current transformation with a rotation matrix represented by the given quaternion. */
+	public void rotate (Quaternion rotation) {
+<span class="nc" id="L107">		this.transform.rotate(rotation);</span>
+<span class="nc" id="L108">	}</span>
+
+	/** Post-multiplies the current transformation with a rotation matrix by the given angle around the given axis.
+	 * @param axis the rotation axis
+	 * @param angle the rotation angle in degrees */
+	public void rotate (Vector3 axis, float angle) {
+<span class="nc" id="L114">		this.transform.rotate(axis, angle);</span>
+<span class="nc" id="L115">	}</span>
+
+	/** Postmultiplies the current transformation with a translation matrix represented by the given translation. */
+	public void translate (Vector3 translation) {
+<span class="nc" id="L119">		this.transform.translate(translation);</span>
+<span class="nc" id="L120">	}</span>
+
+	public void setTranslation (Vector3 translation) {
+<span class="nc" id="L123">		this.transform.setTranslation(translation);</span>
+<span class="nc" id="L124">	}</span>
+
+	/** Postmultiplies the current transformation with a scale matrix represented by the given scale on x,y,z. */
+	public void scale (float scaleX, float scaleY, float scaleZ) {
+<span class="nc" id="L128">		this.transform.scale(scaleX, scaleY, scaleZ);</span>
+<span class="nc" id="L129">		this.transform.getScale(scale);</span>
+<span class="nc" id="L130">	}</span>
+
+	/** Postmultiplies the current transformation with a scale matrix represented by the given scale vector. */
+	public void scale (Vector3 scale) {
+<span class="nc" id="L134">		scale(scale.x, scale.y, scale.z);</span>
+<span class="nc" id="L135">	}</span>
+
+	/** Postmultiplies the current transformation with the given matrix. */
+	public void mul (Matrix4 transform) {
+<span class="nc" id="L139">		this.transform.mul(transform);</span>
+<span class="nc" id="L140">		this.transform.getScale(scale);</span>
+<span class="nc" id="L141">	}</span>
+
+	/** Set the given matrix to the current transformation matrix. */
+	public void getTransform (Matrix4 transform) {
+<span class="nc" id="L145">		transform.set(this.transform);</span>
+<span class="nc" id="L146">	}</span>
+
+	public boolean isComplete () {
+<span class="nc" id="L149">		return emitter.isComplete();</span>
+	}
+
+	/** Initialize the controller. All the sub systems will be initialized and binded to the controller. Must be called before any
+	 * other method. */
+	public void init () {
+<span class="nc" id="L155">		bind();</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		if (particles != null) {</span>
+<span class="nc" id="L157">			end();</span>
+<span class="nc" id="L158">			particleChannels.resetIds();</span>
+		}
+<span class="nc" id="L160">		allocateChannels(emitter.maxParticleCount);</span>
+
+<span class="nc" id="L162">		emitter.init();</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L164">			influencer.init();</span>
+<span class="nc" id="L165">		renderer.init();</span>
+<span class="nc" id="L166">	}</span>
+
+	protected void allocateChannels (int maxParticleCount) {
+<span class="nc" id="L169">		particles = new ParallelArray(maxParticleCount);</span>
+		// Alloc additional channels
+<span class="nc" id="L171">		emitter.allocateChannels();</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L173">			influencer.allocateChannels();</span>
+<span class="nc" id="L174">		renderer.allocateChannels();</span>
+<span class="nc" id="L175">	}</span>
+
+	/** Bind the sub systems to the controller Called once during the init phase. */
+	protected void bind () {
+<span class="nc" id="L179">		emitter.set(this);</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L181">			influencer.set(this);</span>
+<span class="nc" id="L182">		renderer.set(this);</span>
+<span class="nc" id="L183">	}</span>
+
+	/** Start the simulation. */
+	public void start () {
+<span class="nc" id="L187">		emitter.start();</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L189">			influencer.start();</span>
+<span class="nc" id="L190">	}</span>
+
+	/** Reset the simulation. */
+	public void reset () {
+<span class="nc" id="L194">		end();</span>
+<span class="nc" id="L195">		start();</span>
+<span class="nc" id="L196">	}</span>
+
+	/** End the simulation. */
+	public void end () {
+<span class="nc bnc" id="L200" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L201">			influencer.end();</span>
+<span class="nc" id="L202">		emitter.end();</span>
+<span class="nc" id="L203">	}</span>
+
+	/** Generally called by the Emitter. This method will notify all the sub systems that a given amount of particles has been
+	 * activated. */
+	public void activateParticles (int startIndex, int count) {
+<span class="nc" id="L208">		emitter.activateParticles(startIndex, count);</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L210">			influencer.activateParticles(startIndex, count);</span>
+<span class="nc" id="L211">	}</span>
+
+	/** Generally called by the Emitter. This method will notify all the sub systems that a given amount of particles has been
+	 * killed. */
+	public void killParticles (int startIndex, int count) {
+<span class="nc" id="L216">		emitter.killParticles(startIndex, count);</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L218">			influencer.killParticles(startIndex, count);</span>
+<span class="nc" id="L219">	}</span>
+
+	/** Updates the particles data */
+	public void update () {
+<span class="nc" id="L223">		update(Gdx.graphics.getDeltaTime());</span>
+<span class="nc" id="L224">	}</span>
+
+	/** Updates the particles data */
+	public void update (float deltaTime) {
+<span class="nc" id="L228">		setTimeStep(deltaTime);</span>
+<span class="nc" id="L229">		emitter.update();</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L231">			influencer.update();</span>
+<span class="nc" id="L232">	}</span>
+
+	/** Updates the renderer used by this controller, usually this means the particles will be draw inside a batch. */
+	public void draw () {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">		if (particles.size &gt; 0) {</span>
+<span class="nc" id="L237">			renderer.update();</span>
+		}
+<span class="nc" id="L239">	}</span>
+
+	/** @return a copy of this controller */
+	public ParticleController copy () {
+<span class="nc" id="L243">		Emitter emitter = (Emitter)this.emitter.copy();</span>
+<span class="nc" id="L244">		Influencer[] influencers = new Influencer[this.influencers.size];</span>
+<span class="nc" id="L245">		int i = 0;</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">		for (Influencer influencer : this.influencers) {</span>
+<span class="nc" id="L247">			influencers[i++] = (Influencer)influencer.copy();</span>
+<span class="nc" id="L248">		}</span>
+<span class="nc" id="L249">		return new ParticleController(new String(this.name), emitter, (ParticleControllerRenderer&lt;?, ?&gt;)renderer.copy(),</span>
+			influencers);
+	}
+
+	public void dispose () {
+<span class="nc" id="L254">		emitter.dispose();</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L256">			influencer.dispose();</span>
+<span class="nc" id="L257">	}</span>
+
+	/** @return a copy of this controller, should be used after the particle effect has been loaded. */
+	public BoundingBox getBoundingBox () {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		if (boundingBox == null) boundingBox = new BoundingBox();</span>
+<span class="nc" id="L262">		calculateBoundingBox();</span>
+<span class="nc" id="L263">		return boundingBox;</span>
+	}
+
+	/** Updates the bounding box using the position channel. */
+	protected void calculateBoundingBox () {
+<span class="nc" id="L268">		boundingBox.clr();</span>
+<span class="nc" id="L269">		FloatChannel positionChannel = particles.getChannel(ParticleChannels.Position);</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">		for (int pos = 0, c = positionChannel.strideSize * particles.size; pos &lt; c; pos += positionChannel.strideSize) {</span>
+<span class="nc" id="L271">			boundingBox.ext(positionChannel.data[pos + ParticleChannels.XOffset], positionChannel.data[pos</span>
+				+ ParticleChannels.YOffset], positionChannel.data[pos + ParticleChannels.ZOffset]);
+		}
+<span class="nc" id="L274">	}</span>
+
+	/** @return the index of the Influencer of the given type. */
+	private &lt;K extends Influencer&gt; int findIndex (Class&lt;K&gt; type) {
+<span class="nc bnc" id="L278" title="All 2 branches missed.">		for (int i = 0; i &lt; influencers.size; ++i) {</span>
+<span class="nc" id="L279">			Influencer influencer = influencers.get(i);</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">			if (ClassReflection.isAssignableFrom(type, influencer.getClass())) {</span>
+<span class="nc" id="L281">				return i;</span>
+			}
+		}
+<span class="nc" id="L284">		return -1;</span>
+	}
+
+	/** @return the influencer having the given type. */
+	public &lt;K extends Influencer&gt; K findInfluencer (Class&lt;K&gt; influencerClass) {
+<span class="nc" id="L289">		int index = findIndex(influencerClass);</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">		return index &gt; -1 ? (K)influencers.get(index) : null;</span>
+	}
+
+	/** Removes the Influencer of the given type. */
+	public &lt;K extends Influencer&gt; void removeInfluencer (Class&lt;K&gt; type) {
+<span class="nc" id="L295">		int index = findIndex(type);</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">		if (index &gt; -1) influencers.removeIndex(index);</span>
+<span class="nc" id="L297">	}</span>
+
+	/** Replaces the Influencer of the given type with the one passed as parameter. */
+	public &lt;K extends Influencer&gt; boolean replaceInfluencer (Class&lt;K&gt; type, K newInfluencer) {
+<span class="nc" id="L301">		int index = findIndex(type);</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">		if (index &gt; -1) {</span>
+<span class="nc" id="L303">			influencers.insert(index, newInfluencer);</span>
+<span class="nc" id="L304">			influencers.removeIndex(index + 1);</span>
+<span class="nc" id="L305">			return true;</span>
+		}
+<span class="nc" id="L307">		return false;</span>
+	}
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L312">		json.writeValue(&quot;name&quot;, name);</span>
+<span class="nc" id="L313">		json.writeValue(&quot;emitter&quot;, emitter, Emitter.class);</span>
+<span class="nc" id="L314">		json.writeValue(&quot;influencers&quot;, influencers, Array.class, Influencer.class);</span>
+<span class="nc" id="L315">		json.writeValue(&quot;renderer&quot;, renderer, ParticleControllerRenderer.class);</span>
+<span class="nc" id="L316">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonMap) {
+<span class="nc" id="L320">		name = json.readValue(&quot;name&quot;, String.class, jsonMap);</span>
+<span class="nc" id="L321">		emitter = json.readValue(&quot;emitter&quot;, Emitter.class, jsonMap);</span>
+<span class="nc" id="L322">		influencers.addAll(json.readValue(&quot;influencers&quot;, Array.class, Influencer.class, jsonMap));</span>
+<span class="nc" id="L323">		renderer = json.readValue(&quot;renderer&quot;, ParticleControllerRenderer.class, jsonMap);</span>
+<span class="nc" id="L324">	}</span>
+
+	@Override
+	public void save (AssetManager manager, ResourceData data) {
+<span class="nc" id="L328">		emitter.save(manager, data);</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L330">			influencer.save(manager, data);</span>
+<span class="nc" id="L331">		renderer.save(manager, data);</span>
+<span class="nc" id="L332">	}</span>
+
+	@Override
+	public void load (AssetManager manager, ResourceData data) {
+<span class="nc" id="L336">		emitter.load(manager, data);</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">		for (Influencer influencer : influencers)</span>
+<span class="nc" id="L338">			influencer.load(manager, data);</span>
+<span class="nc" id="L339">		renderer.load(manager, data);</span>
+<span class="nc" id="L340">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

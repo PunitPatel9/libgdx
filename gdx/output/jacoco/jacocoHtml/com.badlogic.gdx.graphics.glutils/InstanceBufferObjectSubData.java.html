@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InstanceBufferObjectSubData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.glutils</a> &gt; <span class="el_source">InstanceBufferObjectSubData.java</span></div><h1>InstanceBufferObjectSubData.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.glutils;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.utils.BufferUtils;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+
+/**
+ * Modification of the {@link VertexBufferObjectSubData} class.
+ * Sets the glVertexAttribDivisor for every {@link VertexAttribute} automatically.
+ *
+ * @author mrdlink
+ */
+public class InstanceBufferObjectSubData implements InstanceData {
+
+	final VertexAttributes attributes;
+	final FloatBuffer buffer;
+	final ByteBuffer byteBuffer;
+	int bufferHandle;
+	final boolean isDirect;
+	final boolean isStatic;
+	final int usage;
+<span class="nc" id="L45">	boolean isDirty = false;</span>
+<span class="nc" id="L46">	boolean isBound = false;</span>
+
+	/**
+	 * Constructs a new interleaved InstanceBufferObject.
+	 *
+	 * @param isStatic           whether the vertex data is static.
+	 * @param numInstances       the maximum number of vertices
+	 * @param instanceAttributes the {@link VertexAttributes}.
+	 */
+	public InstanceBufferObjectSubData (boolean isStatic, int numInstances, VertexAttribute... instanceAttributes) {
+<span class="nc" id="L56">		this(isStatic, numInstances, new VertexAttributes(instanceAttributes));</span>
+<span class="nc" id="L57">	}</span>
+
+	/**
+	 * Constructs a new interleaved InstanceBufferObject.
+	 *
+	 * @param isStatic           whether the vertex data is static.
+	 * @param numInstances       the maximum number of vertices
+	 * @param instanceAttributes the {@link VertexAttribute}s.
+	 */
+<span class="nc" id="L66">	public InstanceBufferObjectSubData (boolean isStatic, int numInstances, VertexAttributes instanceAttributes) {</span>
+<span class="nc" id="L67">		this.isStatic = isStatic;</span>
+<span class="nc" id="L68">		this.attributes = instanceAttributes;</span>
+<span class="nc" id="L69">		byteBuffer = BufferUtils.newByteBuffer(this.attributes.vertexSize * numInstances);</span>
+<span class="nc" id="L70">		isDirect = true;</span>
+
+<span class="nc bnc" id="L72" title="All 2 branches missed.">		usage = isStatic ? GL20.GL_STATIC_DRAW : GL20.GL_DYNAMIC_DRAW;</span>
+<span class="nc" id="L73">		buffer = byteBuffer.asFloatBuffer();</span>
+<span class="nc" id="L74">		bufferHandle = createBufferObject();</span>
+<span class="nc" id="L75">		buffer.flip();</span>
+<span class="nc" id="L76">		byteBuffer.flip();</span>
+<span class="nc" id="L77">	}</span>
+
+	private int createBufferObject () {
+<span class="nc" id="L80">		int result = Gdx.gl20.glGenBuffer();</span>
+<span class="nc" id="L81">		Gdx.gl20.glBindBuffer(GL20.GL_ARRAY_BUFFER, result);</span>
+<span class="nc" id="L82">		Gdx.gl20.glBufferData(GL20.GL_ARRAY_BUFFER, byteBuffer.capacity(), null, usage);</span>
+<span class="nc" id="L83">		Gdx.gl20.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L84">		return result;</span>
+	}
+
+	@Override
+	public VertexAttributes getAttributes () {
+<span class="nc" id="L89">		return attributes;</span>
+	}
+
+	/**
+	 * Effectively returns {@link #getNumInstances()}.
+	 *
+	 * @return number of instances in this buffer
+	 */
+	@Override
+	public int getNumInstances () {
+<span class="nc" id="L99">		return buffer.limit() * 4 / attributes.vertexSize;</span>
+	}
+
+	/**
+	 * Effectively returns {@link #getNumMaxInstances()}.
+	 *
+	 * @return maximum number of instances in this buffer
+	 */
+	@Override
+	public int getNumMaxInstances () {
+<span class="nc" id="L109">		return byteBuffer.capacity() / attributes.vertexSize;</span>
+	}
+
+	@Override
+	public FloatBuffer getBuffer () {
+<span class="nc" id="L114">		isDirty = true;</span>
+<span class="nc" id="L115">		return buffer;</span>
+	}
+
+	private void bufferChanged () {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">		if (isBound) {</span>
+<span class="nc" id="L120">			Gdx.gl20.glBufferData(GL20.GL_ARRAY_BUFFER, byteBuffer.limit(), null, usage);</span>
+<span class="nc" id="L121">			Gdx.gl20.glBufferSubData(GL20.GL_ARRAY_BUFFER, 0, byteBuffer.limit(), byteBuffer);</span>
+<span class="nc" id="L122">			isDirty = false;</span>
+		}
+<span class="nc" id="L124">	}</span>
+
+	@Override
+	public void setInstanceData (float[] data, int offset, int count) {
+<span class="nc" id="L128">		isDirty = true;</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		if (isDirect) {</span>
+<span class="nc" id="L130">			BufferUtils.copy(data, byteBuffer, count, offset);</span>
+<span class="nc" id="L131">			buffer.position(0);</span>
+<span class="nc" id="L132">			buffer.limit(count);</span>
+		} else {
+<span class="nc" id="L134">			buffer.clear();</span>
+<span class="nc" id="L135">			buffer.put(data, offset, count);</span>
+<span class="nc" id="L136">			buffer.flip();</span>
+<span class="nc" id="L137">			byteBuffer.position(0);</span>
+<span class="nc" id="L138">			byteBuffer.limit(buffer.limit() &lt;&lt; 2);</span>
+		}
+
+<span class="nc" id="L141">		bufferChanged();</span>
+<span class="nc" id="L142">	}</span>
+
+	@Override
+	public void setInstanceData (FloatBuffer data, int count) {
+<span class="nc" id="L146">		isDirty = true;</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">		if (isDirect) {</span>
+<span class="nc" id="L148">			BufferUtils.copy(data, byteBuffer, count);</span>
+<span class="nc" id="L149">			buffer.position(0);</span>
+<span class="nc" id="L150">			buffer.limit(count);</span>
+		} else {
+<span class="nc" id="L152">			buffer.clear();</span>
+<span class="nc" id="L153">			buffer.put(data);</span>
+<span class="nc" id="L154">			buffer.flip();</span>
+<span class="nc" id="L155">			byteBuffer.position(0);</span>
+<span class="nc" id="L156">			byteBuffer.limit(buffer.limit() &lt;&lt; 2);</span>
+		}
+
+<span class="nc" id="L159">		bufferChanged();</span>
+<span class="nc" id="L160">	}</span>
+
+	@Override
+	public void updateInstanceData (int targetOffset, float[] data, int sourceOffset, int count) {
+<span class="nc" id="L164">		isDirty = true;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		if (isDirect) {</span>
+<span class="nc" id="L166">			final int pos = byteBuffer.position();</span>
+<span class="nc" id="L167">			byteBuffer.position(targetOffset * 4);</span>
+<span class="nc" id="L168">			BufferUtils.copy(data, sourceOffset, count, byteBuffer);</span>
+<span class="nc" id="L169">			byteBuffer.position(pos);</span>
+<span class="nc" id="L170">		} else</span>
+<span class="nc" id="L171">			throw new GdxRuntimeException(&quot;Buffer must be allocated direct.&quot;); // Should never happen</span>
+
+<span class="nc" id="L173">		bufferChanged();</span>
+<span class="nc" id="L174">	}</span>
+
+	@Override
+	public void updateInstanceData (int targetOffset, FloatBuffer data, int sourceOffset, int count) {
+<span class="nc" id="L178">		isDirty = true;</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		if (isDirect) {</span>
+<span class="nc" id="L180">			final int pos = byteBuffer.position();</span>
+<span class="nc" id="L181">			byteBuffer.position(targetOffset * 4);</span>
+<span class="nc" id="L182">			data.position(sourceOffset * 4);</span>
+<span class="nc" id="L183">			BufferUtils.copy(data, byteBuffer, count);</span>
+<span class="nc" id="L184">			byteBuffer.position(pos);</span>
+<span class="nc" id="L185">		} else</span>
+<span class="nc" id="L186">			throw new GdxRuntimeException(&quot;Buffer must be allocated direct.&quot;); // Should never happen</span>
+
+<span class="nc" id="L188">		bufferChanged();</span>
+<span class="nc" id="L189">	}</span>
+
+	/**
+	 * Binds this InstanceBufferObject for rendering via glDrawArraysInstanced or glDrawElementsInstanced
+	 *
+	 * @param shader the shader
+	 */
+	@Override
+	public void bind (final ShaderProgram shader) {
+<span class="nc" id="L198">		bind(shader, null);</span>
+<span class="nc" id="L199">	}</span>
+
+	@Override
+	public void bind (final ShaderProgram shader, final int[] locations) {
+<span class="nc" id="L203">		final GL20 gl = Gdx.gl20;</span>
+
+<span class="nc" id="L205">		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, bufferHandle);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">		if (isDirty) {</span>
+<span class="nc" id="L207">			byteBuffer.limit(buffer.limit() * 4);</span>
+<span class="nc" id="L208">			gl.glBufferData(GL20.GL_ARRAY_BUFFER, byteBuffer.limit(), byteBuffer, usage);</span>
+<span class="nc" id="L209">			isDirty = false;</span>
+		}
+
+<span class="nc" id="L212">		final int numAttributes = attributes.size();</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">		if (locations == null) {</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">			for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L215">				final VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc" id="L216">				final int location = shader.getAttributeLocation(attribute.alias);</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">				if (location &lt; 0)</span>
+<span class="nc" id="L218">					continue;</span>
+<span class="nc" id="L219">				int unitOffset = +attribute.unit;</span>
+<span class="nc" id="L220">				shader.enableVertexAttribute(location + unitOffset);</span>
+
+<span class="nc" id="L222">				shader.setVertexAttribute(location + unitOffset, attribute.numComponents, attribute.type, attribute.normalized, attributes.vertexSize, attribute.offset);</span>
+<span class="nc" id="L223">				Gdx.gl30.glVertexAttribDivisor(location + unitOffset, 1);</span>
+			}
+		} else {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">			for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L227">				final VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc" id="L228">				final int location = locations[i];</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">				if (location &lt; 0)</span>
+<span class="nc" id="L230">					continue;</span>
+<span class="nc" id="L231">				int unitOffset = +attribute.unit;</span>
+<span class="nc" id="L232">				shader.enableVertexAttribute(location + unitOffset);</span>
+
+<span class="nc" id="L234">				shader.setVertexAttribute(location + unitOffset, attribute.numComponents, attribute.type, attribute.normalized, attributes.vertexSize, attribute.offset);</span>
+<span class="nc" id="L235">				Gdx.gl30.glVertexAttribDivisor(location + unitOffset, 1);</span>
+			}
+		}
+<span class="nc" id="L238">		isBound = true;</span>
+<span class="nc" id="L239">	}</span>
+
+	/**
+	 * Unbinds this InstanceBufferObject.
+	 *
+	 * @param shader the shader
+	 */
+	@Override
+	public void unbind (final ShaderProgram shader) {
+<span class="nc" id="L248">		unbind(shader, null);</span>
+<span class="nc" id="L249">	}</span>
+
+	@Override
+	public void unbind (final ShaderProgram shader, final int[] locations) {
+<span class="nc" id="L253">		final GL20 gl = Gdx.gl20;</span>
+<span class="nc" id="L254">		final int numAttributes = attributes.size();</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">		if (locations == null) {</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">			for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L257">				final VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc" id="L258">				final int location = shader.getAttributeLocation(attribute.alias);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">				if (location &lt; 0)</span>
+<span class="nc" id="L260">					continue;</span>
+<span class="nc" id="L261">				int unitOffset = +attribute.unit;</span>
+<span class="nc" id="L262">				shader.disableVertexAttribute(location + unitOffset);</span>
+			}
+		} else {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">			for (int i = 0; i &lt; numAttributes; i++) {</span>
+<span class="nc" id="L266">				final VertexAttribute attribute = attributes.get(i);</span>
+<span class="nc" id="L267">				final int location = locations[i];</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">				if (location &lt; 0)</span>
+<span class="nc" id="L269">					continue;</span>
+<span class="nc" id="L270">				int unitOffset = +attribute.unit;</span>
+<span class="nc" id="L271">				shader.enableVertexAttribute(location + unitOffset);</span>
+			}
+		}
+<span class="nc" id="L274">		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L275">		isBound = false;</span>
+<span class="nc" id="L276">	}</span>
+
+	/**
+	 * Invalidates the InstanceBufferObject so a new OpenGL buffer handle is created. Use this in case of a context loss.
+	 */
+	public void invalidate () {
+<span class="nc" id="L282">		bufferHandle = createBufferObject();</span>
+<span class="nc" id="L283">		isDirty = true;</span>
+<span class="nc" id="L284">	}</span>
+
+	/**
+	 * Disposes of all resources this InstanceBufferObject uses.
+	 */
+	@Override
+	public void dispose () {
+<span class="nc" id="L291">		GL20 gl = Gdx.gl20;</span>
+<span class="nc" id="L292">		gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L293">		gl.glDeleteBuffer(bufferHandle);</span>
+<span class="nc" id="L294">		bufferHandle = 0;</span>
+<span class="nc" id="L295">	}</span>
+
+	/**
+	 * Returns the InstanceBufferObject handle
+	 *
+	 * @return the InstanceBufferObject handle
+	 */
+	public int getBufferHandle () {
+<span class="nc" id="L303">		return bufferHandle;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

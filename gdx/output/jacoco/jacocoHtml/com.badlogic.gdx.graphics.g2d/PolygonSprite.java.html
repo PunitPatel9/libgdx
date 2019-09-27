@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PolygonSprite.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g2d</a> &gt; <span class="el_source">PolygonSprite.java</span></div><h1>PolygonSprite.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g2d;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.NumberUtils;
+
+/** @author Stefan Bachmann
+ * @author Nathan Sweet */
+public class PolygonSprite {
+	PolygonRegion region;
+	private float x, y;
+	private float width, height;
+<span class="nc" id="L30">	private float scaleX = 1f, scaleY = 1f;</span>
+	private float rotation;
+	private float originX, originY;
+	private float[] vertices;
+	private boolean dirty;
+<span class="nc" id="L35">	private Rectangle bounds = new Rectangle();</span>
+<span class="nc" id="L36">	private final Color color = new Color(1f, 1f, 1f, 1f);</span>
+
+<span class="nc" id="L38">	public PolygonSprite (PolygonRegion region) {</span>
+<span class="nc" id="L39">		setRegion(region);</span>
+<span class="nc" id="L40">		setSize(region.region.regionWidth, region.region.regionHeight);</span>
+<span class="nc" id="L41">		setOrigin(width / 2, height / 2);</span>
+<span class="nc" id="L42">	}</span>
+
+	/** Creates a sprite that is a copy in every way of the specified sprite. */
+<span class="nc" id="L45">	public PolygonSprite (PolygonSprite sprite) {</span>
+<span class="nc" id="L46">		set(sprite);</span>
+<span class="nc" id="L47">	}</span>
+
+	public void set (PolygonSprite sprite) {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">		if (sprite == null) throw new IllegalArgumentException(&quot;sprite cannot be null.&quot;);</span>
+
+<span class="nc" id="L52">		setRegion(sprite.region);</span>
+
+<span class="nc" id="L54">		x = sprite.x;</span>
+<span class="nc" id="L55">		y = sprite.y;</span>
+<span class="nc" id="L56">		width = sprite.width;</span>
+<span class="nc" id="L57">		height = sprite.height;</span>
+<span class="nc" id="L58">		originX = sprite.originX;</span>
+<span class="nc" id="L59">		originY = sprite.originY;</span>
+<span class="nc" id="L60">		rotation = sprite.rotation;</span>
+<span class="nc" id="L61">		scaleX = sprite.scaleX;</span>
+<span class="nc" id="L62">		scaleY = sprite.scaleY;</span>
+<span class="nc" id="L63">		color.set(sprite.color);</span>
+<span class="nc" id="L64">	}</span>
+
+	/** Sets the position and size of the sprite when drawn, before scaling and rotation are applied. If origin, rotation, or scale
+	 * are changed, it is slightly more efficient to set the bounds after those operations. */
+	public void setBounds (float x, float y, float width, float height) {
+<span class="nc" id="L69">		this.x = x;</span>
+<span class="nc" id="L70">		this.y = y;</span>
+<span class="nc" id="L71">		this.width = width;</span>
+<span class="nc" id="L72">		this.height = height;</span>
+
+<span class="nc" id="L74">		dirty = true;</span>
+<span class="nc" id="L75">	}</span>
+
+	/** Sets the size of the sprite when drawn, before scaling and rotation are applied. If origin, rotation, or scale are changed,
+	 * it is slightly more efficient to set the size after those operations. If both position and size are to be changed, it is
+	 * better to use {@link #setBounds(float, float, float, float)}. */
+	public void setSize (float width, float height) {
+<span class="nc" id="L81">		this.width = width;</span>
+<span class="nc" id="L82">		this.height = height;</span>
+
+<span class="nc" id="L84">		dirty = true;</span>
+<span class="nc" id="L85">	}</span>
+
+	/** Sets the position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setPosition (float x, float y) {
+<span class="nc" id="L91">		translate(x - this.x, y - this.y);</span>
+<span class="nc" id="L92">	}</span>
+
+	/** Sets the x position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setX (float x) {
+<span class="nc" id="L98">		translateX(x - this.x);</span>
+<span class="nc" id="L99">	}</span>
+
+	/** Sets the y position where the sprite will be drawn. If origin, rotation, or scale are changed, it is slightly more efficient
+	 * to set the position after those operations. If both position and size are to be changed, it is better to use
+	 * {@link #setBounds(float, float, float, float)}. */
+	public void setY (float y) {
+<span class="nc" id="L105">		translateY(y - this.y);</span>
+<span class="nc" id="L106">	}</span>
+
+	/** Sets the x position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translateX (float xAmount) {
+<span class="nc" id="L111">		this.x += xAmount;</span>
+
+<span class="nc bnc" id="L113" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L115">		final float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		for (int i = 0; i &lt; vertices.length; i += Sprite.VERTEX_SIZE)</span>
+<span class="nc" id="L117">			vertices[i] += xAmount;</span>
+<span class="nc" id="L118">	}</span>
+
+	/** Sets the y position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translateY (float yAmount) {
+<span class="nc" id="L123">		y += yAmount;</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L127">		final float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">		for (int i = 1; i &lt; vertices.length; i += Sprite.VERTEX_SIZE)</span>
+<span class="nc" id="L129">			vertices[i] += yAmount;</span>
+<span class="nc" id="L130">	}</span>
+
+	/** Sets the position relative to the current position where the sprite will be drawn. If origin, rotation, or scale are
+	 * changed, it is slightly more efficient to translate after those operations. */
+	public void translate (float xAmount, float yAmount) {
+<span class="nc" id="L135">		x += xAmount;</span>
+<span class="nc" id="L136">		y += yAmount;</span>
+
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (dirty) return;</span>
+
+<span class="nc" id="L140">		final float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">		for (int i = 0; i &lt; vertices.length; i += Sprite.VERTEX_SIZE) {</span>
+<span class="nc" id="L142">			vertices[i] += xAmount;</span>
+<span class="nc" id="L143">			vertices[i + 1] += yAmount;</span>
+		}
+<span class="nc" id="L145">	}</span>
+
+	public void setColor (Color tint) {
+<span class="nc" id="L148">		color.set(tint);</span>
+<span class="nc" id="L149">		float color = tint.toFloatBits();</span>
+
+<span class="nc" id="L151">		final float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">		for (int i = 2; i &lt; vertices.length; i += Sprite.VERTEX_SIZE)</span>
+<span class="nc" id="L153">			vertices[i] = color;</span>
+<span class="nc" id="L154">	}</span>
+
+	public void setColor (float r, float g, float b, float a) {
+<span class="nc" id="L157">		color.set(r, g, b, a);</span>
+<span class="nc" id="L158">		float packedColor = color.toFloatBits();</span>
+<span class="nc" id="L159">		final float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">		for (int i = 2; i &lt; vertices.length; i += Sprite.VERTEX_SIZE)</span>
+<span class="nc" id="L161">			vertices[i] = packedColor;</span>
+<span class="nc" id="L162">	}</span>
+
+	/** Sets the origin in relation to the sprite's position for scaling and rotation. */
+	public void setOrigin (float originX, float originY) {
+<span class="nc" id="L166">		this.originX = originX;</span>
+<span class="nc" id="L167">		this.originY = originY;</span>
+<span class="nc" id="L168">		dirty = true;</span>
+<span class="nc" id="L169">	}</span>
+
+	public void setRotation (float degrees) {
+<span class="nc" id="L172">		this.rotation = degrees;</span>
+<span class="nc" id="L173">		dirty = true;</span>
+<span class="nc" id="L174">	}</span>
+
+	/** Sets the sprite's rotation relative to the current rotation. */
+	public void rotate (float degrees) {
+<span class="nc" id="L178">		rotation += degrees;</span>
+<span class="nc" id="L179">		dirty = true;</span>
+<span class="nc" id="L180">	}</span>
+
+	public void setScale (float scaleXY) {
+<span class="nc" id="L183">		this.scaleX = scaleXY;</span>
+<span class="nc" id="L184">		this.scaleY = scaleXY;</span>
+<span class="nc" id="L185">		dirty = true;</span>
+<span class="nc" id="L186">	}</span>
+
+	public void setScale (float scaleX, float scaleY) {
+<span class="nc" id="L189">		this.scaleX = scaleX;</span>
+<span class="nc" id="L190">		this.scaleY = scaleY;</span>
+<span class="nc" id="L191">		dirty = true;</span>
+<span class="nc" id="L192">	}</span>
+
+	/** Sets the sprite's scale relative to the current scale. */
+	public void scale (float amount) {
+<span class="nc" id="L196">		this.scaleX += amount;</span>
+<span class="nc" id="L197">		this.scaleY += amount;</span>
+<span class="nc" id="L198">		dirty = true;</span>
+<span class="nc" id="L199">	}</span>
+
+	/** Returns the packed vertices, colors, and texture coordinates for this sprite. */
+	public float[] getVertices () {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">		if (!dirty) return vertices;</span>
+<span class="nc" id="L204">		dirty = false;</span>
+
+<span class="nc" id="L206">		final float originX = this.originX;</span>
+<span class="nc" id="L207">		final float originY = this.originY;</span>
+<span class="nc" id="L208">		final float scaleX = this.scaleX;</span>
+<span class="nc" id="L209">		final float scaleY = this.scaleY;</span>
+<span class="nc" id="L210">		final PolygonRegion region = this.region;</span>
+<span class="nc" id="L211">		final float[] vertices = this.vertices;</span>
+<span class="nc" id="L212">		final float[] regionVertices = region.vertices;</span>
+
+<span class="nc" id="L214">		final float worldOriginX = x + originX;</span>
+<span class="nc" id="L215">		final float worldOriginY = y + originY;</span>
+<span class="nc" id="L216">		final float sX = width / region.region.getRegionWidth();</span>
+<span class="nc" id="L217">		final float sY = height / region.region.getRegionHeight();</span>
+<span class="nc" id="L218">		final float cos = MathUtils.cosDeg(rotation);</span>
+<span class="nc" id="L219">		final float sin = MathUtils.sinDeg(rotation);</span>
+
+		float fx, fy;
+<span class="nc bnc" id="L222" title="All 2 branches missed.">		for (int i = 0, v = 0, n = regionVertices.length; i &lt; n; i += 2, v += 5) {</span>
+<span class="nc" id="L223">			fx = (regionVertices[i] * sX - originX) * scaleX;</span>
+<span class="nc" id="L224">			fy = (regionVertices[i + 1] * sY - originY) * scaleY;</span>
+<span class="nc" id="L225">			vertices[v] = cos * fx - sin * fy + worldOriginX;</span>
+<span class="nc" id="L226">			vertices[v + 1] = sin * fx + cos * fy + worldOriginY;</span>
+		}
+<span class="nc" id="L228">		return vertices;</span>
+	}
+
+	/** Returns the bounding axis aligned {@link Rectangle} that bounds this sprite. The rectangles x and y coordinates describe its
+	 * bottom left corner. If you change the position or size of the sprite, you have to fetch the triangle again for it to be
+	 * recomputed.
+	 * @return the bounding Rectangle */
+	public Rectangle getBoundingRectangle () {
+<span class="nc" id="L236">		final float[] vertices = getVertices();</span>
+
+<span class="nc" id="L238">		float minx = vertices[0];</span>
+<span class="nc" id="L239">		float miny = vertices[1];</span>
+<span class="nc" id="L240">		float maxx = vertices[0];</span>
+<span class="nc" id="L241">		float maxy = vertices[1];</span>
+
+<span class="nc bnc" id="L243" title="All 2 branches missed.">		for (int i = 5; i &lt; vertices.length; i += 5) {</span>
+<span class="nc" id="L244">			float x = vertices[i];</span>
+<span class="nc" id="L245">			float y = vertices[i + 1];</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">			minx = minx &gt; x ? x : minx;</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">			maxx = maxx &lt; x ? x : maxx;</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">			miny = miny &gt; y ? y : miny;</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">			maxy = maxy &lt; y ? y : maxy;</span>
+		}
+
+<span class="nc" id="L252">		bounds.x = minx;</span>
+<span class="nc" id="L253">		bounds.y = miny;</span>
+<span class="nc" id="L254">		bounds.width = maxx - minx;</span>
+<span class="nc" id="L255">		bounds.height = maxy - miny;</span>
+<span class="nc" id="L256">		return bounds;</span>
+	}
+
+	public void draw (PolygonSpriteBatch spriteBatch) {
+<span class="nc" id="L260">		final PolygonRegion region = this.region;</span>
+<span class="nc" id="L261">		spriteBatch.draw(region.region.texture, getVertices(), 0, vertices.length, region.triangles, 0, region.triangles.length);</span>
+<span class="nc" id="L262">	}</span>
+
+	public void draw (PolygonSpriteBatch spriteBatch, float alphaModulation) {
+<span class="nc" id="L265">		Color color = getColor();</span>
+<span class="nc" id="L266">		float oldAlpha = color.a;</span>
+<span class="nc" id="L267">		color.a *= alphaModulation;</span>
+<span class="nc" id="L268">		setColor(color);</span>
+<span class="nc" id="L269">		draw(spriteBatch);</span>
+<span class="nc" id="L270">		color.a = oldAlpha;</span>
+<span class="nc" id="L271">		setColor(color);</span>
+<span class="nc" id="L272">	}</span>
+
+	public float getX () {
+<span class="nc" id="L275">		return x;</span>
+	}
+
+	public float getY () {
+<span class="nc" id="L279">		return y;</span>
+	}
+
+	public float getWidth () {
+<span class="nc" id="L283">		return width;</span>
+	}
+
+	public float getHeight () {
+<span class="nc" id="L287">		return height;</span>
+	}
+
+	public float getOriginX () {
+<span class="nc" id="L291">		return originX;</span>
+	}
+
+	public float getOriginY () {
+<span class="nc" id="L295">		return originY;</span>
+	}
+
+	public float getRotation () {
+<span class="nc" id="L299">		return rotation;</span>
+	}
+
+	public float getScaleX () {
+<span class="nc" id="L303">		return scaleX;</span>
+	}
+
+	public float getScaleY () {
+<span class="nc" id="L307">		return scaleY;</span>
+	}
+
+	/** Returns the color of this sprite. Modifying the returned color will have unexpected effects unless {@link #setColor(Color)}
+	 * or {@link #setColor(float, float, float, float)} is subsequently called before drawing this sprite. */
+	public Color getColor () {
+<span class="nc" id="L313">		return color;</span>
+	}
+
+	/** Returns the actual color used in the vertices of this sprite. Modifying the returned color will have unexpected effects
+	 * unless {@link #setColor(Color)} or {@link #setColor(float, float, float, float)} is subsequently called before drawing this
+	 * sprite. */
+	public Color getPackedColor () {
+<span class="nc" id="L320">		Color.abgr8888ToColor(color, vertices[2]);</span>
+<span class="nc" id="L321">		return color;</span>
+	}
+
+	public void setRegion (PolygonRegion region) {
+<span class="nc" id="L325">		this.region = region;</span>
+
+<span class="nc" id="L327">		float[] regionVertices = region.vertices;</span>
+<span class="nc" id="L328">		float[] textureCoords = region.textureCoords;</span>
+
+<span class="nc" id="L330">		int verticesLength = (regionVertices.length / 2) * 5;</span>
+<span class="nc bnc" id="L331" title="All 4 branches missed.">		if (vertices == null || vertices.length != verticesLength) vertices = new float[verticesLength];</span>
+
+		// Set the color and UVs in this sprite's vertices.
+<span class="nc" id="L334">		float floatColor = color.toFloatBits();</span>
+<span class="nc" id="L335">		float[] vertices = this.vertices;</span>
+<span class="nc bnc" id="L336" title="All 2 branches missed.">		for (int i = 0, v = 2; v &lt; verticesLength; i += 2, v += 5) {</span>
+<span class="nc" id="L337">			vertices[v] = floatColor;</span>
+<span class="nc" id="L338">			vertices[v + 1] = textureCoords[i];</span>
+<span class="nc" id="L339">			vertices[v + 2] = textureCoords[i + 1];</span>
+		}
+
+<span class="nc" id="L342">		dirty = true;</span>
+<span class="nc" id="L343">	}</span>
+
+	public PolygonRegion getRegion () {
+<span class="nc" id="L346">		return region;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Queue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">Queue.java</span></div><h1>Queue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2015 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import com.badlogic.gdx.utils.reflect.ArrayReflection;
+
+/** A resizable, ordered array of objects with efficient add and remove at the beginning and end. Values in the backing array may
+ * wrap back to the beginning, making add and remove at the beginning and end O(1) (unless the backing array needs to resize when
+ * adding). Deque functionality is provided via {@link #removeLast()} and {@link #addFirst(Object)}. */
+public class Queue&lt;T&gt; implements Iterable&lt;T&gt; {
+	/** Contains the values in the queue. Head and tail indices go in a circle around this array, wrapping at the end. */
+	protected T[] values;
+
+	/** Index of first element. Logically smaller than tail. Unless empty, it points to a valid element inside queue. */
+<span class="pc" id="L32">	protected int head = 0;</span>
+
+	/** Index of last element. Logically bigger than head. Usually points to an empty position, but points to the head when full
+	 * (size == values.length). */
+<span class="pc" id="L36">	protected int tail = 0;</span>
+
+	/** Number of elements in the queue. */
+<span class="pc" id="L39">	public int size = 0;</span>
+
+	private QueueIterable iterable;
+
+	/** Creates a new Queue which can hold 16 values without needing to resize backing array. */
+	public Queue () {
+<span class="fc" id="L45">		this(16);</span>
+<span class="fc" id="L46">	}</span>
+
+	/** Creates a new Queue which can hold the specified number of values without needing to resize backing array. */
+<span class="fc" id="L49">	public Queue (int initialSize) {</span>
+		// noinspection unchecked
+<span class="fc" id="L51">		this.values = (T[])new Object[initialSize];</span>
+<span class="fc" id="L52">	}</span>
+
+	/** Creates a new Queue which can hold the specified number of values without needing to resize backing array. This creates
+	 * backing array of the specified type via reflection, which is necessary only when accessing the backing array directly. */
+<span class="nc" id="L56">	public Queue (int initialSize, Class&lt;T&gt; type) {</span>
+		// noinspection unchecked
+<span class="nc" id="L58">		this.values = (T[])ArrayReflection.newInstance(type, initialSize);</span>
+<span class="nc" id="L59">	}</span>
+
+	/** Append given object to the tail. (enqueue to tail) Unless backing array needs resizing, operates in O(1) time.
+	 * @param object can be null */
+	public void addLast (T object) {
+<span class="fc" id="L64">		T[] values = this.values;</span>
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">		if (size == values.length) {</span>
+<span class="fc" id="L67">			resize(values.length &lt;&lt; 1);// * 2</span>
+<span class="fc" id="L68">			values = this.values;</span>
+		}
+
+<span class="fc" id="L71">		values[tail++] = object;</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">		if (tail == values.length) {</span>
+<span class="fc" id="L73">			tail = 0;</span>
+		}
+<span class="fc" id="L75">		size++;</span>
+<span class="fc" id="L76">	}</span>
+
+	/** Prepend given object to the head. (enqueue to head) Unless backing array needs resizing, operates in O(1) time.
+	 * @see #addLast(Object)
+	 * @param object can be null */
+	public void addFirst (T object) {
+<span class="fc" id="L82">		T[] values = this.values;</span>
+
+<span class="fc bfc" id="L84" title="All 2 branches covered.">		if (size == values.length) {</span>
+<span class="fc" id="L85">			resize(values.length &lt;&lt; 1);// * 2</span>
+<span class="fc" id="L86">			values = this.values;</span>
+		}
+
+<span class="fc" id="L89">		int head = this.head;</span>
+<span class="fc" id="L90">		head--;</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">		if (head == -1) {</span>
+<span class="fc" id="L92">			head = values.length - 1;</span>
+		}
+<span class="fc" id="L94">		values[head] = object;</span>
+
+<span class="fc" id="L96">		this.head = head;</span>
+<span class="fc" id="L97">		this.size++;</span>
+<span class="fc" id="L98">	}</span>
+
+	/** Increases the size of the backing array to accommodate the specified number of additional items. Useful before adding many
+	 * items to avoid multiple backing array resizes. */
+	public void ensureCapacity (int additional) {
+<span class="nc" id="L103">		final int needed = size + additional;</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">		if (values.length &lt; needed) {</span>
+<span class="nc" id="L105">			resize(needed);</span>
+		}
+<span class="nc" id="L107">	}</span>
+
+	/** Resize backing array. newSize must be bigger than current size. */
+	protected void resize (int newSize) {
+<span class="fc" id="L111">		final T[] values = this.values;</span>
+<span class="fc" id="L112">		final int head = this.head;</span>
+<span class="fc" id="L113">		final int tail = this.tail;</span>
+
+		@SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L116">		final T[] newArray = (T[])ArrayReflection.newInstance(values.getClass().getComponentType(), newSize);</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">		if (head &lt; tail) {</span>
+			// Continuous
+<span class="nc" id="L119">			System.arraycopy(values, head, newArray, 0, tail - head);</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">		} else if (size &gt; 0) {</span>
+			// Wrapped
+<span class="fc" id="L122">			final int rest = values.length - head;</span>
+<span class="fc" id="L123">			System.arraycopy(values, head, newArray, 0, rest);</span>
+<span class="fc" id="L124">			System.arraycopy(values, 0, newArray, rest, tail);</span>
+		}
+<span class="fc" id="L126">		this.values = newArray;</span>
+<span class="fc" id="L127">		this.head = 0;</span>
+<span class="fc" id="L128">		this.tail = size;</span>
+<span class="fc" id="L129">	}</span>
+
+	/** Remove the first item from the queue. (dequeue from head) Always O(1).
+	 * @return removed object
+	 * @throws NoSuchElementException when queue is empty */
+	public T removeFirst () {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">		if (size == 0) {</span>
+			// Underflow
+<span class="nc" id="L137">			throw new NoSuchElementException(&quot;Queue is empty.&quot;);</span>
+		}
+
+<span class="fc" id="L140">		final T[] values = this.values;</span>
+
+<span class="fc" id="L142">		final T result = values[head];</span>
+<span class="fc" id="L143">		values[head] = null;</span>
+<span class="fc" id="L144">		head++;</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">		if (head == values.length) {</span>
+<span class="fc" id="L146">			head = 0;</span>
+		}
+<span class="fc" id="L148">		size--;</span>
+
+<span class="fc" id="L150">		return result;</span>
+	}
+
+	/** Remove the last item from the queue. (dequeue from tail) Always O(1).
+	 * @see #removeFirst()
+	 * @return removed object
+	 * @throws NoSuchElementException when queue is empty */
+	public T removeLast () {
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">		if (size == 0) {</span>
+<span class="nc" id="L159">			throw new NoSuchElementException(&quot;Queue is empty.&quot;);</span>
+		}
+
+<span class="fc" id="L162">		final T[] values = this.values;</span>
+<span class="fc" id="L163">		int tail = this.tail;</span>
+<span class="fc" id="L164">		tail--;</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">		if (tail == -1) {</span>
+<span class="fc" id="L166">			tail = values.length - 1;</span>
+		}
+<span class="fc" id="L168">		final T result = values[tail];</span>
+<span class="fc" id="L169">		values[tail] = null;</span>
+<span class="fc" id="L170">		this.tail = tail;</span>
+<span class="fc" id="L171">		size--;</span>
+
+<span class="fc" id="L173">		return result;</span>
+	}
+
+	/** Returns the index of first occurrence of value in the queue, or -1 if no such value exists.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
+	 * @return An index of first occurrence of value in queue or -1 if no such value exists */
+	public int indexOf (T value, boolean identity) {
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">		if (size == 0) return -1;</span>
+<span class="fc" id="L181">		T[] values = this.values;</span>
+<span class="fc" id="L182">		final int head = this.head, tail = this.tail;</span>
+<span class="pc bpc" id="L183" title="1 of 4 branches missed.">		if (identity || value == null) {</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">			if (head &lt; tail) {</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">				for (int i = head; i &lt; tail; i++)</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">					if (values[i] == value) return i - head;</span>
+			} else {
+<span class="fc bfc" id="L188" title="All 2 branches covered.">				for (int i = head, n = values.length; i &lt; n; i++)</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">					if (values[i] == value) return i - head;</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">				for (int i = 0; i &lt; tail; i++)</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">					if (values[i] == value) return i + values.length - head;</span>
+			}
+		} else {
+<span class="fc bfc" id="L194" title="All 2 branches covered.">			if (head &lt; tail) {</span>
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">				for (int i = head; i &lt; tail; i++)</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">					if (value.equals(values[i])) return i - head;</span>
+			} else {
+<span class="fc bfc" id="L198" title="All 2 branches covered.">				for (int i = head, n = values.length; i &lt; n; i++)</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">					if (value.equals(values[i])) return i - head;</span>
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">				for (int i = 0; i &lt; tail; i++)</span>
+<span class="fc bfc" id="L201" title="All 2 branches covered.">					if (value.equals(values[i])) return i + values.length - head;</span>
+			}
+		}
+<span class="nc" id="L204">		return -1;</span>
+	}
+
+	/** Removes the first instance of the specified value in the queue.
+	 * @param identity If true, == comparison will be used. If false, .equals() comparison will be used.
+	 * @return true if value was found and removed, false otherwise */
+	public boolean removeValue (T value, boolean identity) {
+<span class="nc" id="L211">		int index = indexOf(value, identity);</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">		if (index == -1) return false;</span>
+<span class="nc" id="L213">		removeIndex(index);</span>
+<span class="nc" id="L214">		return true;</span>
+	}
+
+	/** Removes and returns the item at the specified index. */
+	public T removeIndex (int index) {
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">		if (index &lt; 0) throw new IndexOutOfBoundsException(&quot;index can't be &lt; 0: &quot; + index);</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+
+<span class="fc" id="L222">		T[] values = this.values;</span>
+<span class="fc" id="L223">		int head = this.head, tail = this.tail;</span>
+<span class="fc" id="L224">		index += head;</span>
+		T value;
+<span class="fc bfc" id="L226" title="All 2 branches covered.">		if (head &lt; tail) { // index is between head and tail.</span>
+<span class="fc" id="L227">			value = values[index];</span>
+<span class="fc" id="L228">			System.arraycopy(values, index + 1, values, index, tail - index);</span>
+<span class="fc" id="L229">			values[tail] = null;</span>
+<span class="fc" id="L230">			this.tail--;</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">		} else if (index &gt;= values.length) { // index is between 0 and tail.</span>
+<span class="fc" id="L232">			index -= values.length;</span>
+<span class="fc" id="L233">			value = values[index];</span>
+<span class="fc" id="L234">			System.arraycopy(values, index + 1, values, index, tail - index);</span>
+<span class="fc" id="L235">			this.tail--;</span>
+		} else { // index is between head and values.length.
+<span class="fc" id="L237">			value = values[index];</span>
+<span class="fc" id="L238">			System.arraycopy(values, head, values, head + 1, index - head);</span>
+<span class="fc" id="L239">			values[head] = null;</span>
+<span class="fc" id="L240">			this.head++;</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">			if (this.head == values.length) {</span>
+<span class="fc" id="L242">				this.head = 0;</span>
+			}
+		}
+<span class="fc" id="L245">		size--;</span>
+<span class="fc" id="L246">		return value;</span>
+	}
+
+	/** Returns true if the queue has one or more items. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L251" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if the queue is empty. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L256" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	/** Returns the first (head) item in the queue (without removing it).
+	 * @see #addFirst(Object)
+	 * @see #removeFirst()
+	 * @throws NoSuchElementException when queue is empty */
+	public T first () {
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">		if (size == 0) {</span>
+			// Underflow
+<span class="nc" id="L266">			throw new NoSuchElementException(&quot;Queue is empty.&quot;);</span>
+		}
+<span class="fc" id="L268">		return values[head];</span>
+	}
+
+	/** Returns the last (tail) item in the queue (without removing it).
+	 * @see #addLast(Object)
+	 * @see #removeLast()
+	 * @throws NoSuchElementException when queue is empty */
+	public T last () {
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">		if (size == 0) {</span>
+			// Underflow
+<span class="nc" id="L278">			throw new NoSuchElementException(&quot;Queue is empty.&quot;);</span>
+		}
+<span class="fc" id="L280">		final T[] values = this.values;</span>
+<span class="fc" id="L281">		int tail = this.tail;</span>
+<span class="fc" id="L282">		tail--;</span>
+<span class="fc bfc" id="L283" title="All 2 branches covered.">		if (tail == -1) {</span>
+<span class="fc" id="L284">			tail = values.length - 1;</span>
+		}
+<span class="fc" id="L286">		return values[tail];</span>
+	}
+
+	/** Retrieves the value in queue without removing it. Indexing is from the front to back, zero based. Therefore get(0) is the
+	 * same as {@link #first()}.
+	 * @throws IndexOutOfBoundsException when the index is negative or &gt;= size */
+	public T get (int index) {
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">		if (index &lt; 0) throw new IndexOutOfBoundsException(&quot;index can't be &lt; 0: &quot; + index);</span>
+<span class="fc bfc" id="L294" title="All 2 branches covered.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="fc" id="L295">		final T[] values = this.values;</span>
+
+<span class="fc" id="L297">		int i = head + index;</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">		if (i &gt;= values.length) {</span>
+<span class="fc" id="L299">			i -= values.length;</span>
+		}
+<span class="fc" id="L301">		return values[i];</span>
+	}
+
+	/** Removes all values from this queue. Values in backing array are set to null to prevent memory leak, so this operates in
+	 * O(n). */
+	public void clear () {
+<span class="pc bpc" id="L307" title="1 of 2 branches missed.">		if (size == 0) return;</span>
+<span class="fc" id="L308">		final T[] values = this.values;</span>
+<span class="fc" id="L309">		final int head = this.head;</span>
+<span class="fc" id="L310">		final int tail = this.tail;</span>
+
+<span class="fc bfc" id="L312" title="All 2 branches covered.">		if (head &lt; tail) {</span>
+			// Continuous
+<span class="fc bfc" id="L314" title="All 2 branches covered.">			for (int i = head; i &lt; tail; i++) {</span>
+<span class="fc" id="L315">				values[i] = null;</span>
+			}
+		} else {
+			// Wrapped
+<span class="fc bfc" id="L319" title="All 2 branches covered.">			for (int i = head; i &lt; values.length; i++) {</span>
+<span class="fc" id="L320">				values[i] = null;</span>
+			}
+<span class="fc bfc" id="L322" title="All 2 branches covered.">			for (int i = 0; i &lt; tail; i++) {</span>
+<span class="fc" id="L323">				values[i] = null;</span>
+			}
+		}
+<span class="fc" id="L326">		this.head = 0;</span>
+<span class="fc" id="L327">		this.tail = 0;</span>
+<span class="fc" id="L328">		this.size = 0;</span>
+<span class="fc" id="L329">	}</span>
+
+	/** Returns an iterator for the items in the queue. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called.
+	 * Use the {@link QueueIterator} constructor for nested or multithreaded iteration. */
+	public Iterator&lt;T&gt; iterator () {
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">		if (Collections.allocateIterators) return new QueueIterator(this, true);</span>
+<span class="fc bfc" id="L337" title="All 2 branches covered.">		if (iterable == null) iterable = new QueueIterable(this);</span>
+<span class="fc" id="L338">		return iterable.iterator();</span>
+	}
+
+	public String toString () {
+<span class="fc bfc" id="L342" title="All 2 branches covered.">		if (size == 0) {</span>
+<span class="fc" id="L343">			return &quot;[]&quot;;</span>
+		}
+<span class="fc" id="L345">		final T[] values = this.values;</span>
+<span class="fc" id="L346">		final int head = this.head;</span>
+<span class="fc" id="L347">		final int tail = this.tail;</span>
+
+<span class="fc" id="L349">		StringBuilder sb = new StringBuilder(64);</span>
+<span class="fc" id="L350">		sb.append('[');</span>
+<span class="fc" id="L351">		sb.append(values[head]);</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">		for (int i = (head + 1) % values.length; i != tail; i = (i + 1) % values.length) {</span>
+<span class="fc" id="L353">			sb.append(&quot;, &quot;).append(values[i]);</span>
+		}
+<span class="fc" id="L355">		sb.append(']');</span>
+<span class="fc" id="L356">		return sb.toString();</span>
+	}
+
+	public String toString (String separator) {
+<span class="nc bnc" id="L360" title="All 2 branches missed.">		if (size == 0) return &quot;&quot;;</span>
+<span class="nc" id="L361">		final T[] values = this.values;</span>
+<span class="nc" id="L362">		final int head = this.head;</span>
+<span class="nc" id="L363">		final int tail = this.tail;</span>
+
+<span class="nc" id="L365">		StringBuilder sb = new StringBuilder(64);</span>
+<span class="nc" id="L366">		sb.append(values[head]);</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">		for (int i = (head + 1) % values.length; i != tail; i = (i + 1) % values.length)</span>
+<span class="nc" id="L368">			sb.append(separator).append(values[i]);</span>
+<span class="nc" id="L369">		return sb.toString();</span>
+	}
+
+	public int hashCode () {
+<span class="fc" id="L373">		final int size = this.size;</span>
+<span class="fc" id="L374">		final T[] values = this.values;</span>
+<span class="fc" id="L375">		final int backingLength = values.length;</span>
+<span class="fc" id="L376">		int index = this.head;</span>
+
+<span class="fc" id="L378">		int hash = size + 1;</span>
+<span class="fc bfc" id="L379" title="All 2 branches covered.">		for (int s = 0; s &lt; size; s++) {</span>
+<span class="fc" id="L380">			final T value = values[index];</span>
+
+<span class="fc" id="L382">			hash *= 31;</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">			if (value != null) hash += value.hashCode();</span>
+
+<span class="fc" id="L385">			index++;</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">			if (index == backingLength) index = 0;</span>
+		}
+
+<span class="fc" id="L389">		return hash;</span>
+	}
+
+	public boolean equals (Object o) {
+<span class="pc bpc" id="L393" title="1 of 2 branches missed.">		if (this == o) return true;</span>
+<span class="pc bpc" id="L394" title="2 of 4 branches missed.">		if (o == null || !(o instanceof Queue)) return false;</span>
+
+<span class="fc" id="L396">		Queue&lt;?&gt; q = (Queue&lt;?&gt;)o;</span>
+<span class="fc" id="L397">		final int size = this.size;</span>
+
+<span class="fc bfc" id="L399" title="All 2 branches covered.">		if (q.size != size) return false;</span>
+
+<span class="fc" id="L401">		final T[] myValues = this.values;</span>
+<span class="fc" id="L402">		final int myBackingLength = myValues.length;</span>
+<span class="fc" id="L403">		final Object[] itsValues = q.values;</span>
+<span class="fc" id="L404">		final int itsBackingLength = itsValues.length;</span>
+
+<span class="fc" id="L406">		int myIndex = head;</span>
+<span class="fc" id="L407">		int itsIndex = q.head;</span>
+<span class="fc bfc" id="L408" title="All 2 branches covered.">		for (int s = 0; s &lt; size; s++) {</span>
+<span class="fc" id="L409">			T myValue = myValues[myIndex];</span>
+<span class="fc" id="L410">			Object itsValue = itsValues[itsIndex];</span>
+
+<span class="pc bpc" id="L412" title="4 of 6 branches missed.">			if (!(myValue == null ? itsValue == null : myValue.equals(itsValue))) return false;</span>
+<span class="fc" id="L413">			myIndex++;</span>
+<span class="fc" id="L414">			itsIndex++;</span>
+<span class="fc bfc" id="L415" title="All 2 branches covered.">			if (myIndex == myBackingLength) myIndex = 0;</span>
+<span class="fc bfc" id="L416" title="All 2 branches covered.">			if (itsIndex == itsBackingLength) itsIndex = 0;</span>
+		}
+<span class="fc" id="L418">		return true;</span>
+	}
+
+	/** Uses == for comparison of each item. */
+	public boolean equalsIdentity (Object o) {
+<span class="nc bnc" id="L423" title="All 2 branches missed.">		if (this == o) return true;</span>
+<span class="nc bnc" id="L424" title="All 4 branches missed.">		if (o == null || !(o instanceof Queue)) return false;</span>
+
+<span class="nc" id="L426">		Queue&lt;?&gt; q = (Queue&lt;?&gt;)o;</span>
+<span class="nc" id="L427">		final int size = this.size;</span>
+
+<span class="nc bnc" id="L429" title="All 2 branches missed.">		if (q.size != size) return false;</span>
+
+<span class="nc" id="L431">		final T[] myValues = this.values;</span>
+<span class="nc" id="L432">		final int myBackingLength = myValues.length;</span>
+<span class="nc" id="L433">		final Object[] itsValues = q.values;</span>
+<span class="nc" id="L434">		final int itsBackingLength = itsValues.length;</span>
+
+<span class="nc" id="L436">		int myIndex = head;</span>
+<span class="nc" id="L437">		int itsIndex = q.head;</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">		for (int s = 0; s &lt; size; s++) {</span>
+<span class="nc bnc" id="L439" title="All 2 branches missed.">			if (myValues[myIndex] != itsValues[itsIndex]) return false;</span>
+<span class="nc" id="L440">			myIndex++;</span>
+<span class="nc" id="L441">			itsIndex++;</span>
+<span class="nc bnc" id="L442" title="All 2 branches missed.">			if (myIndex == myBackingLength) myIndex = 0;</span>
+<span class="nc bnc" id="L443" title="All 2 branches missed.">			if (itsIndex == itsBackingLength) itsIndex = 0;</span>
+		}
+<span class="nc" id="L445">		return true;</span>
+	}
+
+	static public class QueueIterator&lt;T&gt; implements Iterator&lt;T&gt;, Iterable&lt;T&gt; {
+		private final Queue&lt;T&gt; queue;
+		private final boolean allowRemove;
+		int index;
+<span class="fc" id="L452">		boolean valid = true;</span>
+
+// QueueIterable&lt;T&gt; iterable;
+
+		public QueueIterator (Queue&lt;T&gt; queue) {
+<span class="nc" id="L457">			this(queue, true);</span>
+<span class="nc" id="L458">		}</span>
+
+<span class="fc" id="L460">		public QueueIterator (Queue&lt;T&gt; queue, boolean allowRemove) {</span>
+<span class="fc" id="L461">			this.queue = queue;</span>
+<span class="fc" id="L462">			this.allowRemove = allowRemove;</span>
+<span class="fc" id="L463">		}</span>
+
+		public boolean hasNext () {
+<span class="pc bpc" id="L466" title="1 of 2 branches missed.">			if (!valid) {</span>
+// System.out.println(iterable.lastAcquire);
+<span class="nc" id="L468">				throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+			}
+<span class="fc bfc" id="L470" title="All 2 branches covered.">			return index &lt; queue.size;</span>
+		}
+
+		public T next () {
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">			if (index &gt;= queue.size) throw new NoSuchElementException(String.valueOf(index));</span>
+<span class="pc bpc" id="L475" title="1 of 2 branches missed.">			if (!valid) {</span>
+// System.out.println(iterable.lastAcquire);
+<span class="nc" id="L477">				throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+			}
+<span class="fc" id="L479">			return queue.get(index++);</span>
+		}
+
+		public void remove () {
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">			if (!allowRemove) throw new GdxRuntimeException(&quot;Remove not allowed.&quot;);</span>
+<span class="fc" id="L484">			index--;</span>
+<span class="fc" id="L485">			queue.removeIndex(index);</span>
+<span class="fc" id="L486">		}</span>
+
+		public void reset () {
+<span class="nc" id="L489">			index = 0;</span>
+<span class="nc" id="L490">		}</span>
+
+		public Iterator&lt;T&gt; iterator () {
+<span class="nc" id="L493">			return this;</span>
+		}
+	}
+
+	static public class QueueIterable&lt;T&gt; implements Iterable&lt;T&gt; {
+		private final Queue&lt;T&gt; queue;
+		private final boolean allowRemove;
+		private QueueIterator iterator1, iterator2;
+
+// java.io.StringWriter lastAcquire = new java.io.StringWriter();
+
+		public QueueIterable (Queue&lt;T&gt; queue) {
+<span class="fc" id="L505">			this(queue, true);</span>
+<span class="fc" id="L506">		}</span>
+
+<span class="fc" id="L508">		public QueueIterable (Queue&lt;T&gt; queue, boolean allowRemove) {</span>
+<span class="fc" id="L509">			this.queue = queue;</span>
+<span class="fc" id="L510">			this.allowRemove = allowRemove;</span>
+<span class="fc" id="L511">		}</span>
+
+		/** @see Collections#allocateIterators */
+		public Iterator&lt;T&gt; iterator () {
+<span class="pc bpc" id="L515" title="1 of 2 branches missed.">			if (Collections.allocateIterators) return new QueueIterator(queue, allowRemove);</span>
+// lastAcquire.getBuffer().setLength(0);
+// new Throwable().printStackTrace(new java.io.PrintWriter(lastAcquire));
+<span class="fc bfc" id="L518" title="All 2 branches covered.">			if (iterator1 == null) {</span>
+<span class="fc" id="L519">				iterator1 = new QueueIterator(queue, allowRemove);</span>
+<span class="fc" id="L520">				iterator2 = new QueueIterator(queue, allowRemove);</span>
+// iterator1.iterable = this;
+// iterator2.iterable = this;
+			}
+<span class="fc bfc" id="L524" title="All 2 branches covered.">			if (!iterator1.valid) {</span>
+<span class="fc" id="L525">				iterator1.index = 0;</span>
+<span class="fc" id="L526">				iterator1.valid = true;</span>
+<span class="fc" id="L527">				iterator2.valid = false;</span>
+<span class="fc" id="L528">				return iterator1;</span>
+			}
+<span class="fc" id="L530">			iterator2.index = 0;</span>
+<span class="fc" id="L531">			iterator2.valid = true;</span>
+<span class="fc" id="L532">			iterator1.valid = false;</span>
+<span class="fc" id="L533">			return iterator2;</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

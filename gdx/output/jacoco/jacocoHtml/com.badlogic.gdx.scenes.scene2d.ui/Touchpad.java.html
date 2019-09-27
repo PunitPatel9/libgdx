@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Touchpad.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">Touchpad.java</span></div><h1>Touchpad.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.math.Circle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener.ChangeEvent;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.utils.Pools;
+
+/** An on-screen joystick. The movement area of the joystick is circular, centered on the touchpad, and its size determined by the
+ * smaller touchpad dimension.
+ * &lt;p&gt;
+ * The preferred size of the touchpad is determined by the background.
+ * &lt;p&gt;
+ * {@link ChangeEvent} is fired when the touchpad knob is moved. Cancelling the event will move the knob to where it was
+ * previously.
+ * @author Josh Street */
+public class Touchpad extends Widget {
+	private TouchpadStyle style;
+	boolean touched;
+<span class="nc" id="L42">	boolean resetOnTouchUp = true;</span>
+	private float deadzoneRadius;
+<span class="nc" id="L44">	private final Circle knobBounds = new Circle(0, 0, 0);</span>
+<span class="nc" id="L45">	private final Circle touchBounds = new Circle(0, 0, 0);</span>
+<span class="nc" id="L46">	private final Circle deadzoneBounds = new Circle(0, 0, 0);</span>
+<span class="nc" id="L47">	private final Vector2 knobPosition = new Vector2();</span>
+<span class="nc" id="L48">	private final Vector2 knobPercent = new Vector2();</span>
+
+	/** @param deadzoneRadius The distance in pixels from the center of the touchpad required for the knob to be moved. */
+	public Touchpad (float deadzoneRadius, Skin skin) {
+<span class="nc" id="L52">		this(deadzoneRadius, skin.get(TouchpadStyle.class));</span>
+<span class="nc" id="L53">	}</span>
+
+	/** @param deadzoneRadius The distance in pixels from the center of the touchpad required for the knob to be moved. */
+	public Touchpad (float deadzoneRadius, Skin skin, String styleName) {
+<span class="nc" id="L57">		this(deadzoneRadius, skin.get(styleName, TouchpadStyle.class));</span>
+<span class="nc" id="L58">	}</span>
+
+	/** @param deadzoneRadius The distance in pixels from the center of the touchpad required for the knob to be moved. */
+<span class="nc" id="L61">	public Touchpad (float deadzoneRadius, TouchpadStyle style) {</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">		if (deadzoneRadius &lt; 0) throw new IllegalArgumentException(&quot;deadzoneRadius must be &gt; 0&quot;);</span>
+<span class="nc" id="L63">		this.deadzoneRadius = deadzoneRadius;</span>
+
+<span class="nc" id="L65">		knobPosition.set(getWidth() / 2f, getHeight() / 2f);</span>
+
+<span class="nc" id="L67">		setStyle(style);</span>
+<span class="nc" id="L68">		setSize(getPrefWidth(), getPrefHeight());</span>
+
+<span class="nc" id="L70">		addListener(new InputListener() {</span>
+			public boolean touchDown (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc bnc" id="L72" title="All 2 branches missed.">				if (touched) return false;</span>
+<span class="nc" id="L73">				touched = true;</span>
+<span class="nc" id="L74">				calculatePositionAndValue(x, y, false);</span>
+<span class="nc" id="L75">				return true;</span>
+			}
+
+			public void touchDragged (InputEvent event, float x, float y, int pointer) {
+<span class="nc" id="L79">				calculatePositionAndValue(x, y, false);</span>
+<span class="nc" id="L80">			}</span>
+
+			public void touchUp (InputEvent event, float x, float y, int pointer, int button) {
+<span class="nc" id="L83">				touched = false;</span>
+<span class="nc" id="L84">				calculatePositionAndValue(x, y, resetOnTouchUp);</span>
+<span class="nc" id="L85">			}</span>
+		});
+<span class="nc" id="L87">	}</span>
+
+	void calculatePositionAndValue (float x, float y, boolean isTouchUp) {
+<span class="nc" id="L90">		float oldPositionX = knobPosition.x;</span>
+<span class="nc" id="L91">		float oldPositionY = knobPosition.y;</span>
+<span class="nc" id="L92">		float oldPercentX = knobPercent.x;</span>
+<span class="nc" id="L93">		float oldPercentY = knobPercent.y;</span>
+<span class="nc" id="L94">		float centerX = knobBounds.x;</span>
+<span class="nc" id="L95">		float centerY = knobBounds.y;</span>
+<span class="nc" id="L96">		knobPosition.set(centerX, centerY);</span>
+<span class="nc" id="L97">		knobPercent.set(0f, 0f);</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">		if (!isTouchUp) {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">			if (!deadzoneBounds.contains(x, y)) {</span>
+<span class="nc" id="L100">				knobPercent.set((x - centerX) / knobBounds.radius, (y - centerY) / knobBounds.radius);</span>
+<span class="nc" id="L101">				float length = knobPercent.len();</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">				if (length &gt; 1) knobPercent.scl(1 / length);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">				if (knobBounds.contains(x, y)) {</span>
+<span class="nc" id="L104">					knobPosition.set(x, y);</span>
+				} else {
+<span class="nc" id="L106">					knobPosition.set(knobPercent).nor().scl(knobBounds.radius).add(knobBounds.x, knobBounds.y);</span>
+				}
+			}
+		}
+<span class="nc bnc" id="L110" title="All 4 branches missed.">		if (oldPercentX != knobPercent.x || oldPercentY != knobPercent.y) {</span>
+<span class="nc" id="L111">			ChangeEvent changeEvent = Pools.obtain(ChangeEvent.class);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">			if (fire(changeEvent)) {</span>
+<span class="nc" id="L113">				knobPercent.set(oldPercentX, oldPercentY);</span>
+<span class="nc" id="L114">				knobPosition.set(oldPositionX, oldPositionY);</span>
+			}
+<span class="nc" id="L116">			Pools.free(changeEvent);</span>
+		}
+<span class="nc" id="L118">	}</span>
+
+	public void setStyle (TouchpadStyle style) {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (style == null) throw new IllegalArgumentException(&quot;style cannot be null&quot;);</span>
+<span class="nc" id="L122">		this.style = style;</span>
+<span class="nc" id="L123">		invalidateHierarchy();</span>
+<span class="nc" id="L124">	}</span>
+
+	/** Returns the touchpad's style. Modifying the returned style may not have an effect until {@link #setStyle(TouchpadStyle)} is
+	 * called. */
+	public TouchpadStyle getStyle () {
+<span class="nc" id="L129">		return style;</span>
+	}
+
+	public Actor hit (float x, float y, boolean touchable) {
+<span class="nc bnc" id="L133" title="All 4 branches missed.">		if (touchable &amp;&amp; this.getTouchable() != Touchable.enabled) return null;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">		if (!isVisible()) return null;</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		return touchBounds.contains(x, y) ? this : null;</span>
+	}
+
+	public void layout () {
+		// Recalc pad and deadzone bounds
+<span class="nc" id="L140">		float halfWidth = getWidth() / 2;</span>
+<span class="nc" id="L141">		float halfHeight = getHeight() / 2;</span>
+<span class="nc" id="L142">		float radius = Math.min(halfWidth, halfHeight);</span>
+<span class="nc" id="L143">		touchBounds.set(halfWidth, halfHeight, radius);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">		if (style.knob != null) radius -= Math.max(style.knob.getMinWidth(), style.knob.getMinHeight()) / 2;</span>
+<span class="nc" id="L145">		knobBounds.set(halfWidth, halfHeight, radius);</span>
+<span class="nc" id="L146">		deadzoneBounds.set(halfWidth, halfHeight, deadzoneRadius);</span>
+		// Recalc pad values and knob position
+<span class="nc" id="L148">		knobPosition.set(halfWidth, halfHeight);</span>
+<span class="nc" id="L149">		knobPercent.set(0, 0);</span>
+<span class="nc" id="L150">	}</span>
+
+	public void draw (Batch batch, float parentAlpha) {
+<span class="nc" id="L153">		validate();</span>
+
+<span class="nc" id="L155">		Color c = getColor();</span>
+<span class="nc" id="L156">		batch.setColor(c.r, c.g, c.b, c.a * parentAlpha);</span>
+
+<span class="nc" id="L158">		float x = getX();</span>
+<span class="nc" id="L159">		float y = getY();</span>
+<span class="nc" id="L160">		float w = getWidth();</span>
+<span class="nc" id="L161">		float h = getHeight();</span>
+
+<span class="nc" id="L163">		final Drawable bg = style.background;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">		if (bg != null) bg.draw(batch, x, y, w, h);</span>
+
+<span class="nc" id="L166">		final Drawable knob = style.knob;</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">		if (knob != null) {</span>
+<span class="nc" id="L168">			x += knobPosition.x - knob.getMinWidth() / 2f;</span>
+<span class="nc" id="L169">			y += knobPosition.y - knob.getMinHeight() / 2f;</span>
+<span class="nc" id="L170">			knob.draw(batch, x, y, knob.getMinWidth(), knob.getMinHeight());</span>
+		}
+<span class="nc" id="L172">	}</span>
+
+	public float getPrefWidth () {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		return style.background != null ? style.background.getMinWidth() : 0;</span>
+	}
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		return style.background != null ? style.background.getMinHeight() : 0;</span>
+	}
+
+	public boolean isTouched () {
+<span class="nc" id="L183">		return touched;</span>
+	}
+
+	public boolean getResetOnTouchUp () {
+<span class="nc" id="L187">		return resetOnTouchUp;</span>
+	}
+
+	/** @param reset Whether to reset the knob to the center on touch up. */
+	public void setResetOnTouchUp (boolean reset) {
+<span class="nc" id="L192">		this.resetOnTouchUp = reset;</span>
+<span class="nc" id="L193">	}</span>
+
+	/** @param deadzoneRadius The distance in pixels from the center of the touchpad required for the knob to be moved. */
+	public void setDeadzone (float deadzoneRadius) {
+<span class="nc bnc" id="L197" title="All 2 branches missed.">		if (deadzoneRadius &lt; 0) throw new IllegalArgumentException(&quot;deadzoneRadius must be &gt; 0&quot;);</span>
+<span class="nc" id="L198">		this.deadzoneRadius = deadzoneRadius;</span>
+<span class="nc" id="L199">		invalidate();</span>
+<span class="nc" id="L200">	}</span>
+
+	/** Returns the x-position of the knob relative to the center of the widget. The positive direction is right. */
+	public float getKnobX () {
+<span class="nc" id="L204">		return knobPosition.x;</span>
+	}
+
+	/** Returns the y-position of the knob relative to the center of the widget. The positive direction is up. */
+	public float getKnobY () {
+<span class="nc" id="L209">		return knobPosition.y;</span>
+	}
+
+	/** Returns the x-position of the knob as a percentage from the center of the touchpad to the edge of the circular movement
+	 * area. The positive direction is right. */
+	public float getKnobPercentX () {
+<span class="nc" id="L215">		return knobPercent.x;</span>
+	}
+
+	/** Returns the y-position of the knob as a percentage from the center of the touchpad to the edge of the circular movement
+	 * area. The positive direction is up. */
+	public float getKnobPercentY () {
+<span class="nc" id="L221">		return knobPercent.y;</span>
+	}
+
+	/** The style for a {@link Touchpad}.
+	 * @author Josh Street */
+	public static class TouchpadStyle {
+		/** Stretched in both directions. Optional. */
+		public Drawable background;
+
+		/** Optional. */
+		public Drawable knob;
+
+<span class="nc" id="L233">		public TouchpadStyle () {</span>
+<span class="nc" id="L234">		}</span>
+
+<span class="nc" id="L236">		public TouchpadStyle (Drawable background, Drawable knob) {</span>
+<span class="nc" id="L237">			this.background = background;</span>
+<span class="nc" id="L238">			this.knob = knob;</span>
+<span class="nc" id="L239">		}</span>
+
+<span class="nc" id="L241">		public TouchpadStyle (TouchpadStyle style) {</span>
+<span class="nc" id="L242">			this.background = style.background;</span>
+<span class="nc" id="L243">			this.knob = style.knob;</span>
+<span class="nc" id="L244">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

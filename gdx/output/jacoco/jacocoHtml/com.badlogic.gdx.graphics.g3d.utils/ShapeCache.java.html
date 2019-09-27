@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ShapeCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils</a> &gt; <span class="el_source">ShapeCache.java</span></div><h1>ShapeCache.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils;
+
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Mesh;
+import com.badlogic.gdx.graphics.VertexAttribute;
+import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.VertexAttributes.Usage;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.graphics.g3d.RenderableProvider;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+import com.badlogic.gdx.utils.Pool;
+
+/** A relatively lightweight class which can be used to render basic shapes which don't need a node structure and alike. Can be
+ * used for batching both static and dynamic shapes which share the same {@link Material} and transformation {@link Matrix4}
+ * within the world. Use {@link ModelBatch} to render the `ShapeCache`. Must be disposed when no longer needed to release native
+ * resources.
+ * &lt;p&gt;
+ * How to use it :
+ * &lt;/p&gt;
+ * 
+ * &lt;pre&gt;
+ * // Create cache
+ * ShapeCache cache = new ShapeCache();
+ * // Build the cache, for dynamic shapes, this would be in the render method.
+ * MeshPartBuilder builder = cache.begin();
+ * FrustumShapeBuilder.build(builder, camera);
+ * BoxShapeBuilder.build(builder, box);
+ * cache.end()
+ * // Render
+ * modelBatch.render(cache);
+ * // After using it
+ * cache.dispose();
+ * &lt;/pre&gt;
+ * 
+ * @author realitix */
+public class ShapeCache implements Disposable, RenderableProvider {
+
+	/** Builder used to update the mesh */
+	private final MeshBuilder builder;
+
+	/** Mesh being rendered */
+	private final Mesh mesh;
+
+	private boolean building;
+<span class="nc" id="L66">	private final String id = &quot;id&quot;;</span>
+<span class="nc" id="L67">	private final Renderable renderable = new Renderable();</span>
+
+	/** Create a ShapeCache with default values */
+	public ShapeCache () {
+<span class="nc" id="L71">		this(5000, 5000, new VertexAttributes(new VertexAttribute(Usage.Position, 3, &quot;a_position&quot;), new VertexAttribute(</span>
+			Usage.ColorPacked, 4, &quot;a_color&quot;)), GL20.GL_LINES);
+<span class="nc" id="L73">	}</span>
+
+	/** Create a ShapeCache with parameters
+	 * @param maxVertices max vertices in mesh
+	 * @param maxIndices max indices in mesh
+	 * @param attributes vertex attributes
+	 * @param primitiveType */
+<span class="nc" id="L80">	public ShapeCache (int maxVertices, int maxIndices, VertexAttributes attributes, int primitiveType) {</span>
+		// Init mesh
+<span class="nc" id="L82">		mesh = new Mesh(false, maxVertices, maxIndices, attributes);</span>
+
+		// Init builder
+<span class="nc" id="L85">		builder = new MeshBuilder();</span>
+
+		// Init renderable
+<span class="nc" id="L88">		renderable.meshPart.mesh = mesh;</span>
+<span class="nc" id="L89">		renderable.meshPart.primitiveType = primitiveType;</span>
+<span class="nc" id="L90">		renderable.material = new Material();</span>
+<span class="nc" id="L91">	}</span>
+
+	/** Initialize ShapeCache for mesh generation with GL_LINES primitive type */
+	public MeshPartBuilder begin () {
+<span class="nc" id="L95">		return begin(GL20.GL_LINES);</span>
+	}
+
+	/** Initialize ShapeCache for mesh generation
+	 * @param primitiveType OpenGL primitive type */
+	public MeshPartBuilder begin (int primitiveType) {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">		if (building) throw new GdxRuntimeException(&quot;Call end() after calling begin()&quot;);</span>
+<span class="nc" id="L102">		building = true;</span>
+
+<span class="nc" id="L104">		builder.begin(mesh.getVertexAttributes());</span>
+<span class="nc" id="L105">		builder.part(id, primitiveType, renderable.meshPart);</span>
+<span class="nc" id="L106">		return builder;</span>
+	}
+
+	/** Generate mesh and renderable */
+	public void end () {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">		if (!building) throw new GdxRuntimeException(&quot;Call begin() prior to calling end()&quot;);</span>
+<span class="nc" id="L112">		building = false;</span>
+
+<span class="nc" id="L114">		builder.end(mesh);</span>
+<span class="nc" id="L115">	}</span>
+
+	@Override
+	public void getRenderables (Array&lt;Renderable&gt; renderables, Pool&lt;Renderable&gt; pool) {
+<span class="nc" id="L119">		renderables.add(renderable);</span>
+<span class="nc" id="L120">	}</span>
+
+	/** Allows to customize the material.
+	 * @return material */
+	public Material getMaterial () {
+<span class="nc" id="L125">		return renderable.material;</span>
+	}
+
+	/** Allows to customize the world transform matrix.
+	 * @return world transform */
+	public Matrix4 getWorldTransform () {
+<span class="nc" id="L131">		return renderable.worldTransform;</span>
+	}
+
+	@Override
+	public void dispose () {
+<span class="nc" id="L136">		mesh.dispose();</span>
+<span class="nc" id="L137">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

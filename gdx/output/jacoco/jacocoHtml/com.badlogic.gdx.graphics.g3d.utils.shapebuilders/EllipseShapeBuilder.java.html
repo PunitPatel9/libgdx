@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EllipseShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">EllipseShapeBuilder.java</span></div><h1>EllipseShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** Helper class with static methods to build ellipse shapes using {@link MeshPartBuilder}.
+ * @author xoppa */
+<span class="nc" id="L28">public class EllipseShapeBuilder extends BaseShapeBuilder {</span>
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY,
+		float normalZ) {
+<span class="nc" id="L32">		build(builder, radius, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, 0f, 360f);</span>
+<span class="nc" id="L33">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, final Vector3 center, final Vector3 normal) {
+<span class="nc" id="L37">		build(builder, radius, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z);</span>
+<span class="nc" id="L38">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, final Vector3 center, final Vector3 normal, final Vector3 tangent,
+		final Vector3 binormal) {
+<span class="nc" id="L43">		build(builder, radius, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, tangent.x, tangent.y, tangent.z,</span>
+			binormal.x, binormal.y, binormal.z);
+<span class="nc" id="L45">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY,
+		float normalZ, float tangentX, float tangentY, float tangentZ, float binormalX, float binormalY, float binormalZ) {
+<span class="nc" id="L50">		build(builder, radius, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, tangentX, tangentY, tangentZ, binormalX,</span>
+			binormalY, binormalZ, 0f, 360f);
+<span class="nc" id="L52">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY,
+		float normalZ, float angleFrom, float angleTo) {
+<span class="nc" id="L57">		build(builder, radius * 2f, radius * 2f, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, angleFrom, angleTo);</span>
+<span class="nc" id="L58">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, final Vector3 center, final Vector3 normal, float angleFrom, float angleTo) {
+<span class="nc" id="L62">		build(builder, radius, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, angleFrom, angleTo);</span>
+<span class="nc" id="L63">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, final Vector3 center, final Vector3 normal, final Vector3 tangent,
+		final Vector3 binormal, float angleFrom, float angleTo) {
+<span class="nc" id="L68">		build(builder, radius, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, tangent.x, tangent.y, tangent.z,</span>
+			binormal.x, binormal.y, binormal.z, angleFrom, angleTo);
+<span class="nc" id="L70">	}</span>
+
+	/** Build a circle */
+	public static void build (MeshPartBuilder builder, float radius, int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY,
+		float normalZ, float tangentX, float tangentY, float tangentZ, float binormalX, float binormalY, float binormalZ,
+		float angleFrom, float angleTo) {
+<span class="nc" id="L76">		build(builder, radius * 2, radius * 2, 0, 0, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, tangentX, tangentY,</span>
+			tangentZ, binormalX, binormalY, binormalZ, angleFrom, angleTo);
+<span class="nc" id="L78">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, float centerX, float centerY,
+		float centerZ, float normalX, float normalY, float normalZ) {
+<span class="nc" id="L83">		build(builder, width, height, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, 0f, 360f);</span>
+<span class="nc" id="L84">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, final Vector3 center,
+		final Vector3 normal) {
+<span class="nc" id="L89">		build(builder, width, height, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z);</span>
+<span class="nc" id="L90">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, final Vector3 center,
+		final Vector3 normal, final Vector3 tangent, final Vector3 binormal) {
+<span class="nc" id="L95">		build(builder, width, height, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, tangent.x, tangent.y,</span>
+			tangent.z, binormal.x, binormal.y, binormal.z);
+<span class="nc" id="L97">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, float centerX, float centerY,
+		float centerZ, float normalX, float normalY, float normalZ, float tangentX, float tangentY, float tangentZ,
+		float binormalX, float binormalY, float binormalZ) {
+<span class="nc" id="L103">		build(builder, width, height, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, tangentX, tangentY, tangentZ,</span>
+			binormalX, binormalY, binormalZ, 0f, 360f);
+<span class="nc" id="L105">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, float centerX, float centerY,
+		float centerZ, float normalX, float normalY, float normalZ, float angleFrom, float angleTo) {
+<span class="nc" id="L110">		build(builder, width, height, 0f, 0f, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, angleFrom, angleTo);</span>
+<span class="nc" id="L111">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, final Vector3 center,
+		final Vector3 normal, float angleFrom, float angleTo) {
+<span class="nc" id="L116">		build(builder, width, height, 0f, 0f, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, angleFrom, angleTo);</span>
+<span class="nc" id="L117">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, final Vector3 center,
+		final Vector3 normal, final Vector3 tangent, final Vector3 binormal, float angleFrom, float angleTo) {
+<span class="nc" id="L122">		build(builder, width, height, 0f, 0f, divisions, center.x, center.y, center.z, normal.x, normal.y, normal.z, tangent.x,</span>
+			tangent.y, tangent.z, binormal.x, binormal.y, binormal.z, angleFrom, angleTo);
+<span class="nc" id="L124">	}</span>
+
+	/** Build a ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, int divisions, float centerX, float centerY,
+		float centerZ, float normalX, float normalY, float normalZ, float tangentX, float tangentY, float tangentZ,
+		float binormalX, float binormalY, float binormalZ, float angleFrom, float angleTo) {
+<span class="nc" id="L130">		build(builder, width, height, 0f, 0f, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, tangentX, tangentY,</span>
+			tangentZ, binormalX, binormalY, binormalZ, angleFrom, angleTo);
+<span class="nc" id="L132">	}</span>
+
+	/** Build an ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, float innerWidth, float innerHeight,
+		int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY, float normalZ, float angleFrom,
+		float angleTo) {
+<span class="nc" id="L138">		tmpV1.set(normalX, normalY, normalZ).crs(0, 0, 1);</span>
+<span class="nc" id="L139">		tmpV2.set(normalX, normalY, normalZ).crs(0, 1, 0);</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">		if (tmpV2.len2() &gt; tmpV1.len2()) tmpV1.set(tmpV2);</span>
+<span class="nc" id="L141">		tmpV2.set(tmpV1.nor()).crs(normalX, normalY, normalZ).nor();</span>
+<span class="nc" id="L142">		build(builder, width, height, innerWidth, innerHeight, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ,</span>
+			tmpV1.x, tmpV1.y, tmpV1.z, tmpV2.x, tmpV2.y, tmpV2.z, angleFrom, angleTo);
+<span class="nc" id="L144">	}</span>
+
+	/** Build an ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, float innerWidth, float innerHeight,
+		int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY, float normalZ) {
+<span class="nc" id="L149">		build(builder, width, height, innerWidth, innerHeight, divisions, centerX, centerY, centerZ, normalX, normalY, normalZ, 0f,</span>
+			360f);
+<span class="nc" id="L151">	}</span>
+
+	/** Build an ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, float innerWidth, float innerHeight,
+		int divisions, Vector3 center, Vector3 normal) {
+<span class="nc" id="L156">		build(builder, width, height, innerWidth, innerHeight, divisions, center.x, center.y, center.z, normal.x, normal.y,</span>
+			normal.z, 0f, 360f);
+<span class="nc" id="L158">	}</span>
+
+	/** Build an ellipse */
+	public static void build (MeshPartBuilder builder, float width, float height, float innerWidth, float innerHeight,
+		int divisions, float centerX, float centerY, float centerZ, float normalX, float normalY, float normalZ, float tangentX,
+		float tangentY, float tangentZ, float binormalX, float binormalY, float binormalZ, float angleFrom, float angleTo) {
+<span class="nc bnc" id="L164" title="All 4 branches missed.">		if (innerWidth &lt;= 0 || innerHeight &lt;= 0) {</span>
+<span class="nc" id="L165">			builder.ensureVertices(divisions + 2);</span>
+<span class="nc" id="L166">			builder.ensureTriangleIndices(divisions);</span>
+<span class="nc bnc" id="L167" title="All 4 branches missed.">		} else if (innerWidth == width &amp;&amp; innerHeight == height) {</span>
+<span class="nc" id="L168">			builder.ensureVertices(divisions + 1);</span>
+<span class="nc" id="L169">			builder.ensureIndices(divisions + 1);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">			if (builder.getPrimitiveType() != GL20.GL_LINES)</span>
+<span class="nc" id="L171">				throw new GdxRuntimeException(</span>
+					&quot;Incorrect primitive type : expect GL_LINES because innerWidth == width &amp;&amp; innerHeight == height&quot;);
+		} else {
+<span class="nc" id="L174">			builder.ensureVertices((divisions + 1) * 2);</span>
+<span class="nc" id="L175">			builder.ensureRectangleIndices(divisions + 1);</span>
+		}
+
+<span class="nc" id="L178">		final float ao = MathUtils.degreesToRadians * angleFrom;</span>
+<span class="nc" id="L179">		final float step = (MathUtils.degreesToRadians * (angleTo - angleFrom)) / divisions;</span>
+<span class="nc" id="L180">		final Vector3 sxEx = tmpV1.set(tangentX, tangentY, tangentZ).scl(width * 0.5f);</span>
+<span class="nc" id="L181">		final Vector3 syEx = tmpV2.set(binormalX, binormalY, binormalZ).scl(height * 0.5f);</span>
+<span class="nc" id="L182">		final Vector3 sxIn = tmpV3.set(tangentX, tangentY, tangentZ).scl(innerWidth * 0.5f);</span>
+<span class="nc" id="L183">		final Vector3 syIn = tmpV4.set(binormalX, binormalY, binormalZ).scl(innerHeight * 0.5f);</span>
+<span class="nc" id="L184">		VertexInfo currIn = vertTmp3.set(null, null, null, null);</span>
+<span class="nc" id="L185">		currIn.hasUV = currIn.hasPosition = currIn.hasNormal = true;</span>
+<span class="nc" id="L186">		currIn.uv.set(.5f, .5f);</span>
+<span class="nc" id="L187">		currIn.position.set(centerX, centerY, centerZ);</span>
+<span class="nc" id="L188">		currIn.normal.set(normalX, normalY, normalZ);</span>
+<span class="nc" id="L189">		VertexInfo currEx = vertTmp4.set(null, null, null, null);</span>
+<span class="nc" id="L190">		currEx.hasUV = currEx.hasPosition = currEx.hasNormal = true;</span>
+<span class="nc" id="L191">		currEx.uv.set(.5f, .5f);</span>
+<span class="nc" id="L192">		currEx.position.set(centerX, centerY, centerZ);</span>
+<span class="nc" id="L193">		currEx.normal.set(normalX, normalY, normalZ);</span>
+<span class="nc" id="L194">		final short center = builder.vertex(currEx);</span>
+<span class="nc" id="L195">		float angle = 0f;</span>
+<span class="nc" id="L196">		final float us = 0.5f * (innerWidth / width);</span>
+<span class="nc" id="L197">		final float vs = 0.5f * (innerHeight / height);</span>
+<span class="nc" id="L198">		short i1, i2 = 0, i3 = 0, i4 = 0;</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">		for (int i = 0; i &lt;= divisions; i++) {</span>
+<span class="nc" id="L200">			angle = ao + step * i;</span>
+<span class="nc" id="L201">			final float x = MathUtils.cos(angle);</span>
+<span class="nc" id="L202">			final float y = MathUtils.sin(angle);</span>
+<span class="nc" id="L203">			currEx.position.set(centerX, centerY, centerZ).add(sxEx.x * x + syEx.x * y, sxEx.y * x + syEx.y * y,</span>
+				sxEx.z * x + syEx.z * y);
+<span class="nc" id="L205">			currEx.uv.set(.5f + .5f * x, .5f + .5f * y);</span>
+<span class="nc" id="L206">			i1 = builder.vertex(currEx);</span>
+
+<span class="nc bnc" id="L208" title="All 4 branches missed.">			if (innerWidth &lt;= 0f || innerHeight &lt;= 0f) {</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">				if (i != 0) builder.triangle(i1, i2, center);</span>
+<span class="nc" id="L210">				i2 = i1;</span>
+<span class="nc bnc" id="L211" title="All 4 branches missed.">			} else if (innerWidth == width &amp;&amp; innerHeight == height) {</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">				if (i != 0) builder.line(i1, i2);</span>
+<span class="nc" id="L213">				i2 = i1;</span>
+			} else {
+<span class="nc" id="L215">				currIn.position.set(centerX, centerY, centerZ).add(sxIn.x * x + syIn.x * y, sxIn.y * x + syIn.y * y,</span>
+					sxIn.z * x + syIn.z * y);
+<span class="nc" id="L217">				currIn.uv.set(.5f + us * x, .5f + vs * y);</span>
+<span class="nc" id="L218">				i2 = i1;</span>
+<span class="nc" id="L219">				i1 = builder.vertex(currIn);</span>
+
+<span class="nc bnc" id="L221" title="All 2 branches missed.">				if (i != 0) builder.rect(i1, i2, i4, i3);</span>
+<span class="nc" id="L222">				i4 = i2;</span>
+<span class="nc" id="L223">				i3 = i1;</span>
+			}
+		}
+<span class="nc" id="L226">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleInfluencer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.influencers</a> &gt; <span class="el_source">SimpleInfluencer.java</span></div><h1>SimpleInfluencer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.influencers;
+
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.ChannelDescriptor;
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.values.ScaledNumericValue;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** It's an {@link Influencer} which controls a generic channel of the particles. It handles the interpolation through time using
+ * {@link ScaledNumericValue}.
+ * @author Inferno */
+public abstract class SimpleInfluencer extends Influencer {
+
+	public ScaledNumericValue value;
+	FloatChannel valueChannel, interpolationChannel, lifeChannel;
+	ChannelDescriptor valueChannelDescriptor;
+
+<span class="nc" id="L35">	public SimpleInfluencer () {</span>
+<span class="nc" id="L36">		value = new ScaledNumericValue();</span>
+<span class="nc" id="L37">		value.setHigh(1);</span>
+<span class="nc" id="L38">	}</span>
+
+	public SimpleInfluencer (SimpleInfluencer billboardScaleinfluencer) {
+<span class="nc" id="L41">		this();</span>
+<span class="nc" id="L42">		set(billboardScaleinfluencer);</span>
+<span class="nc" id="L43">	}</span>
+
+	private void set (SimpleInfluencer scaleInfluencer) {
+<span class="nc" id="L46">		value.load(scaleInfluencer.value);</span>
+<span class="nc" id="L47">		valueChannelDescriptor = scaleInfluencer.valueChannelDescriptor;</span>
+<span class="nc" id="L48">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L52">		valueChannel = controller.particles.addChannel(valueChannelDescriptor);</span>
+<span class="nc" id="L53">		ParticleChannels.Interpolation.id = controller.particleChannels.newId();</span>
+<span class="nc" id="L54">		interpolationChannel = controller.particles.addChannel(ParticleChannels.Interpolation);</span>
+<span class="nc" id="L55">		lifeChannel = controller.particles.addChannel(ParticleChannels.Life);</span>
+<span class="nc" id="L56">	}</span>
+
+	@Override
+	public void activateParticles (int startIndex, int count) {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">		if (!value.isRelative()) {</span>
+<span class="nc" id="L61">			for (int i = startIndex * valueChannel.strideSize, a = startIndex * interpolationChannel.strideSize, c = i + count</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">				* valueChannel.strideSize; i &lt; c; i += valueChannel.strideSize, a += interpolationChannel.strideSize) {</span>
+<span class="nc" id="L63">				float start = value.newLowValue();</span>
+<span class="nc" id="L64">				float diff = value.newHighValue() - start;</span>
+<span class="nc" id="L65">				interpolationChannel.data[a + ParticleChannels.InterpolationStartOffset] = start;</span>
+<span class="nc" id="L66">				interpolationChannel.data[a + ParticleChannels.InterpolationDiffOffset] = diff;</span>
+<span class="nc" id="L67">				valueChannel.data[i] = start + diff * value.getScale(0);</span>
+			}
+		} else {
+<span class="nc" id="L70">			for (int i = startIndex * valueChannel.strideSize, a = startIndex * interpolationChannel.strideSize, c = i + count</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">				* valueChannel.strideSize; i &lt; c; i += valueChannel.strideSize, a += interpolationChannel.strideSize) {</span>
+<span class="nc" id="L72">				float start = value.newLowValue();</span>
+<span class="nc" id="L73">				float diff = value.newHighValue();</span>
+<span class="nc" id="L74">				interpolationChannel.data[a + ParticleChannels.InterpolationStartOffset] = start;</span>
+<span class="nc" id="L75">				interpolationChannel.data[a + ParticleChannels.InterpolationDiffOffset] = diff;</span>
+<span class="nc" id="L76">				valueChannel.data[i] = start + diff * value.getScale(0);</span>
+			}
+		}
+<span class="nc" id="L79">	}</span>
+
+	@Override
+	public void update () {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">		for (int i = 0, a = 0, l = ParticleChannels.LifePercentOffset, c = i + controller.particles.size * valueChannel.strideSize; i &lt; c; i += valueChannel.strideSize, a += interpolationChannel.strideSize, l += lifeChannel.strideSize) {</span>
+
+<span class="nc" id="L85">			valueChannel.data[i] = interpolationChannel.data[a + ParticleChannels.InterpolationStartOffset]</span>
+<span class="nc" id="L86">				+ interpolationChannel.data[a + ParticleChannels.InterpolationDiffOffset] * value.getScale(lifeChannel.data[l]);</span>
+		}
+<span class="nc" id="L88">	}</span>
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L92">		json.writeValue(&quot;value&quot;, value);</span>
+<span class="nc" id="L93">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L97">		value = json.readValue(&quot;value&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L98">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

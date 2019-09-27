@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapGroupLayer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.maps</a> &gt; <span class="el_source">MapGroupLayer.java</span></div><h1>MapGroupLayer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.maps;
+
+/** Map layer containing a set of MapLayers, objects and properties */
+<span class="nc" id="L20">public class MapGroupLayer extends MapLayer {</span>
+
+<span class="nc" id="L22">	private MapLayers layers = new MapLayers();</span>
+
+	/**
+	 *
+	 * @return the {@link MapLayers} owned by this group
+	 */
+	public MapLayers getLayers () {
+<span class="nc" id="L29">		return layers;</span>
+	}
+
+	@Override
+	public void invalidateRenderOffset () {
+<span class="nc" id="L34">		super.invalidateRenderOffset();</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">		for (int i = 0; i &lt; layers.size(); i++) {</span>
+<span class="nc" id="L36">			MapLayer child = layers.get(i);</span>
+<span class="nc" id="L37">			child.invalidateRenderOffset();</span>
+		}
+<span class="nc" id="L39">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

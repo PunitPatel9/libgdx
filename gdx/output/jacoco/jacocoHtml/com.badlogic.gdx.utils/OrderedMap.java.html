@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OrderedMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">OrderedMap.java</span></div><h1>OrderedMap.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.util.NoSuchElementException;
+
+/** An {@link ObjectMap} that also stores keys in an {@link Array} using the insertion order. Iteration over the
+ * {@link #entries()}, {@link #keys()}, and {@link #values()} is ordered and faster than an unordered map. Keys can also be
+ * accessed and the order changed using {@link #orderedKeys()}. There is some additional overhead for put and remove. When used
+ * for faster iteration versus ObjectMap and the order does not actually matter, copying during remove can be greatly reduced by
+ * setting {@link Array#ordered} to false for {@link OrderedMap#orderedKeys()}.
+ * @author Nathan Sweet */
+public class OrderedMap&lt;K, V&gt; extends ObjectMap&lt;K, V&gt; {
+	final Array&lt;K&gt; keys;
+
+<span class="nc" id="L30">	public OrderedMap () {</span>
+<span class="nc" id="L31">		keys = new Array();</span>
+<span class="nc" id="L32">	}</span>
+
+	public OrderedMap (int initialCapacity) {
+<span class="nc" id="L35">		super(initialCapacity);</span>
+<span class="nc" id="L36">		keys = new Array(capacity);</span>
+<span class="nc" id="L37">	}</span>
+
+	public OrderedMap (int initialCapacity, float loadFactor) {
+<span class="nc" id="L40">		super(initialCapacity, loadFactor);</span>
+<span class="nc" id="L41">		keys = new Array(capacity);</span>
+<span class="nc" id="L42">	}</span>
+
+	public OrderedMap (OrderedMap&lt;? extends K, ? extends V&gt; map) {
+<span class="nc" id="L45">		super(map);</span>
+<span class="nc" id="L46">		keys = new Array(map.keys);</span>
+<span class="nc" id="L47">	}</span>
+
+	public V put (K key, V value) {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">		if (!containsKey(key)) keys.add(key);</span>
+<span class="nc" id="L51">		return super.put(key, value);</span>
+	}
+
+	public V remove (K key) {
+<span class="nc" id="L55">		keys.removeValue(key, false);</span>
+<span class="nc" id="L56">		return super.remove(key);</span>
+	}
+
+	public V removeIndex (int index) {
+<span class="nc" id="L60">		return super.remove(keys.removeIndex(index));</span>
+	}
+
+	public void clear (int maximumCapacity) {
+<span class="nc" id="L64">		keys.clear();</span>
+<span class="nc" id="L65">		super.clear(maximumCapacity);</span>
+<span class="nc" id="L66">	}</span>
+
+	public void clear () {
+<span class="nc" id="L69">		keys.clear();</span>
+<span class="nc" id="L70">		super.clear();</span>
+<span class="nc" id="L71">	}</span>
+
+	public Array&lt;K&gt; orderedKeys () {
+<span class="nc" id="L74">		return keys;</span>
+	}
+
+	public Entries&lt;K, V&gt; iterator () {
+<span class="nc" id="L78">		return entries();</span>
+	}
+
+	/** Returns an iterator for the entries in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link OrderedMapEntries} constructor for nested or multithreaded iteration. */
+	public Entries&lt;K, V&gt; entries () {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Entries(this);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">		if (entries1 == null) {</span>
+<span class="nc" id="L88">			entries1 = new OrderedMapEntries(this);</span>
+<span class="nc" id="L89">			entries2 = new OrderedMapEntries(this);</span>
+		}
+<span class="nc bnc" id="L91" title="All 2 branches missed.">		if (!entries1.valid) {</span>
+<span class="nc" id="L92">			entries1.reset();</span>
+<span class="nc" id="L93">			entries1.valid = true;</span>
+<span class="nc" id="L94">			entries2.valid = false;</span>
+<span class="nc" id="L95">			return entries1;</span>
+		}
+<span class="nc" id="L97">		entries2.reset();</span>
+<span class="nc" id="L98">		entries2.valid = true;</span>
+<span class="nc" id="L99">		entries1.valid = false;</span>
+<span class="nc" id="L100">		return entries2;</span>
+	}
+
+	/** Returns an iterator for the values in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link OrderedMapValues} constructor for nested or multithreaded iteration. */
+	public Values&lt;V&gt; values () {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Values(this);</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">		if (values1 == null) {</span>
+<span class="nc" id="L110">			values1 = new OrderedMapValues(this);</span>
+<span class="nc" id="L111">			values2 = new OrderedMapValues(this);</span>
+		}
+<span class="nc bnc" id="L113" title="All 2 branches missed.">		if (!values1.valid) {</span>
+<span class="nc" id="L114">			values1.reset();</span>
+<span class="nc" id="L115">			values1.valid = true;</span>
+<span class="nc" id="L116">			values2.valid = false;</span>
+<span class="nc" id="L117">			return values1;</span>
+		}
+<span class="nc" id="L119">		values2.reset();</span>
+<span class="nc" id="L120">		values2.valid = true;</span>
+<span class="nc" id="L121">		values1.valid = false;</span>
+<span class="nc" id="L122">		return values2;</span>
+	}
+
+	/** Returns an iterator for the keys in the map. Remove is supported.
+	 * &lt;p&gt;
+	 * If {@link Collections#allocateIterators} is false, the same iterator instance is returned each time this method is called. Use the
+	 * {@link OrderedMapKeys} constructor for nested or multithreaded iteration. */
+	public Keys&lt;K&gt; keys () {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">		if (Collections.allocateIterators) return new Keys(this);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">		if (keys1 == null) {</span>
+<span class="nc" id="L132">			keys1 = new OrderedMapKeys(this);</span>
+<span class="nc" id="L133">			keys2 = new OrderedMapKeys(this);</span>
+		}
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		if (!keys1.valid) {</span>
+<span class="nc" id="L136">			keys1.reset();</span>
+<span class="nc" id="L137">			keys1.valid = true;</span>
+<span class="nc" id="L138">			keys2.valid = false;</span>
+<span class="nc" id="L139">			return keys1;</span>
+		}
+<span class="nc" id="L141">		keys2.reset();</span>
+<span class="nc" id="L142">		keys2.valid = true;</span>
+<span class="nc" id="L143">		keys1.valid = false;</span>
+<span class="nc" id="L144">		return keys2;</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">		if (size == 0) return &quot;{}&quot;;</span>
+<span class="nc" id="L149">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L150">		buffer.append('{');</span>
+<span class="nc" id="L151">		Array&lt;K&gt; keys = this.keys;</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">		for (int i = 0, n = keys.size; i &lt; n; i++) {</span>
+<span class="nc" id="L153">			K key = keys.get(i);</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">			if (i &gt; 0) buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L155">			buffer.append(key);</span>
+<span class="nc" id="L156">			buffer.append('=');</span>
+<span class="nc" id="L157">			buffer.append(get(key));</span>
+		}
+<span class="nc" id="L159">		buffer.append('}');</span>
+<span class="nc" id="L160">		return buffer.toString();</span>
+	}
+
+	static public class OrderedMapEntries&lt;K, V&gt; extends Entries&lt;K, V&gt; {
+		private Array&lt;K&gt; keys;
+
+		public OrderedMapEntries (OrderedMap&lt;K, V&gt; map) {
+<span class="nc" id="L167">			super(map);</span>
+<span class="nc" id="L168">			keys = map.keys;</span>
+<span class="nc" id="L169">		}</span>
+
+		public void reset () {
+<span class="nc" id="L172">			nextIndex = 0;</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">			hasNext = map.size &gt; 0;</span>
+<span class="nc" id="L174">		}</span>
+
+		public Entry next () {
+<span class="nc bnc" id="L177" title="All 2 branches missed.">			if (!hasNext) throw new NoSuchElementException();</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L179">			entry.key = keys.get(nextIndex);</span>
+<span class="nc" id="L180">			entry.value = map.get(entry.key);</span>
+<span class="nc" id="L181">			nextIndex++;</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">			hasNext = nextIndex &lt; map.size;</span>
+<span class="nc" id="L183">			return entry;</span>
+		}
+
+		public void remove () {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">			if (currentIndex &lt; 0) throw new IllegalStateException(&quot;next must be called before remove.&quot;);</span>
+<span class="nc" id="L188">			map.remove(entry.key);</span>
+<span class="nc" id="L189">			nextIndex--;</span>
+<span class="nc" id="L190">		}</span>
+	}
+
+	static public class OrderedMapKeys&lt;K&gt; extends Keys&lt;K&gt; {
+		private Array&lt;K&gt; keys;
+
+		public OrderedMapKeys (OrderedMap&lt;K, ?&gt; map) {
+<span class="nc" id="L197">			super(map);</span>
+<span class="nc" id="L198">			keys = map.keys;</span>
+<span class="nc" id="L199">		}</span>
+
+		public void reset () {
+<span class="nc" id="L202">			nextIndex = 0;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">			hasNext = map.size &gt; 0;</span>
+<span class="nc" id="L204">		}</span>
+
+		public K next () {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">			if (!hasNext) throw new NoSuchElementException();</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L209">			K key = keys.get(nextIndex);</span>
+<span class="nc" id="L210">			currentIndex = nextIndex;</span>
+<span class="nc" id="L211">			nextIndex++;</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">			hasNext = nextIndex &lt; map.size;</span>
+<span class="nc" id="L213">			return key;</span>
+		}
+
+		public void remove () {
+<span class="nc bnc" id="L217" title="All 2 branches missed.">			if (currentIndex &lt; 0) throw new IllegalStateException(&quot;next must be called before remove.&quot;);</span>
+<span class="nc" id="L218">			((OrderedMap)map).removeIndex(nextIndex - 1);</span>
+<span class="nc" id="L219">			nextIndex = currentIndex;</span>
+<span class="nc" id="L220">			currentIndex = -1;</span>
+<span class="nc" id="L221">		}</span>
+	}
+
+	static public class OrderedMapValues&lt;V&gt; extends Values&lt;V&gt; {
+		private Array keys;
+
+		public OrderedMapValues (OrderedMap&lt;?, V&gt; map) {
+<span class="nc" id="L228">			super(map);</span>
+<span class="nc" id="L229">			keys = map.keys;</span>
+<span class="nc" id="L230">		}</span>
+
+		public void reset () {
+<span class="nc" id="L233">			nextIndex = 0;</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">			hasNext = map.size &gt; 0;</span>
+<span class="nc" id="L235">		}</span>
+
+		public V next () {
+<span class="nc bnc" id="L238" title="All 2 branches missed.">			if (!hasNext) throw new NoSuchElementException();</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">			if (!valid) throw new GdxRuntimeException(&quot;#iterator() cannot be used nested.&quot;);</span>
+<span class="nc" id="L240">			V value = (V)map.get(keys.get(nextIndex));</span>
+<span class="nc" id="L241">			currentIndex = nextIndex;</span>
+<span class="nc" id="L242">			nextIndex++;</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">			hasNext = nextIndex &lt; map.size;</span>
+<span class="nc" id="L244">			return value;</span>
+		}
+
+		public void remove () {
+<span class="nc bnc" id="L248" title="All 2 branches missed.">			if (currentIndex &lt; 0) throw new IllegalStateException(&quot;next must be called before remove.&quot;);</span>
+<span class="nc" id="L249">			((OrderedMap)map).removeIndex(currentIndex);</span>
+<span class="nc" id="L250">			nextIndex = currentIndex;</span>
+<span class="nc" id="L251">			currentIndex = -1;</span>
+<span class="nc" id="L252">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

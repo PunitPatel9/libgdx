@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TextArea.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.scenes.scene2d.ui</a> &gt; <span class="el_source">TextArea.java</span></div><h1>TextArea.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.scenes.scene2d.ui;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.IntArray;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
+
+/** A multiple-line text input field, entirely based on {@link TextField} */
+public class TextArea extends TextField {
+
+	/** Array storing lines breaks positions **/
+	IntArray linesBreak;
+
+	/** Last text processed. This attribute is used to avoid unnecessary computations while calculating offsets **/
+	private String lastText;
+
+	/** Current line for the cursor **/
+	int cursorLine;
+
+	/** Index of the first line showed by the text area **/
+	int firstLineShowing;
+
+	/** Number of lines showed by the text area **/
+	private int linesShowing;
+
+	/** Variable to maintain the x offset of the cursor when moving up and down. If it's set to -1, the offset is reset **/
+	float moveOffset;
+
+	private float prefRows;
+
+	public TextArea (String text, Skin skin) {
+<span class="nc" id="L57">		super(text, skin);</span>
+<span class="nc" id="L58">	}</span>
+
+	public TextArea (String text, Skin skin, String styleName) {
+<span class="nc" id="L61">		super(text, skin, styleName);</span>
+<span class="nc" id="L62">	}</span>
+
+	public TextArea (String text, TextFieldStyle style) {
+<span class="nc" id="L65">		super(text, style);</span>
+<span class="nc" id="L66">	}</span>
+
+	protected void initialize () {
+<span class="nc" id="L69">		super.initialize();</span>
+<span class="nc" id="L70">		writeEnters = true;</span>
+<span class="nc" id="L71">		linesBreak = new IntArray();</span>
+<span class="nc" id="L72">		cursorLine = 0;</span>
+<span class="nc" id="L73">		firstLineShowing = 0;</span>
+<span class="nc" id="L74">		moveOffset = -1;</span>
+<span class="nc" id="L75">		linesShowing = 0;</span>
+<span class="nc" id="L76">	}</span>
+
+	protected int letterUnderCursor (float x) {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		if (linesBreak.size &gt; 0) {</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">			if (cursorLine * 2 &gt;= linesBreak.size) {</span>
+<span class="nc" id="L81">				return text.length();</span>
+			} else {
+<span class="nc" id="L83">				float[] glyphPositions = this.glyphPositions.items;</span>
+<span class="nc" id="L84">				int start = linesBreak.items[cursorLine * 2];</span>
+<span class="nc" id="L85">				x += glyphPositions[start];</span>
+<span class="nc" id="L86">				int end = linesBreak.items[cursorLine * 2 + 1];</span>
+<span class="nc" id="L87">				int i = start;</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">				for (; i &lt; end; i++)</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">					if (glyphPositions[i] &gt; x) break;</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">				if (i &gt; 0 &amp;&amp; glyphPositions[i] - x &lt;= x - glyphPositions[i - 1]) return i;</span>
+<span class="nc" id="L91">				return Math.max(0, i - 1);</span>
+			}
+		} else {
+<span class="nc" id="L94">			return 0;</span>
+		}
+	}
+
+	/** Sets the preferred number of rows (lines) for this text area. Used to calculate preferred height */
+	public void setPrefRows (float prefRows) {
+<span class="nc" id="L100">		this.prefRows = prefRows;</span>
+<span class="nc" id="L101">	}</span>
+
+	public float getPrefHeight () {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">		if (prefRows &lt;= 0) {</span>
+<span class="nc" id="L105">			return super.getPrefHeight();</span>
+		} else {
+<span class="nc" id="L107">			float prefHeight = textHeight * prefRows;</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">			if (style.background != null) {</span>
+<span class="nc" id="L109">				prefHeight = Math.max(prefHeight + style.background.getBottomHeight() + style.background.getTopHeight(),</span>
+<span class="nc" id="L110">					style.background.getMinHeight());</span>
+			}
+<span class="nc" id="L112">			return prefHeight;</span>
+		}
+	}
+
+	/** Returns total number of lines that the text occupies **/
+	public int getLines () {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">		return linesBreak.size / 2 + (newLineAtEnd() ? 1 : 0);</span>
+	}
+
+	/** Returns if there's a new line at then end of the text **/
+	public boolean newLineAtEnd () {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">		return text.length() != 0</span>
+<span class="nc bnc" id="L124" title="All 4 branches missed.">			&amp;&amp; (text.charAt(text.length() - 1) == ENTER_ANDROID || text.charAt(text.length() - 1) == ENTER_DESKTOP);</span>
+	}
+
+	/** Moves the cursor to the given number line **/
+	public void moveCursorLine (int line) {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">		if (line &lt; 0) {</span>
+<span class="nc" id="L130">			cursorLine = 0;</span>
+<span class="nc" id="L131">			cursor = 0;</span>
+<span class="nc" id="L132">			moveOffset = -1;</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		} else if (line &gt;= getLines()) {</span>
+<span class="nc" id="L134">			int newLine = getLines() - 1;</span>
+<span class="nc" id="L135">			cursor = text.length();</span>
+<span class="nc bnc" id="L136" title="All 4 branches missed.">			if (line &gt; getLines() || newLine == cursorLine) {</span>
+<span class="nc" id="L137">				moveOffset = -1;</span>
+			}
+<span class="nc" id="L139">			cursorLine = newLine;</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">		} else if (line != cursorLine) {</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">			if (moveOffset &lt; 0) {</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">				moveOffset = linesBreak.size &lt;= cursorLine * 2 ? 0</span>
+<span class="nc" id="L143">					: glyphPositions.get(cursor) - glyphPositions.get(linesBreak.get(cursorLine * 2));</span>
+			}
+<span class="nc" id="L145">			cursorLine = line;</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">			cursor = cursorLine * 2 &gt;= linesBreak.size ? text.length() : linesBreak.get(cursorLine * 2);</span>
+<span class="nc bnc" id="L147" title="All 4 branches missed.">			while (cursor &lt; text.length() &amp;&amp; cursor &lt;= linesBreak.get(cursorLine * 2 + 1) - 1</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">				&amp;&amp; glyphPositions.get(cursor) - glyphPositions.get(linesBreak.get(cursorLine * 2)) &lt; moveOffset) {</span>
+<span class="nc" id="L149">				cursor++;</span>
+			}
+<span class="nc" id="L151">			showCursor();</span>
+		}
+<span class="nc" id="L153">	}</span>
+
+	/** Updates the current line, checking the cursor position in the text **/
+	void updateCurrentLine () {
+<span class="nc" id="L157">		int index = calculateCurrentLineIndex(cursor);</span>
+<span class="nc" id="L158">		int line = index / 2;</span>
+		// Special case when cursor moves to the beginning of the line from the end of another and a word
+		// wider than the box
+<span class="nc bnc" id="L161" title="All 8 branches missed.">		if (index % 2 == 0 || index + 1 &gt;= linesBreak.size || cursor != linesBreak.items[index]</span>
+			|| linesBreak.items[index + 1] != linesBreak.items[index]) {
+<span class="nc bnc" id="L163" title="All 6 branches missed.">			if (line &lt; linesBreak.size / 2 || text.length() == 0 || text.charAt(text.length() - 1) == ENTER_ANDROID</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">				|| text.charAt(text.length() - 1) == ENTER_DESKTOP) {</span>
+<span class="nc" id="L165">				cursorLine = line;</span>
+			}
+		}
+<span class="nc" id="L168">		updateFirstLineShowing();	// fix for drag-selecting text out of the TextArea's bounds</span>
+<span class="nc" id="L169">	}</span>
+
+	/** Scroll the text area to show the line of the cursor **/
+	void showCursor () {
+<span class="nc" id="L173">		updateCurrentLine();</span>
+<span class="nc" id="L174">		updateFirstLineShowing();</span>
+<span class="nc" id="L175">	}</span>
+	
+	void updateFirstLineShowing () {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">		if (cursorLine != firstLineShowing) {</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">			int step = cursorLine &gt;= firstLineShowing ? 1 : -1;</span>
+<span class="nc bnc" id="L180" title="All 4 branches missed.">			while (firstLineShowing &gt; cursorLine || firstLineShowing + linesShowing - 1 &lt; cursorLine) {</span>
+<span class="nc" id="L181">				firstLineShowing += step;</span>
+			}
+		}
+<span class="nc" id="L184">	}</span>
+
+	/** Calculates the text area line for the given cursor position **/
+	private int calculateCurrentLineIndex (int cursor) {
+<span class="nc" id="L188">		int index = 0;</span>
+<span class="nc bnc" id="L189" title="All 4 branches missed.">		while (index &lt; linesBreak.size &amp;&amp; cursor &gt; linesBreak.items[index]) {</span>
+<span class="nc" id="L190">			index++;</span>
+		}
+<span class="nc" id="L192">		return index;</span>
+	}
+
+	// OVERRIDE from TextField
+
+	protected void sizeChanged () {
+<span class="nc" id="L198">		lastText = null; // Cause calculateOffsets to recalculate the line breaks.</span>
+
+		// The number of lines showed must be updated whenever the height is updated
+<span class="nc" id="L201">		BitmapFont font = style.font;</span>
+<span class="nc" id="L202">		Drawable background = style.background;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">		float availableHeight = getHeight() - (background == null ? 0 : background.getBottomHeight() + background.getTopHeight());</span>
+<span class="nc" id="L204">		linesShowing = (int)Math.floor(availableHeight / font.getLineHeight());</span>
+<span class="nc" id="L205">	}</span>
+
+	protected float getTextY (BitmapFont font, Drawable background) {
+<span class="nc" id="L208">		float textY = getHeight();</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">		if (background != null) {</span>
+<span class="nc" id="L210">			textY = (int)(textY - background.getTopHeight());</span>
+		}
+<span class="nc" id="L212">		return textY;</span>
+	}
+
+	protected void drawSelection (Drawable selection, Batch batch, BitmapFont font, float x, float y) {
+<span class="nc" id="L216">		int i = firstLineShowing * 2;</span>
+<span class="nc" id="L217">		float offsetY = 0;</span>
+<span class="nc" id="L218">		int minIndex = Math.min(cursor, selectionStart);</span>
+<span class="nc" id="L219">		int maxIndex = Math.max(cursor, selectionStart);</span>
+<span class="nc bnc" id="L220" title="All 4 branches missed.">		while (i + 1 &lt; linesBreak.size &amp;&amp; i &lt; (firstLineShowing + linesShowing) * 2) {</span>
+
+<span class="nc" id="L222">			int lineStart = linesBreak.get(i);</span>
+<span class="nc" id="L223">			int lineEnd = linesBreak.get(i + 1);</span>
+
+<span class="nc bnc" id="L225" title="All 16 branches missed.">			if (!((minIndex &lt; lineStart &amp;&amp; minIndex &lt; lineEnd &amp;&amp; maxIndex &lt; lineStart &amp;&amp; maxIndex &lt; lineEnd)</span>
+				|| (minIndex &gt; lineStart &amp;&amp; minIndex &gt; lineEnd &amp;&amp; maxIndex &gt; lineStart &amp;&amp; maxIndex &gt; lineEnd))) {
+
+<span class="nc" id="L228">				int start = Math.max(linesBreak.get(i), minIndex);</span>
+<span class="nc" id="L229">				int end = Math.min(linesBreak.get(i + 1), maxIndex);</span>
+
+<span class="nc" id="L231">				float selectionX = glyphPositions.get(start) - glyphPositions.get(linesBreak.get(i));</span>
+<span class="nc" id="L232">				float selectionWidth = glyphPositions.get(end) - glyphPositions.get(start);</span>
+
+<span class="nc" id="L234">				selection.draw(batch, x + selectionX + fontOffset, y - textHeight - font.getDescent() - offsetY, selectionWidth,</span>
+<span class="nc" id="L235">					font.getLineHeight());</span>
+			}
+
+<span class="nc" id="L238">			offsetY += font.getLineHeight();</span>
+<span class="nc" id="L239">			i += 2;</span>
+<span class="nc" id="L240">		}</span>
+<span class="nc" id="L241">	}</span>
+
+	protected void drawText (Batch batch, BitmapFont font, float x, float y) {
+<span class="nc" id="L244">		float offsetY = 0;</span>
+<span class="nc bnc" id="L245" title="All 4 branches missed.">		for (int i = firstLineShowing * 2; i &lt; (firstLineShowing + linesShowing) * 2 &amp;&amp; i &lt; linesBreak.size; i += 2) {</span>
+<span class="nc" id="L246">			font.draw(batch, displayText, x, y + offsetY, linesBreak.items[i], linesBreak.items[i + 1], 0, Align.left, false);</span>
+<span class="nc" id="L247">			offsetY -= font.getLineHeight();</span>
+		}
+<span class="nc" id="L249">	}</span>
+
+	protected void drawCursor (Drawable cursorPatch, Batch batch, BitmapFont font, float x, float y) {
+<span class="nc bnc" id="L252" title="All 4 branches missed.">		float textOffset = cursor &gt;= glyphPositions.size || cursorLine * 2 &gt;= linesBreak.size ? 0</span>
+<span class="nc" id="L253">			: glyphPositions.get(cursor) - glyphPositions.get(linesBreak.items[cursorLine * 2]);</span>
+<span class="nc" id="L254">		cursorPatch.draw(batch, x + textOffset + fontOffset + font.getData().cursorX,</span>
+<span class="nc" id="L255">			y - font.getDescent() / 2 - (cursorLine - firstLineShowing + 1) * font.getLineHeight(), cursorPatch.getMinWidth(),</span>
+<span class="nc" id="L256">			font.getLineHeight());</span>
+<span class="nc" id="L257">	}</span>
+
+	protected void calculateOffsets () {
+<span class="nc" id="L260">		super.calculateOffsets();</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		if (!this.text.equals(lastText)) {</span>
+<span class="nc" id="L262">			this.lastText = text;</span>
+<span class="nc" id="L263">			BitmapFont font = style.font;</span>
+<span class="nc" id="L264">			float maxWidthLine = this.getWidth()</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">				- (style.background != null ? style.background.getLeftWidth() + style.background.getRightWidth() : 0);</span>
+<span class="nc" id="L266">			linesBreak.clear();</span>
+<span class="nc" id="L267">			int lineStart = 0;</span>
+<span class="nc" id="L268">			int lastSpace = 0;</span>
+			char lastCharacter;
+<span class="nc" id="L270">			Pool&lt;GlyphLayout&gt; layoutPool = Pools.get(GlyphLayout.class);</span>
+<span class="nc" id="L271">			GlyphLayout layout = layoutPool.obtain();</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">			for (int i = 0; i &lt; text.length(); i++) {</span>
+<span class="nc" id="L273">				lastCharacter = text.charAt(i);</span>
+<span class="nc bnc" id="L274" title="All 4 branches missed.">				if (lastCharacter == ENTER_DESKTOP || lastCharacter == ENTER_ANDROID) {</span>
+<span class="nc" id="L275">					linesBreak.add(lineStart);</span>
+<span class="nc" id="L276">					linesBreak.add(i);</span>
+<span class="nc" id="L277">					lineStart = i + 1;</span>
+				} else {
+<span class="nc bnc" id="L279" title="All 2 branches missed.">					lastSpace = (continueCursor(i, 0) ? lastSpace : i);</span>
+<span class="nc" id="L280">					layout.setText(font, text.subSequence(lineStart, i + 1));</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">					if (layout.width &gt; maxWidthLine) {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">						if (lineStart &gt;= lastSpace) {</span>
+<span class="nc" id="L283">							lastSpace = i - 1;</span>
+						}
+<span class="nc" id="L285">						linesBreak.add(lineStart);</span>
+<span class="nc" id="L286">						linesBreak.add(lastSpace + 1);</span>
+<span class="nc" id="L287">						lineStart = lastSpace + 1;</span>
+<span class="nc" id="L288">						lastSpace = lineStart;</span>
+					}
+				}
+			}
+<span class="nc" id="L292">			layoutPool.free(layout);</span>
+			// Add last line
+<span class="nc bnc" id="L294" title="All 2 branches missed.">			if (lineStart &lt; text.length()) {</span>
+<span class="nc" id="L295">				linesBreak.add(lineStart);</span>
+<span class="nc" id="L296">				linesBreak.add(text.length());</span>
+			}
+<span class="nc" id="L298">			showCursor();</span>
+		}
+<span class="nc" id="L300">	}</span>
+
+	protected InputListener createInputListener () {
+<span class="nc" id="L303">		return new TextAreaListener();</span>
+	}
+
+	public void setSelection (int selectionStart, int selectionEnd) {
+<span class="nc" id="L307">		super.setSelection(selectionStart, selectionEnd);</span>
+<span class="nc" id="L308">		updateCurrentLine();</span>
+<span class="nc" id="L309">	}</span>
+
+	protected void moveCursor (boolean forward, boolean jump) {
+<span class="nc bnc" id="L312" title="All 2 branches missed.">		int count = forward ? 1 : -1;</span>
+<span class="nc" id="L313">		int index = (cursorLine * 2) + count;</span>
+<span class="nc bnc" id="L314" title="All 8 branches missed.">		if (index &gt;= 0 &amp;&amp; index + 1 &lt; linesBreak.size &amp;&amp; linesBreak.items[index] == cursor</span>
+			&amp;&amp; linesBreak.items[index + 1] == cursor) {
+<span class="nc" id="L316">			cursorLine += count;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">			if (jump) {</span>
+<span class="nc" id="L318">				super.moveCursor(forward, jump);</span>
+			}
+<span class="nc" id="L320">			showCursor();</span>
+		} else {
+<span class="nc" id="L322">			super.moveCursor(forward, jump);</span>
+		}
+<span class="nc" id="L324">		updateCurrentLine();</span>
+
+<span class="nc" id="L326">	}</span>
+
+	protected boolean continueCursor (int index, int offset) {
+<span class="nc" id="L329">		int pos = calculateCurrentLineIndex(index + offset);</span>
+<span class="nc bnc" id="L330" title="All 10 branches missed.">		return super.continueCursor(index, offset) &amp;&amp; (pos &lt; 0 || pos &gt;= linesBreak.size - 2 || (linesBreak.items[pos + 1] != index)</span>
+			|| (linesBreak.items[pos + 1] == linesBreak.items[pos + 2]));
+	}
+
+	public int getCursorLine () {
+<span class="nc" id="L335">		return cursorLine;</span>
+	}
+
+	public int getFirstLineShowing () {
+<span class="nc" id="L339">		return firstLineShowing;</span>
+	}
+
+	public int getLinesShowing () {
+<span class="nc" id="L343">		return linesShowing;</span>
+	}
+
+	public float getCursorX () {
+<span class="nc" id="L347">		return textOffset + fontOffset + style.font.getData().cursorX;</span>
+	}
+
+	public float getCursorY () {
+<span class="nc" id="L351">		BitmapFont font = style.font;</span>
+<span class="nc" id="L352">		return -(-font.getDescent() / 2 - (cursorLine - firstLineShowing + 1) * font.getLineHeight());</span>
+	}
+
+	/** Input listener for the text area **/
+<span class="nc" id="L356">	public class TextAreaListener extends TextFieldClickListener {</span>
+		protected void setCursorPosition (float x, float y) {
+<span class="nc" id="L358">			moveOffset = -1;</span>
+
+<span class="nc" id="L360">			Drawable background = style.background;</span>
+<span class="nc" id="L361">			BitmapFont font = style.font;</span>
+
+<span class="nc" id="L363">			float height = getHeight();</span>
+
+<span class="nc bnc" id="L365" title="All 2 branches missed.">			if (background != null) {</span>
+<span class="nc" id="L366">				height -= background.getTopHeight();</span>
+<span class="nc" id="L367">				x -= background.getLeftWidth();</span>
+			}
+<span class="nc" id="L369">			x = Math.max(0, x);</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">			if (background != null) {</span>
+<span class="nc" id="L371">				y -= background.getTopHeight();</span>
+			}
+
+<span class="nc" id="L374">			cursorLine = (int)Math.floor((height - y) / font.getLineHeight()) + firstLineShowing;</span>
+<span class="nc" id="L375">			cursorLine = Math.max(0, Math.min(cursorLine, getLines() - 1));</span>
+
+<span class="nc" id="L377">			super.setCursorPosition(x, y);</span>
+<span class="nc" id="L378">			updateCurrentLine();</span>
+<span class="nc" id="L379">		}</span>
+
+		public boolean keyDown (InputEvent event, int keycode) {
+<span class="nc" id="L382">			boolean result = super.keyDown(event, keycode);</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">			if (hasKeyboardFocus()) {</span>
+<span class="nc" id="L384">				boolean repeat = false;</span>
+<span class="nc bnc" id="L385" title="All 4 branches missed.">				boolean shift = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">				if (keycode == Input.Keys.DOWN) {</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">					if (shift) {</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">						if (!hasSelection) {</span>
+<span class="nc" id="L389">							selectionStart = cursor;</span>
+<span class="nc" id="L390">							hasSelection = true;</span>
+						}
+					} else {
+<span class="nc" id="L393">						clearSelection();</span>
+					}
+<span class="nc" id="L395">					moveCursorLine(cursorLine + 1);</span>
+<span class="nc" id="L396">					repeat = true;</span>
+
+<span class="nc bnc" id="L398" title="All 2 branches missed.">				} else if (keycode == Input.Keys.UP) {</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">					if (shift) {</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">						if (!hasSelection) {</span>
+<span class="nc" id="L401">							selectionStart = cursor;</span>
+<span class="nc" id="L402">							hasSelection = true;</span>
+						}
+					} else {
+<span class="nc" id="L405">						clearSelection();</span>
+					}
+<span class="nc" id="L407">					moveCursorLine(cursorLine - 1);</span>
+<span class="nc" id="L408">					repeat = true;</span>
+
+				} else {
+<span class="nc" id="L411">					moveOffset = -1;</span>
+				}
+<span class="nc bnc" id="L413" title="All 2 branches missed.">				if (repeat) {</span>
+<span class="nc" id="L414">					scheduleKeyRepeatTask(keycode);</span>
+				}
+<span class="nc" id="L416">				showCursor();</span>
+<span class="nc" id="L417">				return true;</span>
+			}
+<span class="nc" id="L419">			return result;</span>
+		}
+
+		public boolean keyTyped (InputEvent event, char character) {
+<span class="nc" id="L423">			boolean result = super.keyTyped(event, character);</span>
+<span class="nc" id="L424">			showCursor();</span>
+<span class="nc" id="L425">			return result;</span>
+		}
+
+		protected void goHome (boolean jump) {
+<span class="nc bnc" id="L429" title="All 2 branches missed.">			if (jump) {</span>
+<span class="nc" id="L430">				cursor = 0;</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">			} else if (cursorLine * 2 &lt; linesBreak.size) {</span>
+<span class="nc" id="L432">				cursor = linesBreak.get(cursorLine * 2);</span>
+			}
+<span class="nc" id="L434">		}</span>
+
+		protected void goEnd (boolean jump) {
+<span class="nc bnc" id="L437" title="All 4 branches missed.">			if (jump || cursorLine &gt;= getLines()) {</span>
+<span class="nc" id="L438">				cursor = text.length();</span>
+<span class="nc bnc" id="L439" title="All 2 branches missed.">			} else if (cursorLine * 2 + 1 &lt; linesBreak.size) {</span>
+<span class="nc" id="L440">				cursor = linesBreak.get(cursorLine * 2 + 1);</span>
+			}
+<span class="nc" id="L442">		}</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

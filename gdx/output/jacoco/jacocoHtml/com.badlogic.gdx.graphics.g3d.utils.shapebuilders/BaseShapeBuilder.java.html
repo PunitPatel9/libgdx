@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">BaseShapeBuilder.java</span></div><h1>BaseShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.FlushablePool;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.ShortArray;
+
+/** This class allows to reduce the static allocation needed for shape builders. It contains all the objects used internally by
+ * shape builders.
+ * @author realitix, xoppa */
+<span class="nc" id="L32">public class BaseShapeBuilder {</span>
+	/* Color */
+<span class="nc" id="L34">	protected static final Color tmpColor0 = new Color();</span>
+<span class="nc" id="L35">	protected static final Color tmpColor1 = new Color();</span>
+<span class="nc" id="L36">	protected static final Color tmpColor2 = new Color();</span>
+<span class="nc" id="L37">	protected static final Color tmpColor3 = new Color();</span>
+<span class="nc" id="L38">	protected static final Color tmpColor4 = new Color();</span>
+
+	/* Vector3 */
+<span class="nc" id="L41">	protected static final Vector3 tmpV0 = new Vector3();</span>
+<span class="nc" id="L42">	protected static final Vector3 tmpV1 = new Vector3();</span>
+<span class="nc" id="L43">	protected static final Vector3 tmpV2 = new Vector3();</span>
+<span class="nc" id="L44">	protected static final Vector3 tmpV3 = new Vector3();</span>
+<span class="nc" id="L45">	protected static final Vector3 tmpV4 = new Vector3();</span>
+<span class="nc" id="L46">	protected static final Vector3 tmpV5 = new Vector3();</span>
+<span class="nc" id="L47">	protected static final Vector3 tmpV6 = new Vector3();</span>
+<span class="nc" id="L48">	protected static final Vector3 tmpV7 = new Vector3();</span>
+	
+	/* VertexInfo */
+<span class="nc" id="L51">	protected static final VertexInfo vertTmp0 = new VertexInfo();</span>
+<span class="nc" id="L52">	protected static final VertexInfo vertTmp1 = new VertexInfo();</span>
+<span class="nc" id="L53">	protected static final VertexInfo vertTmp2 = new VertexInfo();</span>
+<span class="nc" id="L54">	protected static final VertexInfo vertTmp3 = new VertexInfo();</span>
+<span class="nc" id="L55">	protected static final VertexInfo vertTmp4 = new VertexInfo();</span>
+<span class="nc" id="L56">	protected static final VertexInfo vertTmp5 = new VertexInfo();</span>
+<span class="nc" id="L57">	protected static final VertexInfo vertTmp6 = new VertexInfo();</span>
+<span class="nc" id="L58">	protected static final VertexInfo vertTmp7 = new VertexInfo();</span>
+<span class="nc" id="L59">	protected static final VertexInfo vertTmp8 = new VertexInfo();</span>
+	
+	/* Matrix4 */
+<span class="nc" id="L62">	protected static final Matrix4 matTmp1 = new Matrix4();</span>
+	
+<span class="nc" id="L64">	private final static FlushablePool&lt;Vector3&gt; vectorPool = new FlushablePool&lt;Vector3&gt;() {</span>
+		@Override
+		protected Vector3 newObject () {
+<span class="nc" id="L67">			return new Vector3();</span>
+		}
+	};
+
+<span class="nc" id="L71">	private final static FlushablePool&lt;Matrix4&gt; matrices4Pool = new FlushablePool&lt;Matrix4&gt;() {</span>
+		@Override
+		protected Matrix4 newObject () {
+<span class="nc" id="L74">			return new Matrix4();</span>
+		}
+	};
+
+	/** Obtain a temporary {@link Vector3} object, must be free'd using {@link #freeAll()}. */
+	protected static Vector3 obtainV3 () {
+<span class="nc" id="L80">		return vectorPool.obtain();</span>
+	}
+
+	/** Obtain a temporary {@link Matrix4} object, must be free'd using {@link #freeAll()}. */
+	protected static Matrix4 obtainM4 () {
+<span class="nc" id="L85">		final Matrix4 result = matrices4Pool.obtain();</span>
+<span class="nc" id="L86">		return result;</span>
+	}
+
+	/** Free all objects obtained using one of the `obtainXX` methods. */
+	protected static void freeAll () {
+<span class="nc" id="L91">		vectorPool.flush();</span>
+<span class="nc" id="L92">		matrices4Pool.flush();</span>
+<span class="nc" id="L93">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

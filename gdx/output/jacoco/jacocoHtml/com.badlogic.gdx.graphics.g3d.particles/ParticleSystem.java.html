@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParticleSystem.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles</a> &gt; <span class="el_source">ParticleSystem.java</span></div><h1>ParticleSystem.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles;
+
+import com.badlogic.gdx.graphics.g3d.Renderable;
+import com.badlogic.gdx.graphics.g3d.RenderableProvider;
+import com.badlogic.gdx.graphics.g3d.particles.batches.ParticleBatch;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+
+/** Singleton class which manages the particle effects. It's a utility class to ease particle batches management and particle
+ * effects update.
+ * @author inferno */
+public final class ParticleSystem implements RenderableProvider {
+	private static ParticleSystem instance;
+
+	/** @deprecated Please directly use the constructor */
+	public static ParticleSystem get () {
+<span class="nc bnc" id="L33" title="All 2 branches missed.">		if (instance == null) instance = new ParticleSystem();</span>
+<span class="nc" id="L34">		return instance;</span>
+	}
+
+	private Array&lt;ParticleBatch&lt;?&gt;&gt; batches;
+	private Array&lt;ParticleEffect&gt; effects;
+
+<span class="nc" id="L40">	public ParticleSystem () {</span>
+<span class="nc" id="L41">		batches = new Array&lt;ParticleBatch&lt;?&gt;&gt;();</span>
+<span class="nc" id="L42">		effects = new Array&lt;ParticleEffect&gt;();</span>
+<span class="nc" id="L43">	}</span>
+
+	public void add (ParticleBatch&lt;?&gt; batch) {
+<span class="nc" id="L46">		batches.add(batch);</span>
+<span class="nc" id="L47">	}</span>
+
+	public void add (ParticleEffect effect) {
+<span class="nc" id="L50">		effects.add(effect);</span>
+<span class="nc" id="L51">	}</span>
+
+	public void remove (ParticleEffect effect) {
+<span class="nc" id="L54">		effects.removeValue(effect, true);</span>
+<span class="nc" id="L55">	}</span>
+
+	/** Removes all the effects added to the system */
+	public void removeAll () {
+<span class="nc" id="L59">		effects.clear();</span>
+<span class="nc" id="L60">	}</span>
+
+	/** Updates the simulation of all effects */
+	public void update () {
+<span class="nc bnc" id="L64" title="All 2 branches missed.">		for (ParticleEffect effect : effects) {</span>
+<span class="nc" id="L65">			effect.update();</span>
+<span class="nc" id="L66">		}</span>
+<span class="nc" id="L67">	}</span>
+
+	public void updateAndDraw () {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">		for (ParticleEffect effect : effects) {</span>
+<span class="nc" id="L71">			effect.update();</span>
+<span class="nc" id="L72">			effect.draw();</span>
+<span class="nc" id="L73">		}		</span>
+<span class="nc" id="L74">	}</span>
+
+	public void update (float deltaTime) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">		for (ParticleEffect effect : effects) {</span>
+<span class="nc" id="L78">			effect.update(deltaTime);</span>
+<span class="nc" id="L79">		}</span>
+<span class="nc" id="L80">	}</span>
+	public void updateAndDraw(float deltaTime) {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">		for (ParticleEffect effect : effects) {</span>
+<span class="nc" id="L83">			effect.update(deltaTime);</span>
+<span class="nc" id="L84">			effect.draw();</span>
+<span class="nc" id="L85">		}</span>
+<span class="nc" id="L86">	}</span>
+
+	/** Must be called one time per frame before any particle effect drawing operation will occur. */
+	public void begin () {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">		for (ParticleBatch&lt;?&gt; batch : batches)</span>
+<span class="nc" id="L91">			batch.begin();</span>
+<span class="nc" id="L92">	}</span>
+
+	/** Draws all the particle effects. Call {@link #begin()} before this method and {@link #end()} after. */
+	public void draw () {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">		for (ParticleEffect effect : effects) {</span>
+<span class="nc" id="L97">			effect.draw();</span>
+<span class="nc" id="L98">		}</span>
+<span class="nc" id="L99">	}</span>
+
+	/** Must be called one time per frame at the end of all drawing operations. */
+	public void end () {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">		for (ParticleBatch&lt;?&gt; batch : batches)</span>
+<span class="nc" id="L104">			batch.end();</span>
+<span class="nc" id="L105">	}</span>
+
+	@Override
+	public void getRenderables (Array&lt;Renderable&gt; renderables, Pool&lt;Renderable&gt; pool) {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">		for (ParticleBatch&lt;?&gt; batch : batches)</span>
+<span class="nc" id="L110">			batch.getRenderables(renderables, pool);</span>
+<span class="nc" id="L111">	}</span>
+
+	public Array&lt;ParticleBatch&lt;?&gt;&gt; getBatches () {
+<span class="nc" id="L114">		return batches;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

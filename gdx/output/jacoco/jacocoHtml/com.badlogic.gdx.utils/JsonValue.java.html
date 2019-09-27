@@ -1,0 +1,1259 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JsonValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">JsonValue.java</span></div><h1>JsonValue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import com.badlogic.gdx.utils.JsonWriter.OutputType;
+
+/** Container for a JSON object, array, string, double, long, boolean, or null.
+ * &lt;p&gt;
+ * JsonValue children are a linked list. Iteration of arrays or objects is easily done using a for loop, either with the enhanced
+ * for loop syntactic sugar or like the example below. This is much more efficient than accessing children by index when there are
+ * many children.&lt;br&gt;
+ * 
+ * &lt;pre&gt;
+ * JsonValue map = ...;
+ * for (JsonValue entry = map.child; entry != null; entry = entry.next)
+ * 	System.out.println(entry.name + &quot; = &quot; + entry.asString());
+ * &lt;/pre&gt;
+ * 
+ * @author Nathan Sweet */
+public class JsonValue implements Iterable&lt;JsonValue&gt; {
+	private ValueType type;
+
+	/** May be null. */
+	private String stringValue;
+	private double doubleValue;
+	private long longValue;
+
+	public String name;
+	/** May be null. */
+	public JsonValue child, parent;
+	/** May be null. When changing this field the parent {@link #size()} may need to be changed. */
+	public JsonValue next, prev;
+	public int size;
+
+<span class="nc" id="L54">	public JsonValue (ValueType type) {</span>
+<span class="nc" id="L55">		this.type = type;</span>
+<span class="nc" id="L56">	}</span>
+
+	/** @param value May be null. */
+<span class="nc" id="L59">	public JsonValue (String value) {</span>
+<span class="nc" id="L60">		set(value);</span>
+<span class="nc" id="L61">	}</span>
+
+<span class="nc" id="L63">	public JsonValue (double value) {</span>
+<span class="nc" id="L64">		set(value, null);</span>
+<span class="nc" id="L65">	}</span>
+
+<span class="nc" id="L67">	public JsonValue (long value) {</span>
+<span class="nc" id="L68">		set(value, null);</span>
+<span class="nc" id="L69">	}</span>
+
+<span class="nc" id="L71">	public JsonValue (double value, String stringValue) {</span>
+<span class="nc" id="L72">		set(value, stringValue);</span>
+<span class="nc" id="L73">	}</span>
+
+<span class="nc" id="L75">	public JsonValue (long value, String stringValue) {</span>
+<span class="nc" id="L76">		set(value, stringValue);</span>
+<span class="nc" id="L77">	}</span>
+
+<span class="nc" id="L79">	public JsonValue (boolean value) {</span>
+<span class="nc" id="L80">		set(value);</span>
+<span class="nc" id="L81">	}</span>
+
+	/** Returns the child at the specified index. This requires walking the linked list to the specified entry, see
+	 * {@link JsonValue} for how to iterate efficiently.
+	 * @return May be null. */
+	public JsonValue get (int index) {
+<span class="nc" id="L87">		JsonValue current = child;</span>
+<span class="nc bnc" id="L88" title="All 4 branches missed.">		while (current != null &amp;&amp; index &gt; 0) {</span>
+<span class="nc" id="L89">			index--;</span>
+<span class="nc" id="L90">			current = current.next;</span>
+		}
+<span class="nc" id="L92">		return current;</span>
+	}
+
+	/** Returns the child with the specified name.
+	 * @return May be null. */
+	public JsonValue get (String name) {
+<span class="nc" id="L98">		JsonValue current = child;</span>
+<span class="nc bnc" id="L99" title="All 6 branches missed.">		while (current != null &amp;&amp; (current.name == null || !current.name.equalsIgnoreCase(name)))</span>
+<span class="nc" id="L100">			current = current.next;</span>
+<span class="nc" id="L101">		return current;</span>
+	}
+
+	/** Returns true if a child with the specified name exists. */
+	public boolean has (String name) {
+<span class="nc bnc" id="L106" title="All 2 branches missed.">		return get(name) != null;</span>
+	}
+
+	/** Returns the child at the specified index. This requires walking the linked list to the specified entry, see
+	 * {@link JsonValue} for how to iterate efficiently.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public JsonValue require (int index) {
+<span class="nc" id="L113">		JsonValue current = child;</span>
+<span class="nc bnc" id="L114" title="All 4 branches missed.">		while (current != null &amp;&amp; index &gt; 0) {</span>
+<span class="nc" id="L115">			index--;</span>
+<span class="nc" id="L116">			current = current.next;</span>
+		}
+<span class="nc bnc" id="L118" title="All 2 branches missed.">		if (current == null) throw new IllegalArgumentException(&quot;Child not found with index: &quot; + index);</span>
+<span class="nc" id="L119">		return current;</span>
+	}
+
+	/** Returns the child with the specified name.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public JsonValue require (String name) {
+<span class="nc" id="L125">		JsonValue current = child;</span>
+<span class="nc bnc" id="L126" title="All 6 branches missed.">		while (current != null &amp;&amp; (current.name == null || !current.name.equalsIgnoreCase(name)))</span>
+<span class="nc" id="L127">			current = current.next;</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">		if (current == null) throw new IllegalArgumentException(&quot;Child not found with name: &quot; + name);</span>
+<span class="nc" id="L129">		return current;</span>
+	}
+
+	/** Removes the child with the specified index. This requires walking the linked list to the specified entry, see
+	 * {@link JsonValue} for how to iterate efficiently.
+	 * @return May be null. */
+	public JsonValue remove (int index) {
+<span class="nc" id="L136">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">		if (child == null) return null;</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (child.prev == null) {</span>
+<span class="nc" id="L139">			this.child = child.next;</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">			if (this.child != null) this.child.prev = null;</span>
+		} else {
+<span class="nc" id="L142">			child.prev.next = child.next;</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">			if (child.next != null) child.next.prev = child.prev;</span>
+		}
+<span class="nc" id="L145">		size--;</span>
+<span class="nc" id="L146">		return child;</span>
+	}
+
+	/** Removes the child with the specified name.
+	 * @return May be null. */
+	public JsonValue remove (String name) {
+<span class="nc" id="L152">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">		if (child == null) return null;</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">		if (child.prev == null) {</span>
+<span class="nc" id="L155">			this.child = child.next;</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">			if (this.child != null) this.child.prev = null;</span>
+		} else {
+<span class="nc" id="L158">			child.prev.next = child.next;</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">			if (child.next != null) child.next.prev = child.prev;</span>
+		}
+<span class="nc" id="L161">		size--;</span>
+<span class="nc" id="L162">		return child;</span>
+	}
+
+	/** Returns true if there are one or more children in the array or object. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if there are not children in the array or object. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	/** @deprecated Use {@link #size} instead. Returns this number of children in the array or object. */
+	@Deprecated
+	public int size () {
+<span class="nc" id="L178">		return size;</span>
+	}
+
+	/** Returns this value as a string.
+	 * @return May be null if this value is null.
+	 * @throws IllegalStateException if this an array or object. */
+	public String asString () {
+<span class="nc bnc" id="L185" title="All 6 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L187">			return stringValue;</span>
+		case doubleValue:
+<span class="nc bnc" id="L189" title="All 2 branches missed.">			return stringValue != null ? stringValue : Double.toString(doubleValue);</span>
+		case longValue:
+<span class="nc bnc" id="L191" title="All 2 branches missed.">			return stringValue != null ? stringValue : Long.toString(longValue);</span>
+		case booleanValue:
+<span class="nc bnc" id="L193" title="All 2 branches missed.">			return longValue != 0 ? &quot;true&quot; : &quot;false&quot;;</span>
+		case nullValue:
+<span class="nc" id="L195">			return null;</span>
+		}
+<span class="nc" id="L197">		throw new IllegalStateException(&quot;Value cannot be converted to string: &quot; + type);</span>
+	}
+
+	/** Returns this value as a float.
+	 * @throws IllegalStateException if this an array or object. */
+	public float asFloat () {
+<span class="nc bnc" id="L203" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L205">			return Float.parseFloat(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L207">			return (float)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L209">			return (float)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L211" title="All 2 branches missed.">			return longValue != 0 ? 1 : 0;</span>
+		}
+<span class="nc" id="L213">		throw new IllegalStateException(&quot;Value cannot be converted to float: &quot; + type);</span>
+	}
+
+	/** Returns this value as a double.
+	 * @throws IllegalStateException if this an array or object. */
+	public double asDouble () {
+<span class="nc bnc" id="L219" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L221">			return Double.parseDouble(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L223">			return doubleValue;</span>
+		case longValue:
+<span class="nc" id="L225">			return (double)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L227" title="All 2 branches missed.">			return longValue != 0 ? 1 : 0;</span>
+		}
+<span class="nc" id="L229">		throw new IllegalStateException(&quot;Value cannot be converted to double: &quot; + type);</span>
+	}
+
+	/** Returns this value as a long.
+	 * @throws IllegalStateException if this an array or object. */
+	public long asLong () {
+<span class="nc bnc" id="L235" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L237">			return Long.parseLong(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L239">			return (long)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L241">			return longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L243" title="All 2 branches missed.">			return longValue != 0 ? 1 : 0;</span>
+		}
+<span class="nc" id="L245">		throw new IllegalStateException(&quot;Value cannot be converted to long: &quot; + type);</span>
+	}
+
+	/** Returns this value as an int.
+	 * @throws IllegalStateException if this an array or object. */
+	public int asInt () {
+<span class="nc bnc" id="L251" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L253">			return Integer.parseInt(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L255">			return (int)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L257">			return (int)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L259" title="All 2 branches missed.">			return longValue != 0 ? 1 : 0;</span>
+		}
+<span class="nc" id="L261">		throw new IllegalStateException(&quot;Value cannot be converted to int: &quot; + type);</span>
+	}
+
+	/** Returns this value as a boolean.
+	 * @throws IllegalStateException if this an array or object. */
+	public boolean asBoolean () {
+<span class="nc bnc" id="L267" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L269">			return stringValue.equalsIgnoreCase(&quot;true&quot;);</span>
+		case doubleValue:
+<span class="nc bnc" id="L271" title="All 2 branches missed.">			return doubleValue != 0;</span>
+		case longValue:
+<span class="nc bnc" id="L273" title="All 2 branches missed.">			return longValue != 0;</span>
+		case booleanValue:
+<span class="nc bnc" id="L275" title="All 2 branches missed.">			return longValue != 0;</span>
+		}
+<span class="nc" id="L277">		throw new IllegalStateException(&quot;Value cannot be converted to boolean: &quot; + type);</span>
+	}
+
+	/** Returns this value as a byte.
+	 * @throws IllegalStateException if this an array or object. */
+	public byte asByte () {
+<span class="nc bnc" id="L283" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L285">			return Byte.parseByte(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L287">			return (byte)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L289">			return (byte)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L291" title="All 2 branches missed.">			return longValue != 0 ? (byte)1 : 0;</span>
+		}
+<span class="nc" id="L293">		throw new IllegalStateException(&quot;Value cannot be converted to byte: &quot; + type);</span>
+	}
+
+	/** Returns this value as a short.
+	 * @throws IllegalStateException if this an array or object. */
+	public short asShort () {
+<span class="nc bnc" id="L299" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc" id="L301">			return Short.parseShort(stringValue);</span>
+		case doubleValue:
+<span class="nc" id="L303">			return (short)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L305">			return (short)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L307" title="All 2 branches missed.">			return longValue != 0 ? (short)1 : 0;</span>
+		}
+<span class="nc" id="L309">		throw new IllegalStateException(&quot;Value cannot be converted to short: &quot; + type);</span>
+	}
+
+	/** Returns this value as a char.
+	 * @throws IllegalStateException if this an array or object. */
+	public char asChar () {
+<span class="nc bnc" id="L315" title="All 5 branches missed.">		switch (type) {</span>
+		case stringValue:
+<span class="nc bnc" id="L317" title="All 2 branches missed.">			return stringValue.length() == 0 ? 0 : stringValue.charAt(0);</span>
+		case doubleValue:
+<span class="nc" id="L319">			return (char)doubleValue;</span>
+		case longValue:
+<span class="nc" id="L321">			return (char)longValue;</span>
+		case booleanValue:
+<span class="nc bnc" id="L323" title="All 2 branches missed.">			return longValue != 0 ? (char)1 : 0;</span>
+		}
+<span class="nc" id="L325">		throw new IllegalStateException(&quot;Value cannot be converted to char: &quot; + type);</span>
+	}
+
+	/** Returns the children of this value as a newly allocated String array.
+	 * @throws IllegalStateException if this is not an array. */
+	public String[] asStringArray () {
+<span class="nc bnc" id="L331" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L332">		String[] array = new String[size];</span>
+<span class="nc" id="L333">		int i = 0;</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			String v;
+<span class="nc bnc" id="L336" title="All 6 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L338">				v = value.stringValue;</span>
+<span class="nc" id="L339">				break;</span>
+			case doubleValue:
+<span class="nc bnc" id="L341" title="All 2 branches missed.">				v = stringValue != null ? stringValue : Double.toString(value.doubleValue);</span>
+<span class="nc" id="L342">				break;</span>
+			case longValue:
+<span class="nc bnc" id="L344" title="All 2 branches missed.">				v = stringValue != null ? stringValue : Long.toString(value.longValue);</span>
+<span class="nc" id="L345">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L347" title="All 2 branches missed.">				v = value.longValue != 0 ? &quot;true&quot; : &quot;false&quot;;</span>
+<span class="nc" id="L348">				break;</span>
+			case nullValue:
+<span class="nc" id="L350">				v = null;</span>
+<span class="nc" id="L351">				break;</span>
+			default:
+<span class="nc" id="L353">				throw new IllegalStateException(&quot;Value cannot be converted to string: &quot; + value.type);</span>
+			}
+<span class="nc" id="L355">			array[i] = v;</span>
+		}
+<span class="nc" id="L357">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated float array.
+	 * @throws IllegalStateException if this is not an array. */
+	public float[] asFloatArray () {
+<span class="nc bnc" id="L363" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L364">		float[] array = new float[size];</span>
+<span class="nc" id="L365">		int i = 0;</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			float v;
+<span class="nc bnc" id="L368" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L370">				v = Float.parseFloat(value.stringValue);</span>
+<span class="nc" id="L371">				break;</span>
+			case doubleValue:
+<span class="nc" id="L373">				v = (float)value.doubleValue;</span>
+<span class="nc" id="L374">				break;</span>
+			case longValue:
+<span class="nc" id="L376">				v = (float)value.longValue;</span>
+<span class="nc" id="L377">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L379" title="All 2 branches missed.">				v = value.longValue != 0 ? 1 : 0;</span>
+<span class="nc" id="L380">				break;</span>
+			default:
+<span class="nc" id="L382">				throw new IllegalStateException(&quot;Value cannot be converted to float: &quot; + value.type);</span>
+			}
+<span class="nc" id="L384">			array[i] = v;</span>
+		}
+<span class="nc" id="L386">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated double array.
+	 * @throws IllegalStateException if this is not an array. */
+	public double[] asDoubleArray () {
+<span class="nc bnc" id="L392" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L393">		double[] array = new double[size];</span>
+<span class="nc" id="L394">		int i = 0;</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			double v;
+<span class="nc bnc" id="L397" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L399">				v = Double.parseDouble(value.stringValue);</span>
+<span class="nc" id="L400">				break;</span>
+			case doubleValue:
+<span class="nc" id="L402">				v = value.doubleValue;</span>
+<span class="nc" id="L403">				break;</span>
+			case longValue:
+<span class="nc" id="L405">				v = (double)value.longValue;</span>
+<span class="nc" id="L406">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L408" title="All 2 branches missed.">				v = value.longValue != 0 ? 1 : 0;</span>
+<span class="nc" id="L409">				break;</span>
+			default:
+<span class="nc" id="L411">				throw new IllegalStateException(&quot;Value cannot be converted to double: &quot; + value.type);</span>
+			}
+<span class="nc" id="L413">			array[i] = v;</span>
+		}
+<span class="nc" id="L415">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated long array.
+	 * @throws IllegalStateException if this is not an array. */
+	public long[] asLongArray () {
+<span class="nc bnc" id="L421" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L422">		long[] array = new long[size];</span>
+<span class="nc" id="L423">		int i = 0;</span>
+<span class="nc bnc" id="L424" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			long v;
+<span class="nc bnc" id="L426" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L428">				v = Long.parseLong(value.stringValue);</span>
+<span class="nc" id="L429">				break;</span>
+			case doubleValue:
+<span class="nc" id="L431">				v = (long)value.doubleValue;</span>
+<span class="nc" id="L432">				break;</span>
+			case longValue:
+<span class="nc" id="L434">				v = value.longValue;</span>
+<span class="nc" id="L435">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L437" title="All 2 branches missed.">				v = value.longValue != 0 ? 1 : 0;</span>
+<span class="nc" id="L438">				break;</span>
+			default:
+<span class="nc" id="L440">				throw new IllegalStateException(&quot;Value cannot be converted to long: &quot; + value.type);</span>
+			}
+<span class="nc" id="L442">			array[i] = v;</span>
+		}
+<span class="nc" id="L444">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated int array.
+	 * @throws IllegalStateException if this is not an array. */
+	public int[] asIntArray () {
+<span class="nc bnc" id="L450" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L451">		int[] array = new int[size];</span>
+<span class="nc" id="L452">		int i = 0;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			int v;
+<span class="nc bnc" id="L455" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L457">				v = Integer.parseInt(value.stringValue);</span>
+<span class="nc" id="L458">				break;</span>
+			case doubleValue:
+<span class="nc" id="L460">				v = (int)value.doubleValue;</span>
+<span class="nc" id="L461">				break;</span>
+			case longValue:
+<span class="nc" id="L463">				v = (int)value.longValue;</span>
+<span class="nc" id="L464">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L466" title="All 2 branches missed.">				v = value.longValue != 0 ? 1 : 0;</span>
+<span class="nc" id="L467">				break;</span>
+			default:
+<span class="nc" id="L469">				throw new IllegalStateException(&quot;Value cannot be converted to int: &quot; + value.type);</span>
+			}
+<span class="nc" id="L471">			array[i] = v;</span>
+		}
+<span class="nc" id="L473">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated boolean array.
+	 * @throws IllegalStateException if this is not an array. */
+	public boolean[] asBooleanArray () {
+<span class="nc bnc" id="L479" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L480">		boolean[] array = new boolean[size];</span>
+<span class="nc" id="L481">		int i = 0;</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			boolean v;
+<span class="nc bnc" id="L484" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L486">				v = Boolean.parseBoolean(value.stringValue);</span>
+<span class="nc" id="L487">				break;</span>
+			case doubleValue:
+<span class="nc bnc" id="L489" title="All 2 branches missed.">				v = value.doubleValue == 0;</span>
+<span class="nc" id="L490">				break;</span>
+			case longValue:
+<span class="nc bnc" id="L492" title="All 2 branches missed.">				v = value.longValue == 0;</span>
+<span class="nc" id="L493">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L495" title="All 2 branches missed.">				v = value.longValue != 0;</span>
+<span class="nc" id="L496">				break;</span>
+			default:
+<span class="nc" id="L498">				throw new IllegalStateException(&quot;Value cannot be converted to boolean: &quot; + value.type);</span>
+			}
+<span class="nc" id="L500">			array[i] = v;</span>
+		}
+<span class="nc" id="L502">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated byte array.
+	 * @throws IllegalStateException if this is not an array. */
+	public byte[] asByteArray () {
+<span class="nc bnc" id="L508" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L509">		byte[] array = new byte[size];</span>
+<span class="nc" id="L510">		int i = 0;</span>
+<span class="nc bnc" id="L511" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			byte v;
+<span class="nc bnc" id="L513" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L515">				v = Byte.parseByte(value.stringValue);</span>
+<span class="nc" id="L516">				break;</span>
+			case doubleValue:
+<span class="nc" id="L518">				v = (byte)value.doubleValue;</span>
+<span class="nc" id="L519">				break;</span>
+			case longValue:
+<span class="nc" id="L521">				v = (byte)value.longValue;</span>
+<span class="nc" id="L522">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L524" title="All 2 branches missed.">				v = value.longValue != 0 ? (byte)1 : 0;</span>
+<span class="nc" id="L525">				break;</span>
+			default:
+<span class="nc" id="L527">				throw new IllegalStateException(&quot;Value cannot be converted to byte: &quot; + value.type);</span>
+			}
+<span class="nc" id="L529">			array[i] = v;</span>
+		}
+<span class="nc" id="L531">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated short array.
+	 * @throws IllegalStateException if this is not an array. */
+	public short[] asShortArray () {
+<span class="nc bnc" id="L537" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L538">		short[] array = new short[size];</span>
+<span class="nc" id="L539">		int i = 0;</span>
+<span class="nc bnc" id="L540" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			short v;
+<span class="nc bnc" id="L542" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc" id="L544">				v = Short.parseShort(value.stringValue);</span>
+<span class="nc" id="L545">				break;</span>
+			case doubleValue:
+<span class="nc" id="L547">				v = (short)value.doubleValue;</span>
+<span class="nc" id="L548">				break;</span>
+			case longValue:
+<span class="nc" id="L550">				v = (short)value.longValue;</span>
+<span class="nc" id="L551">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L553" title="All 2 branches missed.">				v = value.longValue != 0 ? (short)1 : 0;</span>
+<span class="nc" id="L554">				break;</span>
+			default:
+<span class="nc" id="L556">				throw new IllegalStateException(&quot;Value cannot be converted to short: &quot; + value.type);</span>
+			}
+<span class="nc" id="L558">			array[i] = v;</span>
+		}
+<span class="nc" id="L560">		return array;</span>
+	}
+
+	/** Returns the children of this value as a newly allocated char array.
+	 * @throws IllegalStateException if this is not an array. */
+	public char[] asCharArray () {
+<span class="nc bnc" id="L566" title="All 2 branches missed.">		if (type != ValueType.array) throw new IllegalStateException(&quot;Value is not an array: &quot; + type);</span>
+<span class="nc" id="L567">		char[] array = new char[size];</span>
+<span class="nc" id="L568">		int i = 0;</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">		for (JsonValue value = child; value != null; value = value.next, i++) {</span>
+			char v;
+<span class="nc bnc" id="L571" title="All 5 branches missed.">			switch (value.type) {</span>
+			case stringValue:
+<span class="nc bnc" id="L573" title="All 2 branches missed.">				v = value.stringValue.length() == 0 ? 0 : value.stringValue.charAt(0);</span>
+<span class="nc" id="L574">				break;</span>
+			case doubleValue:
+<span class="nc" id="L576">				v = (char)value.doubleValue;</span>
+<span class="nc" id="L577">				break;</span>
+			case longValue:
+<span class="nc" id="L579">				v = (char)value.longValue;</span>
+<span class="nc" id="L580">				break;</span>
+			case booleanValue:
+<span class="nc bnc" id="L582" title="All 2 branches missed.">				v = value.longValue != 0 ? (char)1 : 0;</span>
+<span class="nc" id="L583">				break;</span>
+			default:
+<span class="nc" id="L585">				throw new IllegalStateException(&quot;Value cannot be converted to char: &quot; + value.type);</span>
+			}
+<span class="nc" id="L587">			array[i] = v;</span>
+		}
+<span class="nc" id="L589">		return array;</span>
+	}
+
+	/** Returns true if a child with the specified name exists and has a child. */
+	public boolean hasChild (String name) {
+<span class="nc bnc" id="L594" title="All 2 branches missed.">		return getChild(name) != null;</span>
+	}
+
+	/** Finds the child with the specified name and returns its first child.
+	 * @return May be null. */
+	public JsonValue getChild (String name) {
+<span class="nc" id="L600">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L601" title="All 2 branches missed.">		return child == null ? null : child.child;</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a string. Returns defaultValue if not found.
+	 * @param defaultValue May be null. */
+	public String getString (String name, String defaultValue) {
+<span class="nc" id="L607">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L608" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asString();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a float. Returns defaultValue if not found. */
+	public float getFloat (String name, float defaultValue) {
+<span class="nc" id="L613">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L614" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asFloat();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a double. Returns defaultValue if not found. */
+	public double getDouble (String name, double defaultValue) {
+<span class="nc" id="L619">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L620" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asDouble();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a long. Returns defaultValue if not found. */
+	public long getLong (String name, long defaultValue) {
+<span class="nc" id="L625">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L626" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asLong();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as an int. Returns defaultValue if not found. */
+	public int getInt (String name, int defaultValue) {
+<span class="nc" id="L631">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L632" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asInt();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a boolean. Returns defaultValue if not found. */
+	public boolean getBoolean (String name, boolean defaultValue) {
+<span class="nc" id="L637">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L638" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asBoolean();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a byte. Returns defaultValue if not found. */
+	public byte getByte (String name, byte defaultValue) {
+<span class="nc" id="L643">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L644" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asByte();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a short. Returns defaultValue if not found. */
+	public short getShort (String name, short defaultValue) {
+<span class="nc" id="L649">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L650" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asShort();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a char. Returns defaultValue if not found. */
+	public char getChar (String name, char defaultValue) {
+<span class="nc" id="L655">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L656" title="All 6 branches missed.">		return (child == null || !child.isValue() || child.isNull()) ? defaultValue : child.asChar();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a string.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public String getString (String name) {
+<span class="nc" id="L662">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L663" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L664">		return child.asString();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a float.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public float getFloat (String name) {
+<span class="nc" id="L670">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L671" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L672">		return child.asFloat();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a double.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public double getDouble (String name) {
+<span class="nc" id="L678">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L679" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L680">		return child.asDouble();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a long.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public long getLong (String name) {
+<span class="nc" id="L686">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L687" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L688">		return child.asLong();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as an int.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public int getInt (String name) {
+<span class="nc" id="L694">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L695" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L696">		return child.asInt();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a boolean.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public boolean getBoolean (String name) {
+<span class="nc" id="L702">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L703" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L704">		return child.asBoolean();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a byte.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public byte getByte (String name) {
+<span class="nc" id="L710">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L711" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L712">		return child.asByte();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a short.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public short getShort (String name) {
+<span class="nc" id="L718">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L719" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L720">		return child.asShort();</span>
+	}
+
+	/** Finds the child with the specified name and returns it as a char.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public char getChar (String name) {
+<span class="nc" id="L726">		JsonValue child = get(name);</span>
+<span class="nc bnc" id="L727" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Named value not found: &quot; + name);</span>
+<span class="nc" id="L728">		return child.asChar();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a string.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public String getString (int index) {
+<span class="nc" id="L734">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L735" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L736">		return child.asString();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a float.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public float getFloat (int index) {
+<span class="nc" id="L742">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L743" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L744">		return child.asFloat();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a double.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public double getDouble (int index) {
+<span class="nc" id="L750">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L751" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L752">		return child.asDouble();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a long.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public long getLong (int index) {
+<span class="nc" id="L758">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L759" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L760">		return child.asLong();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as an int.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public int getInt (int index) {
+<span class="nc" id="L766">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L767" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L768">		return child.asInt();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a boolean.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public boolean getBoolean (int index) {
+<span class="nc" id="L774">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L775" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L776">		return child.asBoolean();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a byte.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public byte getByte (int index) {
+<span class="nc" id="L782">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L783" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L784">		return child.asByte();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a short.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public short getShort (int index) {
+<span class="nc" id="L790">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L791" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L792">		return child.asShort();</span>
+	}
+
+	/** Finds the child with the specified index and returns it as a char.
+	 * @throws IllegalArgumentException if the child was not found. */
+	public char getChar (int index) {
+<span class="nc" id="L798">		JsonValue child = get(index);</span>
+<span class="nc bnc" id="L799" title="All 2 branches missed.">		if (child == null) throw new IllegalArgumentException(&quot;Indexed value not found: &quot; + name);</span>
+<span class="nc" id="L800">		return child.asChar();</span>
+	}
+
+	public ValueType type () {
+<span class="nc" id="L804">		return type;</span>
+	}
+
+	public void setType (ValueType type) {
+<span class="nc bnc" id="L808" title="All 2 branches missed.">		if (type == null) throw new IllegalArgumentException(&quot;type cannot be null.&quot;);</span>
+<span class="nc" id="L809">		this.type = type;</span>
+<span class="nc" id="L810">	}</span>
+
+	public boolean isArray () {
+<span class="nc bnc" id="L813" title="All 2 branches missed.">		return type == ValueType.array;</span>
+	}
+
+	public boolean isObject () {
+<span class="nc bnc" id="L817" title="All 2 branches missed.">		return type == ValueType.object;</span>
+	}
+
+	public boolean isString () {
+<span class="nc bnc" id="L821" title="All 2 branches missed.">		return type == ValueType.stringValue;</span>
+	}
+
+	/** Returns true if this is a double or long value. */
+	public boolean isNumber () {
+<span class="nc bnc" id="L826" title="All 4 branches missed.">		return type == ValueType.doubleValue || type == ValueType.longValue;</span>
+	}
+
+	public boolean isDouble () {
+<span class="nc bnc" id="L830" title="All 2 branches missed.">		return type == ValueType.doubleValue;</span>
+	}
+
+	public boolean isLong () {
+<span class="nc bnc" id="L834" title="All 2 branches missed.">		return type == ValueType.longValue;</span>
+	}
+
+	public boolean isBoolean () {
+<span class="nc bnc" id="L838" title="All 2 branches missed.">		return type == ValueType.booleanValue;</span>
+	}
+
+	public boolean isNull () {
+<span class="nc bnc" id="L842" title="All 2 branches missed.">		return type == ValueType.nullValue;</span>
+	}
+
+	/** Returns true if this is not an array or object. */
+	public boolean isValue () {
+<span class="nc bnc" id="L847" title="All 2 branches missed.">		switch (type) {</span>
+		case stringValue:
+		case doubleValue:
+		case longValue:
+		case booleanValue:
+		case nullValue:
+<span class="nc" id="L853">			return true;</span>
+		}
+<span class="nc" id="L855">		return false;</span>
+	}
+
+	/** Returns the name for this object value.
+	 * @return May be null. */
+	public String name () {
+<span class="nc" id="L861">		return name;</span>
+	}
+
+	/** @param name May be null. */
+	public void setName (String name) {
+<span class="nc" id="L866">		this.name = name;</span>
+<span class="nc" id="L867">	}</span>
+
+	/** Returns the parent for this value.
+	 * @return May be null. */
+	public JsonValue parent () {
+<span class="nc" id="L872">		return parent;</span>
+	}
+
+	/** Returns the first child for this object or array.
+	 * @return May be null. */
+	public JsonValue child () {
+<span class="nc" id="L878">		return child;</span>
+	}
+
+	/** Sets the name of the specified value and adds it after the last child. */
+	public void addChild (String name, JsonValue value) {
+<span class="nc bnc" id="L883" title="All 2 branches missed.">		if (name == null) throw new IllegalArgumentException(&quot;name cannot be null.&quot;);</span>
+<span class="nc" id="L884">		value.name = name;</span>
+<span class="nc" id="L885">		addChild(value);</span>
+<span class="nc" id="L886">	}</span>
+
+	/** Adds the specified value after the last child. */
+	public void addChild (JsonValue value) {
+<span class="nc" id="L890">		value.parent = this;</span>
+<span class="nc" id="L891">		size++;</span>
+<span class="nc" id="L892">		JsonValue current = child;</span>
+<span class="nc bnc" id="L893" title="All 2 branches missed.">		if (current == null)</span>
+<span class="nc" id="L894">			child = value;</span>
+		else {
+			while (true) {
+<span class="nc bnc" id="L897" title="All 2 branches missed.">				if (current.next == null) {</span>
+<span class="nc" id="L898">					current.next = value;</span>
+<span class="nc" id="L899">					return;</span>
+				}
+<span class="nc" id="L901">				current = current.next;</span>
+			}
+		}
+<span class="nc" id="L904">	}</span>
+
+	/** Returns the next sibling of this value.
+	 * @return May be null. */
+	public JsonValue next () {
+<span class="nc" id="L909">		return next;</span>
+	}
+
+	/** Sets the next sibling of this value. Does not change the parent {@link #size()}.
+	 * @param next May be null. */
+	public void setNext (JsonValue next) {
+<span class="nc" id="L915">		this.next = next;</span>
+<span class="nc" id="L916">	}</span>
+
+	/** Returns the previous sibling of this value.
+	 * @return May be null. */
+	public JsonValue prev () {
+<span class="nc" id="L921">		return prev;</span>
+	}
+
+	/** Sets the next sibling of this value. Does not change the parent {@link #size()}.
+	 * @param prev May be null. */
+	public void setPrev (JsonValue prev) {
+<span class="nc" id="L927">		this.prev = prev;</span>
+<span class="nc" id="L928">	}</span>
+
+	/** @param value May be null. */
+	public void set (String value) {
+<span class="nc" id="L932">		stringValue = value;</span>
+<span class="nc bnc" id="L933" title="All 2 branches missed.">		type = value == null ? ValueType.nullValue : ValueType.stringValue;</span>
+<span class="nc" id="L934">	}</span>
+
+	/** @param stringValue May be null if the string representation is the string value of the double (eg, no leading zeros). */
+	public void set (double value, String stringValue) {
+<span class="nc" id="L938">		doubleValue = value;</span>
+<span class="nc" id="L939">		longValue = (long)value;</span>
+<span class="nc" id="L940">		this.stringValue = stringValue;</span>
+<span class="nc" id="L941">		type = ValueType.doubleValue;</span>
+<span class="nc" id="L942">	}</span>
+
+	/** @param stringValue May be null if the string representation is the string value of the long (eg, no leading zeros). */
+	public void set (long value, String stringValue) {
+<span class="nc" id="L946">		longValue = value;</span>
+<span class="nc" id="L947">		doubleValue = (double)value;</span>
+<span class="nc" id="L948">		this.stringValue = stringValue;</span>
+<span class="nc" id="L949">		type = ValueType.longValue;</span>
+<span class="nc" id="L950">	}</span>
+
+	public void set (boolean value) {
+<span class="nc bnc" id="L953" title="All 2 branches missed.">		longValue = value ? 1 : 0;</span>
+<span class="nc" id="L954">		type = ValueType.booleanValue;</span>
+<span class="nc" id="L955">	}</span>
+
+	public String toJson (OutputType outputType) {
+<span class="nc bnc" id="L958" title="All 2 branches missed.">		if (isValue()) return asString();</span>
+<span class="nc" id="L959">		StringBuilder buffer = new StringBuilder(512);</span>
+<span class="nc" id="L960">		json(this, buffer, outputType);</span>
+<span class="nc" id="L961">		return buffer.toString();</span>
+	}
+
+	private void json (JsonValue object, StringBuilder buffer, OutputType outputType) {
+<span class="nc bnc" id="L965" title="All 2 branches missed.">		if (object.isObject()) {</span>
+<span class="nc bnc" id="L966" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L967">				buffer.append(&quot;{}&quot;);</span>
+			else {
+<span class="nc" id="L969">				int start = buffer.length();</span>
+				while (true) {
+<span class="nc" id="L971">					buffer.append('{');</span>
+<span class="nc" id="L972">					int i = 0;</span>
+<span class="nc bnc" id="L973" title="All 2 branches missed.">					for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc" id="L974">						buffer.append(outputType.quoteName(child.name));</span>
+<span class="nc" id="L975">						buffer.append(':');</span>
+<span class="nc" id="L976">						json(child, buffer, outputType);</span>
+<span class="nc bnc" id="L977" title="All 2 branches missed.">						if (child.next != null) buffer.append(',');</span>
+					}
+<span class="nc" id="L979">					break;</span>
+				}
+<span class="nc" id="L981">				buffer.append('}');</span>
+<span class="nc" id="L982">			}</span>
+<span class="nc bnc" id="L983" title="All 2 branches missed.">		} else if (object.isArray()) {</span>
+<span class="nc bnc" id="L984" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L985">				buffer.append(&quot;[]&quot;);</span>
+			else {
+<span class="nc" id="L987">				int start = buffer.length();</span>
+				while (true) {
+<span class="nc" id="L989">					buffer.append('[');</span>
+<span class="nc bnc" id="L990" title="All 2 branches missed.">					for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc" id="L991">						json(child, buffer, outputType);</span>
+<span class="nc bnc" id="L992" title="All 2 branches missed.">						if (child.next != null) buffer.append(',');</span>
+					}
+					break;
+				}
+<span class="nc" id="L996">				buffer.append(']');</span>
+<span class="nc" id="L997">			}</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">		} else if (object.isString()) {</span>
+<span class="nc" id="L999">			buffer.append(outputType.quoteValue(object.asString()));</span>
+<span class="nc bnc" id="L1000" title="All 2 branches missed.">		} else if (object.isDouble()) {</span>
+<span class="nc" id="L1001">			double doubleValue = object.asDouble();</span>
+<span class="nc" id="L1002">			long longValue = object.asLong();</span>
+<span class="nc bnc" id="L1003" title="All 2 branches missed.">			buffer.append(doubleValue == longValue ? longValue : doubleValue);</span>
+<span class="nc bnc" id="L1004" title="All 2 branches missed.">		} else if (object.isLong()) {</span>
+<span class="nc" id="L1005">			buffer.append(object.asLong());</span>
+<span class="nc bnc" id="L1006" title="All 2 branches missed.">		} else if (object.isBoolean()) {</span>
+<span class="nc" id="L1007">			buffer.append(object.asBoolean());</span>
+<span class="nc bnc" id="L1008" title="All 2 branches missed.">		} else if (object.isNull()) {</span>
+<span class="nc" id="L1009">			buffer.append(&quot;null&quot;);</span>
+		} else
+<span class="nc" id="L1011">			throw new SerializationException(&quot;Unknown object type: &quot; + object);</span>
+<span class="nc" id="L1012">	}</span>
+
+	public JsonIterator iterator () {
+<span class="nc" id="L1015">		return new JsonIterator();</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L1019" title="All 4 branches missed.">		if (isValue()) return name == null ? asString() : name + &quot;: &quot; + asString();</span>
+<span class="nc bnc" id="L1020" title="All 2 branches missed.">		return (name == null ? &quot;&quot; : name + &quot;: &quot;) + prettyPrint(OutputType.minimal, 0);</span>
+	}
+
+	/** Returns a human readable string representing the path from the root of the JSON object graph to this value. */
+	public String trace () {
+<span class="nc bnc" id="L1025" title="All 2 branches missed.">		if (parent == null) {</span>
+<span class="nc bnc" id="L1026" title="All 2 branches missed.">			if (type == ValueType.array) return &quot;[]&quot;;</span>
+<span class="nc bnc" id="L1027" title="All 2 branches missed.">			if (type == ValueType.object) return &quot;{}&quot;;</span>
+<span class="nc" id="L1028">			return &quot;&quot;;</span>
+		}
+		String trace;
+<span class="nc bnc" id="L1031" title="All 2 branches missed.">		if (parent.type == ValueType.array) {</span>
+<span class="nc" id="L1032">			trace = &quot;[]&quot;;</span>
+<span class="nc" id="L1033">			int i = 0;</span>
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">			for (JsonValue child = parent.child; child != null; child = child.next, i++) {</span>
+<span class="nc bnc" id="L1035" title="All 2 branches missed.">				if (child == this) {</span>
+<span class="nc" id="L1036">					trace = &quot;[&quot; + i + &quot;]&quot;;</span>
+<span class="nc" id="L1037">					break;</span>
+				}
+			}
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">		} else if (name.indexOf('.') != -1)</span>
+<span class="nc" id="L1041">			trace = &quot;.\&quot;&quot; + name.replace(&quot;\&quot;&quot;, &quot;\\\&quot;&quot;) + &quot;\&quot;&quot;;</span>
+		else
+<span class="nc" id="L1043">			trace = '.' + name;</span>
+<span class="nc" id="L1044">		return parent.trace() + trace;</span>
+	}
+
+	public String prettyPrint (OutputType outputType, int singleLineColumns) {
+<span class="nc" id="L1048">		PrettyPrintSettings settings = new PrettyPrintSettings();</span>
+<span class="nc" id="L1049">		settings.outputType = outputType;</span>
+<span class="nc" id="L1050">		settings.singleLineColumns = singleLineColumns;</span>
+<span class="nc" id="L1051">		return prettyPrint(settings);</span>
+	}
+
+	public String prettyPrint (PrettyPrintSettings settings) {
+<span class="nc" id="L1055">		StringBuilder buffer = new StringBuilder(512);</span>
+<span class="nc" id="L1056">		prettyPrint(this, buffer, 0, settings);</span>
+<span class="nc" id="L1057">		return buffer.toString();</span>
+	}
+
+	private void prettyPrint (JsonValue object, StringBuilder buffer, int indent, PrettyPrintSettings settings) {
+<span class="nc" id="L1061">		OutputType outputType = settings.outputType;</span>
+<span class="nc bnc" id="L1062" title="All 2 branches missed.">		if (object.isObject()) {</span>
+<span class="nc bnc" id="L1063" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L1064">				buffer.append(&quot;{}&quot;);</span>
+			else {
+<span class="nc bnc" id="L1066" title="All 2 branches missed.">				boolean newLines = !isFlat(object);</span>
+<span class="nc" id="L1067">				int start = buffer.length();</span>
+				outer:
+				while (true) {
+<span class="nc bnc" id="L1070" title="All 2 branches missed.">					buffer.append(newLines ? &quot;{\n&quot; : &quot;{ &quot;);</span>
+<span class="nc" id="L1071">					int i = 0;</span>
+<span class="nc bnc" id="L1072" title="All 2 branches missed.">					for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc bnc" id="L1073" title="All 2 branches missed.">						if (newLines) indent(indent, buffer);</span>
+<span class="nc" id="L1074">						buffer.append(outputType.quoteName(child.name));</span>
+<span class="nc" id="L1075">						buffer.append(&quot;: &quot;);</span>
+<span class="nc" id="L1076">						prettyPrint(child, buffer, indent + 1, settings);</span>
+<span class="nc bnc" id="L1077" title="All 6 branches missed.">						if ((!newLines || outputType != OutputType.minimal) &amp;&amp; child.next != null) buffer.append(',');</span>
+<span class="nc bnc" id="L1078" title="All 2 branches missed.">						buffer.append(newLines ? '\n' : ' ');</span>
+<span class="nc bnc" id="L1079" title="All 4 branches missed.">						if (!newLines &amp;&amp; buffer.length() - start &gt; settings.singleLineColumns) {</span>
+<span class="nc" id="L1080">							buffer.setLength(start);</span>
+<span class="nc" id="L1081">							newLines = true;</span>
+<span class="nc" id="L1082">							continue outer;</span>
+						}
+					}
+<span class="nc" id="L1085">					break;</span>
+				}
+<span class="nc bnc" id="L1087" title="All 2 branches missed.">				if (newLines) indent(indent - 1, buffer);</span>
+<span class="nc" id="L1088">				buffer.append('}');</span>
+<span class="nc" id="L1089">			}</span>
+<span class="nc bnc" id="L1090" title="All 2 branches missed.">		} else if (object.isArray()) {</span>
+<span class="nc bnc" id="L1091" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L1092">				buffer.append(&quot;[]&quot;);</span>
+			else {
+<span class="nc bnc" id="L1094" title="All 2 branches missed.">				boolean newLines = !isFlat(object);</span>
+<span class="nc bnc" id="L1095" title="All 4 branches missed.">				boolean wrap = settings.wrapNumericArrays || !isNumeric(object);</span>
+<span class="nc" id="L1096">				int start = buffer.length();</span>
+				outer:
+				while (true) {
+<span class="nc bnc" id="L1099" title="All 2 branches missed.">					buffer.append(newLines ? &quot;[\n&quot; : &quot;[ &quot;);</span>
+<span class="nc bnc" id="L1100" title="All 2 branches missed.">					for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc bnc" id="L1101" title="All 2 branches missed.">						if (newLines) indent(indent, buffer);</span>
+<span class="nc" id="L1102">						prettyPrint(child, buffer, indent + 1, settings);</span>
+<span class="nc bnc" id="L1103" title="All 6 branches missed.">						if ((!newLines || outputType != OutputType.minimal) &amp;&amp; child.next != null) buffer.append(',');</span>
+<span class="nc bnc" id="L1104" title="All 2 branches missed.">						buffer.append(newLines ? '\n' : ' ');</span>
+<span class="nc bnc" id="L1105" title="All 6 branches missed.">						if (wrap &amp;&amp; !newLines &amp;&amp; buffer.length() - start &gt; settings.singleLineColumns) {</span>
+<span class="nc" id="L1106">							buffer.setLength(start);</span>
+<span class="nc" id="L1107">							newLines = true;</span>
+<span class="nc" id="L1108">							continue outer;</span>
+						}
+					}
+<span class="nc" id="L1111">					break;</span>
+				}
+<span class="nc bnc" id="L1113" title="All 2 branches missed.">				if (newLines) indent(indent - 1, buffer);</span>
+<span class="nc" id="L1114">				buffer.append(']');</span>
+<span class="nc" id="L1115">			}</span>
+<span class="nc bnc" id="L1116" title="All 2 branches missed.">		} else if (object.isString()) {</span>
+<span class="nc" id="L1117">			buffer.append(outputType.quoteValue(object.asString()));</span>
+<span class="nc bnc" id="L1118" title="All 2 branches missed.">		} else if (object.isDouble()) {</span>
+<span class="nc" id="L1119">			double doubleValue = object.asDouble();</span>
+<span class="nc" id="L1120">			long longValue = object.asLong();</span>
+<span class="nc bnc" id="L1121" title="All 2 branches missed.">			buffer.append(doubleValue == longValue ? longValue : doubleValue);</span>
+<span class="nc bnc" id="L1122" title="All 2 branches missed.">		} else if (object.isLong()) {</span>
+<span class="nc" id="L1123">			buffer.append(object.asLong());</span>
+<span class="nc bnc" id="L1124" title="All 2 branches missed.">		} else if (object.isBoolean()) {</span>
+<span class="nc" id="L1125">			buffer.append(object.asBoolean());</span>
+<span class="nc bnc" id="L1126" title="All 2 branches missed.">		} else if (object.isNull()) {</span>
+<span class="nc" id="L1127">			buffer.append(&quot;null&quot;);</span>
+		} else
+<span class="nc" id="L1129">			throw new SerializationException(&quot;Unknown object type: &quot; + object);</span>
+<span class="nc" id="L1130">	}</span>
+
+	/** More efficient than {@link #prettyPrint(PrettyPrintSettings)} but {@link PrettyPrintSettings#singleLineColumns} and
+	 * {@link PrettyPrintSettings#wrapNumericArrays} are not supported. */
+	public void prettyPrint (OutputType outputType, Writer writer) throws IOException {
+<span class="nc" id="L1135">		PrettyPrintSettings settings = new PrettyPrintSettings();</span>
+<span class="nc" id="L1136">		settings.outputType = outputType;</span>
+<span class="nc" id="L1137">		prettyPrint(this, writer, 0, settings);</span>
+<span class="nc" id="L1138">	}</span>
+
+	private void prettyPrint (JsonValue object, Writer writer, int indent, PrettyPrintSettings settings) throws IOException {
+<span class="nc" id="L1141">		OutputType outputType = settings.outputType;</span>
+<span class="nc bnc" id="L1142" title="All 2 branches missed.">		if (object.isObject()) {</span>
+<span class="nc bnc" id="L1143" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L1144">				writer.append(&quot;{}&quot;);</span>
+			else {
+<span class="nc bnc" id="L1146" title="All 4 branches missed.">				boolean newLines = !isFlat(object) || object.size &gt; 6;</span>
+<span class="nc bnc" id="L1147" title="All 2 branches missed.">				writer.append(newLines ? &quot;{\n&quot; : &quot;{ &quot;);</span>
+<span class="nc" id="L1148">				int i = 0;</span>
+<span class="nc bnc" id="L1149" title="All 2 branches missed.">				for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc bnc" id="L1150" title="All 2 branches missed.">					if (newLines) indent(indent, writer);</span>
+<span class="nc" id="L1151">					writer.append(outputType.quoteName(child.name));</span>
+<span class="nc" id="L1152">					writer.append(&quot;: &quot;);</span>
+<span class="nc" id="L1153">					prettyPrint(child, writer, indent + 1, settings);</span>
+<span class="nc bnc" id="L1154" title="All 6 branches missed.">					if ((!newLines || outputType != OutputType.minimal) &amp;&amp; child.next != null) writer.append(',');</span>
+<span class="nc bnc" id="L1155" title="All 2 branches missed.">					writer.append(newLines ? '\n' : ' ');</span>
+				}
+<span class="nc bnc" id="L1157" title="All 2 branches missed.">				if (newLines) indent(indent - 1, writer);</span>
+<span class="nc" id="L1158">				writer.append('}');</span>
+<span class="nc" id="L1159">			}</span>
+<span class="nc bnc" id="L1160" title="All 2 branches missed.">		} else if (object.isArray()) {</span>
+<span class="nc bnc" id="L1161" title="All 2 branches missed.">			if (object.child == null)</span>
+<span class="nc" id="L1162">				writer.append(&quot;[]&quot;);</span>
+			else {
+<span class="nc bnc" id="L1164" title="All 2 branches missed.">				boolean newLines = !isFlat(object);</span>
+<span class="nc bnc" id="L1165" title="All 2 branches missed.">				writer.append(newLines ? &quot;[\n&quot; : &quot;[ &quot;);</span>
+<span class="nc" id="L1166">				int i = 0;</span>
+<span class="nc bnc" id="L1167" title="All 2 branches missed.">				for (JsonValue child = object.child; child != null; child = child.next) {</span>
+<span class="nc bnc" id="L1168" title="All 2 branches missed.">					if (newLines) indent(indent, writer);</span>
+<span class="nc" id="L1169">					prettyPrint(child, writer, indent + 1, settings);</span>
+<span class="nc bnc" id="L1170" title="All 6 branches missed.">					if ((!newLines || outputType != OutputType.minimal) &amp;&amp; child.next != null) writer.append(',');</span>
+<span class="nc bnc" id="L1171" title="All 2 branches missed.">					writer.append(newLines ? '\n' : ' ');</span>
+				}
+<span class="nc bnc" id="L1173" title="All 2 branches missed.">				if (newLines) indent(indent - 1, writer);</span>
+<span class="nc" id="L1174">				writer.append(']');</span>
+<span class="nc" id="L1175">			}</span>
+<span class="nc bnc" id="L1176" title="All 2 branches missed.">		} else if (object.isString()) {</span>
+<span class="nc" id="L1177">			writer.append(outputType.quoteValue(object.asString()));</span>
+<span class="nc bnc" id="L1178" title="All 2 branches missed.">		} else if (object.isDouble()) {</span>
+<span class="nc" id="L1179">			double doubleValue = object.asDouble();</span>
+<span class="nc" id="L1180">			long longValue = object.asLong();</span>
+<span class="nc bnc" id="L1181" title="All 2 branches missed.">			writer.append(Double.toString(doubleValue == longValue ? longValue : doubleValue));</span>
+<span class="nc bnc" id="L1182" title="All 2 branches missed.">		} else if (object.isLong()) {</span>
+<span class="nc" id="L1183">			writer.append(Long.toString(object.asLong()));</span>
+<span class="nc bnc" id="L1184" title="All 2 branches missed.">		} else if (object.isBoolean()) {</span>
+<span class="nc" id="L1185">			writer.append(Boolean.toString(object.asBoolean()));</span>
+<span class="nc bnc" id="L1186" title="All 2 branches missed.">		} else if (object.isNull()) {</span>
+<span class="nc" id="L1187">			writer.append(&quot;null&quot;);</span>
+		} else
+<span class="nc" id="L1189">			throw new SerializationException(&quot;Unknown object type: &quot; + object);</span>
+<span class="nc" id="L1190">	}</span>
+
+	static private boolean isFlat (JsonValue object) {
+<span class="nc bnc" id="L1193" title="All 2 branches missed.">		for (JsonValue child = object.child; child != null; child = child.next)</span>
+<span class="nc bnc" id="L1194" title="All 4 branches missed.">			if (child.isObject() || child.isArray()) return false;</span>
+<span class="nc" id="L1195">		return true;</span>
+	}
+
+	static private boolean isNumeric (JsonValue object) {
+<span class="nc bnc" id="L1199" title="All 2 branches missed.">		for (JsonValue child = object.child; child != null; child = child.next)</span>
+<span class="nc bnc" id="L1200" title="All 2 branches missed.">			if (!child.isNumber()) return false;</span>
+<span class="nc" id="L1201">		return true;</span>
+	}
+
+	static private void indent (int count, StringBuilder buffer) {
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">		for (int i = 0; i &lt; count; i++)</span>
+<span class="nc" id="L1206">			buffer.append('\t');</span>
+<span class="nc" id="L1207">	}</span>
+
+	static private void indent (int count, Writer buffer) throws IOException {
+<span class="nc bnc" id="L1210" title="All 2 branches missed.">		for (int i = 0; i &lt; count; i++)</span>
+<span class="nc" id="L1211">			buffer.append('\t');</span>
+<span class="nc" id="L1212">	}</span>
+
+<span class="nc" id="L1214">	public class JsonIterator implements Iterator&lt;JsonValue&gt;, Iterable&lt;JsonValue&gt; {</span>
+<span class="nc" id="L1215">		JsonValue entry = child;</span>
+		JsonValue current;
+
+		public boolean hasNext () {
+<span class="nc bnc" id="L1219" title="All 2 branches missed.">			return entry != null;</span>
+		}
+
+		public JsonValue next () {
+<span class="nc" id="L1223">			current = entry;</span>
+<span class="nc bnc" id="L1224" title="All 2 branches missed.">			if (current == null) throw new NoSuchElementException();</span>
+<span class="nc" id="L1225">			entry = current.next;</span>
+<span class="nc" id="L1226">			return current;</span>
+		}
+
+		public void remove () {
+<span class="nc bnc" id="L1230" title="All 2 branches missed.">			if (current.prev == null) {</span>
+<span class="nc" id="L1231">				child = current.next;</span>
+<span class="nc bnc" id="L1232" title="All 2 branches missed.">				if (child != null) child.prev = null;</span>
+			} else {
+<span class="nc" id="L1234">				current.prev.next = current.next;</span>
+<span class="nc bnc" id="L1235" title="All 2 branches missed.">				if (current.next != null) current.next.prev = current.prev;</span>
+			}
+<span class="nc" id="L1237">			size--;</span>
+<span class="nc" id="L1238">		}</span>
+
+		public Iterator&lt;JsonValue&gt; iterator () {
+<span class="nc" id="L1241">			return this;</span>
+		}
+	}
+
+<span class="nc" id="L1245">	public enum ValueType {</span>
+<span class="nc" id="L1246">		object, array, stringValue, doubleValue, longValue, booleanValue, nullValue</span>
+	}
+
+<span class="nc" id="L1249">	static public class PrettyPrintSettings {</span>
+		public OutputType outputType;
+
+		/** If an object on a single line fits this many columns, it won't wrap. */
+		public int singleLineColumns;
+
+		/** Arrays of floats won't wrap. */
+		public boolean wrapNumericArrays;
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

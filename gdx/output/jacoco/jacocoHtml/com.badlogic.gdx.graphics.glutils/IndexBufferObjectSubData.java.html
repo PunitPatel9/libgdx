@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IndexBufferObjectSubData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.glutils</a> &gt; <span class="el_source">IndexBufferObjectSubData.java</span></div><h1>IndexBufferObjectSubData.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.glutils;
+
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.utils.BufferUtils;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** &lt;p&gt;
+ * IndexBufferObject wraps OpenGL's index buffer functionality to be used in conjunction with VBOs. 
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * You can also use this to store indices for vertex arrays. Do not call {@link #bind()} or {@link #unbind()} in this case but
+ * rather use {@link #getBuffer()} to use the buffer directly with glDrawElements. You must also create the IndexBufferObject with
+ * the second constructor and specify isDirect as true as glDrawElements in conjunction with vertex arrays needs direct buffers.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * VertexBufferObjects must be disposed via the {@link #dispose()} method when no longer needed
+ * &lt;/p&gt;
+ * 
+ * @author mzechner */
+public class IndexBufferObjectSubData implements IndexData {
+	final ShortBuffer buffer;
+	final ByteBuffer byteBuffer;
+	int bufferHandle;
+	final boolean isDirect;
+<span class="nc" id="L47">	boolean isDirty = true;</span>
+<span class="nc" id="L48">	boolean isBound = false;</span>
+	final int usage;
+
+	/** Creates a new IndexBufferObject.
+	 * 
+	 * @param isStatic whether the index buffer is static
+	 * @param maxIndices the maximum number of indices this buffer can hold */
+<span class="nc" id="L55">	public IndexBufferObjectSubData (boolean isStatic, int maxIndices) {</span>
+<span class="nc" id="L56">		byteBuffer = BufferUtils.newByteBuffer(maxIndices * 2);</span>
+<span class="nc" id="L57">		isDirect = true;</span>
+
+<span class="nc bnc" id="L59" title="All 2 branches missed.">		usage = isStatic ? GL20.GL_STATIC_DRAW : GL20.GL_DYNAMIC_DRAW;</span>
+<span class="nc" id="L60">		buffer = byteBuffer.asShortBuffer();</span>
+<span class="nc" id="L61">		buffer.flip();</span>
+<span class="nc" id="L62">		byteBuffer.flip();</span>
+<span class="nc" id="L63">		bufferHandle = createBufferObject();</span>
+<span class="nc" id="L64">	}</span>
+
+	/** Creates a new IndexBufferObject to be used with vertex arrays.
+	 * 
+	 * @param maxIndices the maximum number of indices this buffer can hold */
+<span class="nc" id="L69">	public IndexBufferObjectSubData (int maxIndices) {</span>
+<span class="nc" id="L70">		byteBuffer = BufferUtils.newByteBuffer(maxIndices * 2);</span>
+<span class="nc" id="L71">		this.isDirect = true;</span>
+
+<span class="nc" id="L73">		usage = GL20.GL_STATIC_DRAW;</span>
+<span class="nc" id="L74">		buffer = byteBuffer.asShortBuffer();</span>
+<span class="nc" id="L75">		buffer.flip();</span>
+<span class="nc" id="L76">		byteBuffer.flip();</span>
+<span class="nc" id="L77">		bufferHandle = createBufferObject();</span>
+<span class="nc" id="L78">	}</span>
+
+	private int createBufferObject () {
+<span class="nc" id="L81">		int result = Gdx.gl20.glGenBuffer();</span>
+<span class="nc" id="L82">		Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, result);</span>
+<span class="nc" id="L83">		Gdx.gl20.glBufferData(GL20.GL_ELEMENT_ARRAY_BUFFER, byteBuffer.capacity(), null, usage);</span>
+<span class="nc" id="L84">		Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L85">		return result;</span>
+	}
+
+	/** @return the number of indices currently stored in this buffer */
+	public int getNumIndices () {
+<span class="nc" id="L90">		return buffer.limit();</span>
+	}
+
+	/** @return the maximum number of indices this IndexBufferObject can store. */
+	public int getNumMaxIndices () {
+<span class="nc" id="L95">		return buffer.capacity();</span>
+	}
+
+	/** &lt;p&gt;
+	 * Sets the indices of this IndexBufferObject, discarding the old indices. The count must equal the number of indices to be
+	 * copied to this IndexBufferObject.
+	 * &lt;/p&gt;
+	 * 
+	 * &lt;p&gt;
+	 * This can be called in between calls to {@link #bind()} and {@link #unbind()}. The index data will be updated instantly.
+	 * &lt;/p&gt;
+	 * 
+	 * @param indices the vertex data
+	 * @param offset the offset to start copying the data from
+	 * @param count the number of floats to copy */
+	public void setIndices (short[] indices, int offset, int count) {
+<span class="nc" id="L111">		isDirty = true;</span>
+<span class="nc" id="L112">		buffer.clear();</span>
+<span class="nc" id="L113">		buffer.put(indices, offset, count);</span>
+<span class="nc" id="L114">		buffer.flip();</span>
+<span class="nc" id="L115">		byteBuffer.position(0);</span>
+<span class="nc" id="L116">		byteBuffer.limit(count &lt;&lt; 1);</span>
+
+<span class="nc bnc" id="L118" title="All 2 branches missed.">		if (isBound) {</span>
+<span class="nc" id="L119">			Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, byteBuffer.limit(), byteBuffer);</span>
+<span class="nc" id="L120">			isDirty = false;</span>
+		}
+<span class="nc" id="L122">	}</span>
+
+	public void setIndices (ShortBuffer indices) {
+<span class="nc" id="L125">		int pos = indices.position();</span>
+<span class="nc" id="L126">		isDirty = true;</span>
+<span class="nc" id="L127">		buffer.clear();</span>
+<span class="nc" id="L128">		buffer.put(indices);</span>
+<span class="nc" id="L129">		buffer.flip();</span>
+<span class="nc" id="L130">		indices.position(pos);</span>
+<span class="nc" id="L131">		byteBuffer.position(0);</span>
+<span class="nc" id="L132">		byteBuffer.limit(buffer.limit() &lt;&lt; 1);</span>
+		
+<span class="nc bnc" id="L134" title="All 2 branches missed.">		if (isBound) {</span>
+<span class="nc" id="L135">			Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, byteBuffer.limit(), byteBuffer);</span>
+<span class="nc" id="L136">			isDirty = false;</span>
+		}
+<span class="nc" id="L138">	}</span>
+
+	@Override
+	public void updateIndices (int targetOffset, short[] indices, int offset, int count) {
+<span class="nc" id="L142">		isDirty = true;</span>
+<span class="nc" id="L143">		final int pos = byteBuffer.position();</span>
+<span class="nc" id="L144">		byteBuffer.position(targetOffset * 2);</span>
+<span class="nc" id="L145">		BufferUtils.copy(indices, offset, byteBuffer, count);</span>
+<span class="nc" id="L146">		byteBuffer.position(pos);</span>
+<span class="nc" id="L147">		buffer.position(0);</span>
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">		if (isBound) {</span>
+<span class="nc" id="L150">			Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, byteBuffer.limit(), byteBuffer);</span>
+<span class="nc" id="L151">			isDirty = false;</span>
+		}
+<span class="nc" id="L153">	}</span>
+
+	
+	/** &lt;p&gt;
+	 * Returns the underlying ShortBuffer. If you modify the buffer contents they wil be uploaded on the call to {@link #bind()}.
+	 * If you need immediate uploading use {@link #setIndices(short[], int, int)}.
+	 * &lt;/p&gt;
+	 * 
+	 * @return the underlying short buffer. */
+	public ShortBuffer getBuffer () {
+<span class="nc" id="L163">		isDirty = true;</span>
+<span class="nc" id="L164">		return buffer;</span>
+	}
+
+	/** Binds this IndexBufferObject for rendering with glDrawElements. */
+	public void bind () {
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (bufferHandle == 0) throw new GdxRuntimeException(&quot;IndexBufferObject cannot be used after it has been disposed.&quot;);</span>
+
+<span class="nc" id="L171">		Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, bufferHandle);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		if (isDirty) {</span>
+<span class="nc" id="L173">			byteBuffer.limit(buffer.limit() * 2);</span>
+<span class="nc" id="L174">			Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, byteBuffer.limit(), byteBuffer);</span>
+<span class="nc" id="L175">			isDirty = false;</span>
+		}
+<span class="nc" id="L177">		isBound = true;</span>
+<span class="nc" id="L178">	}</span>
+
+	/** Unbinds this IndexBufferObject. */
+	public void unbind () {
+<span class="nc" id="L182">		Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L183">		isBound = false;</span>
+<span class="nc" id="L184">	}</span>
+
+	/** Invalidates the IndexBufferObject so a new OpenGL buffer handle is created. Use this in case of a context loss. */
+	public void invalidate () {
+<span class="nc" id="L188">		bufferHandle = createBufferObject();</span>
+<span class="nc" id="L189">		isDirty = true;</span>
+<span class="nc" id="L190">	}</span>
+
+	/** Disposes this IndexBufferObject and all its associated OpenGL resources. */
+	public void dispose () {
+<span class="nc" id="L194">		GL20 gl = Gdx.gl20;</span>
+<span class="nc" id="L195">		gl.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, 0);</span>
+<span class="nc" id="L196">		gl.glDeleteBuffer(bufferHandle);</span>
+<span class="nc" id="L197">		bufferHandle = 0;</span>
+<span class="nc" id="L198">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

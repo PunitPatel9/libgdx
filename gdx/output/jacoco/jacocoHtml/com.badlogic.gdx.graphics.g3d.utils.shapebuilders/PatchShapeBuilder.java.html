@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PatchShapeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.utils.shapebuilders</a> &gt; <span class="el_source">PatchShapeBuilder.java</span></div><h1>PatchShapeBuilder.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.utils.shapebuilders;
+
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder.VertexInfo;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** Helper class with static methods to build patch shapes using {@link MeshPartBuilder}.
+ * @author xoppa */
+<span class="nc" id="L26">public class PatchShapeBuilder extends BaseShapeBuilder {</span>
+	/** Build a patch shape. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, VertexInfo corner00, VertexInfo corner10, VertexInfo corner11, VertexInfo corner01, int divisionsU,
+		int divisionsV) {
+<span class="nc bnc" id="L30" title="All 4 branches missed.">		if (divisionsU &lt; 1 || divisionsV &lt; 1) {</span>
+<span class="nc" id="L31">			throw new GdxRuntimeException(&quot;divisionsU and divisionV must be &gt; 0, u,v: &quot; + divisionsU + &quot;, &quot; + divisionsV);</span>
+		}
+<span class="nc" id="L33">		builder.ensureVertices((divisionsV + 1) * (divisionsU + 1));</span>
+<span class="nc" id="L34">		builder.ensureRectangleIndices(divisionsV * divisionsU);</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">		for (int u = 0; u &lt;= divisionsU; u++) {</span>
+<span class="nc" id="L36">			final float alphaU = (float)u / (float)divisionsU;</span>
+<span class="nc" id="L37">			vertTmp5.set(corner00).lerp(corner10, alphaU);</span>
+<span class="nc" id="L38">			vertTmp6.set(corner01).lerp(corner11, alphaU);</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">			for (int v = 0; v &lt;= divisionsV; v++) {</span>
+<span class="nc" id="L40">				final short idx = builder.vertex(vertTmp7.set(vertTmp5).lerp(vertTmp6, (float)v / (float)divisionsV));</span>
+<span class="nc bnc" id="L41" title="All 4 branches missed.">				if (u &gt; 0 &amp;&amp; v &gt; 0) builder.rect((short)(idx - divisionsV - 2), (short)(idx - 1), idx, (short)(idx - divisionsV - 1));</span>
+			}
+		}
+<span class="nc" id="L44">	}</span>
+
+	/** Build a patch shape. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, Vector3 corner00, Vector3 corner10, Vector3 corner11, Vector3 corner01, Vector3 normal, int divisionsU,
+		int divisionsV) {
+<span class="nc" id="L49">		build(builder, vertTmp1.set(corner00, normal, null, null).setUV(0f, 1f), vertTmp2.set(corner10, normal, null, null).setUV(1f, 1f),</span>
+<span class="nc" id="L50">			vertTmp3.set(corner11, normal, null, null).setUV(1f, 0f), vertTmp4.set(corner01, normal, null, null).setUV(0f, 0f),</span>
+			divisionsU, divisionsV);
+<span class="nc" id="L52">	}</span>
+
+	/** Build a patch shape. Requires GL_POINTS, GL_LINES or GL_TRIANGLES primitive type. */
+	public static void build (MeshPartBuilder builder, float x00, float y00, float z00, float x10, float y10, float z10, float x11, float y11, float z11,
+		float x01, float y01, float z01, float normalX, float normalY, float normalZ, int divisionsU, int divisionsV) {
+<span class="nc" id="L57">		build(builder, vertTmp1.set(null).setPos(x00, y00, z00).setNor(normalX, normalY, normalZ).setUV(0f, 1f),</span>
+<span class="nc" id="L58">			vertTmp2.set(null).setPos(x10, y10, z10).setNor(normalX, normalY, normalZ).setUV(1f, 1f),</span>
+<span class="nc" id="L59">			vertTmp3.set(null).setPos(x11, y11, z11).setNor(normalX, normalY, normalZ).setUV(1f, 0f),</span>
+<span class="nc" id="L60">			vertTmp4.set(null).setPos(x01, y01, z01).setNor(normalX, normalY, normalZ).setUV(0f, 0f), divisionsU, divisionsV);</span>
+<span class="nc" id="L61">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScaledNumericValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.values</a> &gt; <span class="el_source">ScaledNumericValue.java</span></div><h1>ScaledNumericValue.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.values;
+
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** A value which has a defined minimum and maximum upper and lower bounds. Defines the variations of the value on a time line.
+ * @author Inferno */
+<span class="nc" id="L25">public class ScaledNumericValue extends RangedNumericValue {</span>
+<span class="nc" id="L26">	private float[] scaling = {1};</span>
+<span class="nc" id="L27">	public float[] timeline = {0};</span>
+	private float highMin, highMax;
+<span class="nc" id="L29">	private boolean relative = false;</span>
+
+	public float newHighValue () {
+<span class="nc" id="L32">		return highMin + (highMax - highMin) * MathUtils.random();</span>
+	}
+
+	public void setHigh (float value) {
+<span class="nc" id="L36">		highMin = value;</span>
+<span class="nc" id="L37">		highMax = value;</span>
+<span class="nc" id="L38">	}</span>
+
+	public void setHigh (float min, float max) {
+<span class="nc" id="L41">		highMin = min;</span>
+<span class="nc" id="L42">		highMax = max;</span>
+<span class="nc" id="L43">	}</span>
+
+	public float getHighMin () {
+<span class="nc" id="L46">		return highMin;</span>
+	}
+
+	public void setHighMin (float highMin) {
+<span class="nc" id="L50">		this.highMin = highMin;</span>
+<span class="nc" id="L51">	}</span>
+
+	public float getHighMax () {
+<span class="nc" id="L54">		return highMax;</span>
+	}
+
+	public void setHighMax (float highMax) {
+<span class="nc" id="L58">		this.highMax = highMax;</span>
+<span class="nc" id="L59">	}</span>
+
+	public float[] getScaling () {
+<span class="nc" id="L62">		return scaling;</span>
+	}
+
+	public void setScaling (float[] values) {
+<span class="nc" id="L66">		this.scaling = values;</span>
+<span class="nc" id="L67">	}</span>
+
+	public float[] getTimeline () {
+<span class="nc" id="L70">		return timeline;</span>
+	}
+
+	public void setTimeline (float[] timeline) {
+<span class="nc" id="L74">		this.timeline = timeline;</span>
+<span class="nc" id="L75">	}</span>
+
+	public boolean isRelative () {
+<span class="nc" id="L78">		return relative;</span>
+	}
+
+	public void setRelative (boolean relative) {
+<span class="nc" id="L82">		this.relative = relative;</span>
+<span class="nc" id="L83">	}</span>
+
+	public float getScale (float percent) {
+<span class="nc" id="L86">		int endIndex = -1;</span>
+<span class="nc" id="L87">		int n = timeline.length;</span>
+		// if (percent &gt;= timeline[n-1])
+		// return scaling[n - 1];
+<span class="nc bnc" id="L90" title="All 2 branches missed.">		for (int i = 1; i &lt; n; i++) {</span>
+<span class="nc" id="L91">			float t = timeline[i];</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">			if (t &gt; percent) {</span>
+<span class="nc" id="L93">				endIndex = i;</span>
+<span class="nc" id="L94">				break;</span>
+			}
+		}
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		if (endIndex == -1) return scaling[n - 1];</span>
+<span class="nc" id="L98">		int startIndex = endIndex - 1;</span>
+<span class="nc" id="L99">		float startValue = scaling[startIndex];</span>
+<span class="nc" id="L100">		float startTime = timeline[startIndex];</span>
+<span class="nc" id="L101">		return startValue + (scaling[endIndex] - startValue) * ((percent - startTime) / (timeline[endIndex] - startTime));</span>
+	}
+
+	public void load (ScaledNumericValue value) {
+<span class="nc" id="L105">		super.load(value);</span>
+<span class="nc" id="L106">		highMax = value.highMax;</span>
+<span class="nc" id="L107">		highMin = value.highMin;</span>
+<span class="nc" id="L108">		scaling = new float[value.scaling.length];</span>
+<span class="nc" id="L109">		System.arraycopy(value.scaling, 0, scaling, 0, scaling.length);</span>
+<span class="nc" id="L110">		timeline = new float[value.timeline.length];</span>
+<span class="nc" id="L111">		System.arraycopy(value.timeline, 0, timeline, 0, timeline.length);</span>
+<span class="nc" id="L112">		relative = value.relative;</span>
+<span class="nc" id="L113">	}</span>
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L117">		super.write(json);</span>
+<span class="nc" id="L118">		json.writeValue(&quot;highMin&quot;, highMin);</span>
+<span class="nc" id="L119">		json.writeValue(&quot;highMax&quot;, highMax);</span>
+<span class="nc" id="L120">		json.writeValue(&quot;relative&quot;, relative);</span>
+<span class="nc" id="L121">		json.writeValue(&quot;scaling&quot;, scaling);</span>
+<span class="nc" id="L122">		json.writeValue(&quot;timeline&quot;, timeline);</span>
+<span class="nc" id="L123">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L127">		super.read(json, jsonData);</span>
+<span class="nc" id="L128">		highMin = json.readValue(&quot;highMin&quot;, float.class, jsonData);</span>
+<span class="nc" id="L129">		highMax = json.readValue(&quot;highMax&quot;, float.class, jsonData);</span>
+<span class="nc" id="L130">		relative = json.readValue(&quot;relative&quot;, boolean.class, jsonData);</span>
+<span class="nc" id="L131">		scaling = json.readValue(&quot;scaling&quot;, float[].class, jsonData);</span>
+<span class="nc" id="L132">		timeline = json.readValue(&quot;timeline&quot;, float[].class, jsonData);</span>
+<span class="nc" id="L133">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RegularEmitter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics.g3d.particles.emitters</a> &gt; <span class="el_source">RegularEmitter.java</span></div><h1>RegularEmitter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics.g3d.particles.emitters;
+
+import com.badlogic.gdx.graphics.g3d.particles.ParallelArray.FloatChannel;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleChannels;
+import com.badlogic.gdx.graphics.g3d.particles.ParticleControllerComponent;
+import com.badlogic.gdx.graphics.g3d.particles.values.RangedNumericValue;
+import com.badlogic.gdx.graphics.g3d.particles.values.ScaledNumericValue;
+import com.badlogic.gdx.utils.Json;
+import com.badlogic.gdx.utils.JsonValue;
+
+/** It's a generic use {@link Emitter} which fits most of the particles simulation scenarios.
+ * @author Inferno */
+public class RegularEmitter extends Emitter implements Json.Serializable {
+
+	/** Possible emission modes. Emission mode does not affect already emitted particles. */
+<span class="nc" id="L32">	public enum EmissionMode {</span>
+		/** New particles can be emitted. */
+<span class="nc" id="L34">		Enabled,</span>
+		/** Only valid for continuous emitters. It will only emit particles until the end of the effect duration. After that emission
+		 * cycle will not be restarted. */
+<span class="nc" id="L37">		EnabledUntilCycleEnd,</span>
+		/** Prevents new particle emission. */
+<span class="nc" id="L39">		Disabled</span>
+	}
+
+	public RangedNumericValue delayValue, durationValue;
+	public ScaledNumericValue lifeOffsetValue, lifeValue, emissionValue;
+	protected int emission, emissionDiff, emissionDelta;
+	protected int lifeOffset, lifeOffsetDiff;
+	protected int life, lifeDiff;
+	protected float duration, delay, durationTimer, delayTimer;
+	private boolean continuous;
+	private EmissionMode emissionMode;
+
+	private FloatChannel lifeChannel;
+
+<span class="nc" id="L53">	public RegularEmitter () {</span>
+<span class="nc" id="L54">		delayValue = new RangedNumericValue();</span>
+<span class="nc" id="L55">		durationValue = new RangedNumericValue();</span>
+<span class="nc" id="L56">		lifeOffsetValue = new ScaledNumericValue();</span>
+<span class="nc" id="L57">		lifeValue = new ScaledNumericValue();</span>
+<span class="nc" id="L58">		emissionValue = new ScaledNumericValue();</span>
+
+<span class="nc" id="L60">		durationValue.setActive(true);</span>
+<span class="nc" id="L61">		emissionValue.setActive(true);</span>
+<span class="nc" id="L62">		lifeValue.setActive(true);</span>
+<span class="nc" id="L63">		continuous = true;</span>
+<span class="nc" id="L64">		emissionMode = EmissionMode.Enabled;</span>
+<span class="nc" id="L65">	}</span>
+
+	public RegularEmitter (RegularEmitter regularEmitter) {
+<span class="nc" id="L68">		this();</span>
+<span class="nc" id="L69">		set(regularEmitter);</span>
+<span class="nc" id="L70">	}</span>
+
+	@Override
+	public void allocateChannels () {
+<span class="nc" id="L74">		lifeChannel = controller.particles.addChannel(ParticleChannels.Life);</span>
+<span class="nc" id="L75">	}</span>
+
+	@Override
+	public void start () {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		delay = delayValue.active ? delayValue.newLowValue() : 0;</span>
+<span class="nc" id="L80">		delayTimer = 0;</span>
+<span class="nc" id="L81">		durationTimer = 0f;</span>
+
+<span class="nc" id="L83">		duration = durationValue.newLowValue();</span>
+<span class="nc" id="L84">		percent = durationTimer / (float)duration;</span>
+
+<span class="nc" id="L86">		emission = (int)emissionValue.newLowValue();</span>
+<span class="nc" id="L87">		emissionDiff = (int)emissionValue.newHighValue();</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">		if (!emissionValue.isRelative()) emissionDiff -= emission;</span>
+
+<span class="nc" id="L90">		life = (int)lifeValue.newLowValue();</span>
+<span class="nc" id="L91">		lifeDiff = (int)lifeValue.newHighValue();</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">		if (!lifeValue.isRelative()) lifeDiff -= life;</span>
+
+<span class="nc bnc" id="L94" title="All 2 branches missed.">		lifeOffset = lifeOffsetValue.active ? (int)lifeOffsetValue.newLowValue() : 0;</span>
+<span class="nc" id="L95">		lifeOffsetDiff = (int)lifeOffsetValue.newHighValue();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">		if (!lifeOffsetValue.isRelative()) lifeOffsetDiff -= lifeOffset;</span>
+<span class="nc" id="L97">	}</span>
+
+	public void init () {
+<span class="nc" id="L100">		super.init();</span>
+<span class="nc" id="L101">		emissionDelta = 0;</span>
+<span class="nc" id="L102">		durationTimer = duration;</span>
+<span class="nc" id="L103">	}</span>
+
+	public void activateParticles (int startIndex, int count) {
+<span class="nc" id="L106">		int currentTotaLife = life + (int)(lifeDiff * lifeValue.getScale(percent)), currentLife = currentTotaLife;</span>
+<span class="nc" id="L107">		int offsetTime = (int)(lifeOffset + lifeOffsetDiff * lifeOffsetValue.getScale(percent));</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		if (offsetTime &gt; 0) {</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">			if (offsetTime &gt;= currentLife) offsetTime = currentLife - 1;</span>
+<span class="nc" id="L110">			currentLife -= offsetTime;</span>
+		}
+<span class="nc" id="L112">		float lifePercent = 1 - currentLife / (float)currentTotaLife;</span>
+
+<span class="nc bnc" id="L114" title="All 2 branches missed.">		for (int i = startIndex * lifeChannel.strideSize, c = i + count * lifeChannel.strideSize; i &lt; c; i += lifeChannel.strideSize) {</span>
+<span class="nc" id="L115">			lifeChannel.data[i + ParticleChannels.CurrentLifeOffset] = currentLife;</span>
+<span class="nc" id="L116">			lifeChannel.data[i + ParticleChannels.TotalLifeOffset] = currentTotaLife;</span>
+<span class="nc" id="L117">			lifeChannel.data[i + ParticleChannels.LifePercentOffset] = lifePercent;</span>
+		}
+<span class="nc" id="L119">	}</span>
+
+	public void update () {
+<span class="nc" id="L122">		float deltaMillis = controller.deltaTime * 1000;</span>
+
+<span class="nc bnc" id="L124" title="All 2 branches missed.">		if (delayTimer &lt; delay) {</span>
+<span class="nc" id="L125">			delayTimer += deltaMillis;</span>
+		} else {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">			boolean emit = emissionMode != EmissionMode.Disabled;</span>
+			// End check
+<span class="nc bnc" id="L129" title="All 2 branches missed.">			if (durationTimer &lt; duration) {</span>
+<span class="nc" id="L130">				durationTimer += deltaMillis;</span>
+<span class="nc" id="L131">				percent = durationTimer / (float)duration;</span>
+			} else {
+<span class="nc bnc" id="L133" title="All 6 branches missed.">				if (continuous &amp;&amp; emit &amp;&amp; emissionMode == EmissionMode.Enabled)</span>
+<span class="nc" id="L134">					controller.start();</span>
+				else
+<span class="nc" id="L136">					emit = false;</span>
+			}
+
+<span class="nc bnc" id="L139" title="All 2 branches missed.">			if (emit) {</span>
+				// Emit particles
+<span class="nc" id="L141">				emissionDelta += deltaMillis;</span>
+<span class="nc" id="L142">				float emissionTime = emission + emissionDiff * emissionValue.getScale(percent);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">				if (emissionTime &gt; 0) {</span>
+<span class="nc" id="L144">					emissionTime = 1000 / emissionTime;</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">					if (emissionDelta &gt;= emissionTime) {</span>
+<span class="nc" id="L146">						int emitCount = (int)(emissionDelta / emissionTime);</span>
+<span class="nc" id="L147">						emitCount = Math.min(emitCount, maxParticleCount - controller.particles.size);</span>
+<span class="nc" id="L148">						emissionDelta -= emitCount * emissionTime;</span>
+<span class="nc" id="L149">						emissionDelta %= emissionTime;</span>
+<span class="nc" id="L150">						addParticles(emitCount);</span>
+					}
+				}
+<span class="nc bnc" id="L153" title="All 2 branches missed.">				if (controller.particles.size &lt; minParticleCount) addParticles(minParticleCount - controller.particles.size);</span>
+			}
+		}
+
+		// Update particles
+<span class="nc" id="L158">		int activeParticles = controller.particles.size;</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">		for (int i = 0, k = 0; i &lt; controller.particles.size;) {</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">			if ((lifeChannel.data[k + ParticleChannels.CurrentLifeOffset] -= deltaMillis) &lt;= 0) {</span>
+<span class="nc" id="L161">				controller.particles.removeElement(i);</span>
+<span class="nc" id="L162">				continue;</span>
+			} else {
+<span class="nc" id="L164">				lifeChannel.data[k + ParticleChannels.LifePercentOffset] = 1</span>
+					- lifeChannel.data[k + ParticleChannels.CurrentLifeOffset]
+					/ lifeChannel.data[k + ParticleChannels.TotalLifeOffset];
+			}
+<span class="nc" id="L168">			++i;</span>
+<span class="nc" id="L169">			k += lifeChannel.strideSize;</span>
+		}
+
+<span class="nc bnc" id="L172" title="All 2 branches missed.">		if (controller.particles.size &lt; activeParticles) {</span>
+<span class="nc" id="L173">			controller.killParticles(controller.particles.size, activeParticles - controller.particles.size);</span>
+		}
+<span class="nc" id="L175">	}</span>
+
+	private void addParticles (int count) {
+<span class="nc" id="L178">		count = Math.min(count, maxParticleCount - controller.particles.size);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		if (count &lt;= 0) return;</span>
+<span class="nc" id="L180">		controller.activateParticles(controller.particles.size, count);</span>
+<span class="nc" id="L181">		controller.particles.size += count;</span>
+<span class="nc" id="L182">	}</span>
+
+	public ScaledNumericValue getLife () {
+<span class="nc" id="L185">		return lifeValue;</span>
+	}
+
+	public ScaledNumericValue getEmission () {
+<span class="nc" id="L189">		return emissionValue;</span>
+	}
+
+	public RangedNumericValue getDuration () {
+<span class="nc" id="L193">		return durationValue;</span>
+	}
+
+	public RangedNumericValue getDelay () {
+<span class="nc" id="L197">		return delayValue;</span>
+	}
+
+	public ScaledNumericValue getLifeOffset () {
+<span class="nc" id="L201">		return lifeOffsetValue;</span>
+	}
+
+	public boolean isContinuous () {
+<span class="nc" id="L205">		return continuous;</span>
+	}
+
+	public void setContinuous (boolean continuous) {
+<span class="nc" id="L209">		this.continuous = continuous;</span>
+<span class="nc" id="L210">	}</span>
+
+	/** Gets current emission mode.
+	 * @return Current emission mode. */
+	public EmissionMode getEmissionMode () {
+<span class="nc" id="L215">		return emissionMode;</span>
+	}
+
+	/** Sets emission mode. Emission mode does not affect already emitted particles.
+	 * @param emissionMode Emission mode to set. */
+	public void setEmissionMode (EmissionMode emissionMode) {
+<span class="nc" id="L221">		this.emissionMode = emissionMode;</span>
+<span class="nc" id="L222">	}</span>
+
+	@Override
+	public boolean isComplete () {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">		if (delayTimer &lt; delay) return false;</span>
+<span class="nc bnc" id="L227" title="All 4 branches missed.">		return durationTimer &gt;= duration &amp;&amp; controller.particles.size == 0;</span>
+	}
+
+	public float getPercentComplete () {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">		if (delayTimer &lt; delay) return 0;</span>
+<span class="nc" id="L232">		return Math.min(1, durationTimer / (float)duration);</span>
+	}
+
+	public void set (RegularEmitter emitter) {
+<span class="nc" id="L236">		super.set(emitter);</span>
+<span class="nc" id="L237">		delayValue.load(emitter.delayValue);</span>
+<span class="nc" id="L238">		durationValue.load(emitter.durationValue);</span>
+<span class="nc" id="L239">		lifeOffsetValue.load(emitter.lifeOffsetValue);</span>
+<span class="nc" id="L240">		lifeValue.load(emitter.lifeValue);</span>
+<span class="nc" id="L241">		emissionValue.load(emitter.emissionValue);</span>
+<span class="nc" id="L242">		emission = emitter.emission;</span>
+<span class="nc" id="L243">		emissionDiff = emitter.emissionDiff;</span>
+<span class="nc" id="L244">		emissionDelta = emitter.emissionDelta;</span>
+<span class="nc" id="L245">		lifeOffset = emitter.lifeOffset;</span>
+<span class="nc" id="L246">		lifeOffsetDiff = emitter.lifeOffsetDiff;</span>
+<span class="nc" id="L247">		life = emitter.life;</span>
+<span class="nc" id="L248">		lifeDiff = emitter.lifeDiff;</span>
+<span class="nc" id="L249">		duration = emitter.duration;</span>
+<span class="nc" id="L250">		delay = emitter.delay;</span>
+<span class="nc" id="L251">		durationTimer = emitter.durationTimer;</span>
+<span class="nc" id="L252">		delayTimer = emitter.delayTimer;</span>
+<span class="nc" id="L253">		continuous = emitter.continuous;</span>
+<span class="nc" id="L254">	}</span>
+
+	@Override
+	public ParticleControllerComponent copy () {
+<span class="nc" id="L258">		return new RegularEmitter(this);</span>
+	}
+
+	@Override
+	public void write (Json json) {
+<span class="nc" id="L263">		super.write(json);</span>
+<span class="nc" id="L264">		json.writeValue(&quot;continous&quot;, continuous);</span>
+<span class="nc" id="L265">		json.writeValue(&quot;emission&quot;, emissionValue);</span>
+<span class="nc" id="L266">		json.writeValue(&quot;delay&quot;, delayValue);</span>
+<span class="nc" id="L267">		json.writeValue(&quot;duration&quot;, durationValue);</span>
+<span class="nc" id="L268">		json.writeValue(&quot;life&quot;, lifeValue);</span>
+<span class="nc" id="L269">		json.writeValue(&quot;lifeOffset&quot;, lifeOffsetValue);</span>
+<span class="nc" id="L270">	}</span>
+
+	@Override
+	public void read (Json json, JsonValue jsonData) {
+<span class="nc" id="L274">		super.read(json, jsonData);</span>
+<span class="nc" id="L275">		continuous = json.readValue(&quot;continous&quot;, boolean.class, jsonData);</span>
+<span class="nc" id="L276">		emissionValue = json.readValue(&quot;emission&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L277">		delayValue = json.readValue(&quot;delay&quot;, RangedNumericValue.class, jsonData);</span>
+<span class="nc" id="L278">		durationValue = json.readValue(&quot;duration&quot;, RangedNumericValue.class, jsonData);</span>
+<span class="nc" id="L279">		lifeValue = json.readValue(&quot;life&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L280">		lifeOffsetValue = json.readValue(&quot;lifeOffset&quot;, ScaledNumericValue.class, jsonData);</span>
+<span class="nc" id="L281">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

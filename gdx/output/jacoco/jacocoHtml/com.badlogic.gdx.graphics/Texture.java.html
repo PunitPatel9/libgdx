@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Texture.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.graphics</a> &gt; <span class="el_source">Texture.java</span></div><h1>Texture.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.graphics;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.badlogic.gdx.Application;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.assets.AssetLoaderParameters.LoadedCallback;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.assets.loaders.AssetLoader;
+import com.badlogic.gdx.assets.loaders.TextureLoader.TextureParameter;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Pixmap.Format;
+import com.badlogic.gdx.graphics.glutils.FileTextureData;
+import com.badlogic.gdx.graphics.glutils.PixmapTextureData;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.GdxRuntimeException;
+
+/** A Texture wraps a standard OpenGL ES texture.
+ * &lt;p&gt;
+ * A Texture can be managed. If the OpenGL context is lost all managed textures get invalidated. This happens when a user switches
+ * to another application or receives an incoming call. Managed textures get reloaded automatically.
+ * &lt;p&gt;
+ * A Texture has to be bound via the {@link Texture#bind()} method in order for it to be applied to geometry. The texture will be
+ * bound to the currently active texture unit specified via {@link GL20#glActiveTexture(int)}.
+ * &lt;p&gt;
+ * You can draw {@link Pixmap}s to a texture at any time. The changes will be automatically uploaded to texture memory. This is of
+ * course not extremely fast so use it with care. It also only works with unmanaged textures.
+ * &lt;p&gt;
+ * A Texture must be disposed when it is no longer used
+ * @author badlogicgames@gmail.com */
+public class Texture extends GLTexture {
+	private static AssetManager assetManager;
+<span class="nc" id="L50">	final static Map&lt;Application, Array&lt;Texture&gt;&gt; managedTextures = new HashMap&lt;Application, Array&lt;Texture&gt;&gt;();</span>
+
+<span class="nc" id="L52">	public enum TextureFilter {</span>
+		/** Fetch the nearest texel that best maps to the pixel on screen. */
+<span class="nc" id="L54">		Nearest(GL20.GL_NEAREST),</span>
+
+		/** Fetch four nearest texels that best maps to the pixel on screen. */
+<span class="nc" id="L57">		Linear(GL20.GL_LINEAR),</span>
+
+		/** @see TextureFilter#MipMapLinearLinear */
+<span class="nc" id="L60">		MipMap(GL20.GL_LINEAR_MIPMAP_LINEAR),</span>
+
+		/** Fetch the best fitting image from the mip map chain based on the pixel/texel ratio and then sample the texels with a
+		 * nearest filter. */
+<span class="nc" id="L64">		MipMapNearestNearest(GL20.GL_NEAREST_MIPMAP_NEAREST),</span>
+
+		/** Fetch the best fitting image from the mip map chain based on the pixel/texel ratio and then sample the texels with a
+		 * linear filter. */
+<span class="nc" id="L68">		MipMapLinearNearest(GL20.GL_LINEAR_MIPMAP_NEAREST),</span>
+
+		/** Fetch the two best fitting images from the mip map chain and then sample the nearest texel from each of the two images,
+		 * combining them to the final output pixel. */
+<span class="nc" id="L72">		MipMapNearestLinear(GL20.GL_NEAREST_MIPMAP_LINEAR),</span>
+
+		/** Fetch the two best fitting images from the mip map chain and then sample the four nearest texels from each of the two
+		 * images, combining them to the final output pixel. */
+<span class="nc" id="L76">		MipMapLinearLinear(GL20.GL_LINEAR_MIPMAP_LINEAR);</span>
+
+		final int glEnum;
+
+<span class="nc" id="L80">		TextureFilter (int glEnum) {</span>
+<span class="nc" id="L81">			this.glEnum = glEnum;</span>
+<span class="nc" id="L82">		}</span>
+
+		public boolean isMipMap () {
+<span class="nc bnc" id="L85" title="All 4 branches missed.">			return glEnum != GL20.GL_NEAREST &amp;&amp; glEnum != GL20.GL_LINEAR;</span>
+		}
+
+		public int getGLEnum () {
+<span class="nc" id="L89">			return glEnum;</span>
+		}
+	}
+
+<span class="nc" id="L93">	public enum TextureWrap {</span>
+<span class="nc" id="L94">		MirroredRepeat(GL20.GL_MIRRORED_REPEAT), ClampToEdge(GL20.GL_CLAMP_TO_EDGE), Repeat(GL20.GL_REPEAT);</span>
+
+		final int glEnum;
+
+<span class="nc" id="L98">		TextureWrap (int glEnum) {</span>
+<span class="nc" id="L99">			this.glEnum = glEnum;</span>
+<span class="nc" id="L100">		}</span>
+
+		public int getGLEnum () {
+<span class="nc" id="L103">			return glEnum;</span>
+		}
+	}
+
+	TextureData data;
+
+	public Texture (String internalPath) {
+<span class="nc" id="L110">		this(Gdx.files.internal(internalPath));</span>
+<span class="nc" id="L111">	}</span>
+
+	public Texture (FileHandle file) {
+<span class="nc" id="L114">		this(file, null, false);</span>
+<span class="nc" id="L115">	}</span>
+
+	public Texture (FileHandle file, boolean useMipMaps) {
+<span class="nc" id="L118">		this(file, null, useMipMaps);</span>
+<span class="nc" id="L119">	}</span>
+
+	public Texture (FileHandle file, Format format, boolean useMipMaps) {
+<span class="nc" id="L122">		this(TextureData.Factory.loadFromFile(file, format, useMipMaps));</span>
+<span class="nc" id="L123">	}</span>
+
+	public Texture (Pixmap pixmap) {
+<span class="nc" id="L126">		this(new PixmapTextureData(pixmap, null, false, false));</span>
+<span class="nc" id="L127">	}</span>
+
+	public Texture (Pixmap pixmap, boolean useMipMaps) {
+<span class="nc" id="L130">		this(new PixmapTextureData(pixmap, null, useMipMaps, false));</span>
+<span class="nc" id="L131">	}</span>
+
+	public Texture (Pixmap pixmap, Format format, boolean useMipMaps) {
+<span class="nc" id="L134">		this(new PixmapTextureData(pixmap, format, useMipMaps, false));</span>
+<span class="nc" id="L135">	}</span>
+
+	public Texture (int width, int height, Format format) {
+<span class="nc" id="L138">		this(new PixmapTextureData(new Pixmap(width, height, format), null, false, true));</span>
+<span class="nc" id="L139">	}</span>
+
+	public Texture (TextureData data) {
+<span class="nc" id="L142">		this(GL20.GL_TEXTURE_2D, Gdx.gl.glGenTexture(), data);</span>
+<span class="nc" id="L143">	}</span>
+
+	protected Texture (int glTarget, int glHandle, TextureData data) {
+<span class="nc" id="L146">		super(glTarget, glHandle);</span>
+<span class="nc" id="L147">		load(data);</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">		if (data.isManaged()) addManagedTexture(Gdx.app, this);</span>
+<span class="nc" id="L149">	}</span>
+
+	public void load (TextureData data) {
+<span class="nc bnc" id="L152" title="All 4 branches missed.">		if (this.data != null &amp;&amp; data.isManaged() != this.data.isManaged())</span>
+<span class="nc" id="L153">			throw new GdxRuntimeException(&quot;New data must have the same managed status as the old data&quot;);</span>
+<span class="nc" id="L154">		this.data = data;</span>
+
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		if (!data.isPrepared()) data.prepare();</span>
+
+<span class="nc" id="L158">		bind();</span>
+<span class="nc" id="L159">		uploadImageData(GL20.GL_TEXTURE_2D, data);</span>
+
+<span class="nc" id="L161">		unsafeSetFilter(minFilter, magFilter, true);</span>
+<span class="nc" id="L162">		unsafeSetWrap(uWrap, vWrap, true);</span>
+<span class="nc" id="L163">		unsafeSetAnisotropicFilter(anisotropicFilterLevel, true);</span>
+<span class="nc" id="L164">		Gdx.gl.glBindTexture(glTarget, 0);</span>
+<span class="nc" id="L165">	}</span>
+
+	/** Used internally to reload after context loss. Creates a new GL handle then calls {@link #load(TextureData)}. Use this only
+	 * if you know what you do! */
+	@Override
+	protected void reload () {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">		if (!isManaged()) throw new GdxRuntimeException(&quot;Tried to reload unmanaged Texture&quot;);</span>
+<span class="nc" id="L172">		glHandle = Gdx.gl.glGenTexture();</span>
+<span class="nc" id="L173">		load(data);</span>
+<span class="nc" id="L174">	}</span>
+
+	/** Draws the given {@link Pixmap} to the texture at position x, y. No clipping is performed so you have to make sure that you
+	 * draw only inside the texture region. Note that this will only draw to mipmap level 0!
+	 * 
+	 * @param pixmap The Pixmap
+	 * @param x The x coordinate in pixels
+	 * @param y The y coordinate in pixels */
+	public void draw (Pixmap pixmap, int x, int y) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">		if (data.isManaged()) throw new GdxRuntimeException(&quot;can't draw to a managed texture&quot;);</span>
+
+<span class="nc" id="L185">		bind();</span>
+<span class="nc" id="L186">		Gdx.gl.glTexSubImage2D(glTarget, 0, x, y, pixmap.getWidth(), pixmap.getHeight(), pixmap.getGLFormat(), pixmap.getGLType(),</span>
+<span class="nc" id="L187">			pixmap.getPixels());</span>
+<span class="nc" id="L188">	}</span>
+
+	@Override
+	public int getWidth () {
+<span class="nc" id="L192">		return data.getWidth();</span>
+	}
+
+	@Override
+	public int getHeight () {
+<span class="nc" id="L197">		return data.getHeight();</span>
+	}
+
+	@Override
+	public int getDepth () {
+<span class="nc" id="L202">		return 0;</span>
+	}
+
+	public TextureData getTextureData () {
+<span class="nc" id="L206">		return data;</span>
+	}
+
+	/** @return whether this texture is managed or not. */
+	public boolean isManaged () {
+<span class="nc" id="L211">		return data.isManaged();</span>
+	}
+
+	/** Disposes all resources associated with the texture */
+	public void dispose () {
+		// this is a hack. reason: we have to set the glHandle to 0 for textures that are
+		// reloaded through the asset manager as we first remove (and thus dispose) the texture
+		// and then reload it. the glHandle is set to 0 in invalidateAllTextures prior to
+		// removal from the asset manager.
+<span class="nc bnc" id="L220" title="All 2 branches missed.">		if (glHandle == 0) return;</span>
+<span class="nc" id="L221">		delete();</span>
+<span class="nc bnc" id="L222" title="All 4 branches missed.">		if (data.isManaged()) if (managedTextures.get(Gdx.app) != null) managedTextures.get(Gdx.app).removeValue(this, true);</span>
+<span class="nc" id="L223">	}</span>
+
+	public String toString () {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">		if (data instanceof FileTextureData) return data.toString();</span>
+<span class="nc" id="L227">		return super.toString();</span>
+	}
+
+	private static void addManagedTexture (Application app, Texture texture) {
+<span class="nc" id="L231">		Array&lt;Texture&gt; managedTextureArray = managedTextures.get(app);</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">		if (managedTextureArray == null) managedTextureArray = new Array&lt;Texture&gt;();</span>
+<span class="nc" id="L233">		managedTextureArray.add(texture);</span>
+<span class="nc" id="L234">		managedTextures.put(app, managedTextureArray);</span>
+<span class="nc" id="L235">	}</span>
+
+	/** Clears all managed textures. This is an internal method. Do not use it! */
+	public static void clearAllTextures (Application app) {
+<span class="nc" id="L239">		managedTextures.remove(app);</span>
+<span class="nc" id="L240">	}</span>
+
+	/** Invalidate all managed textures. This is an internal method. Do not use it! */
+	public static void invalidateAllTextures (Application app) {
+<span class="nc" id="L244">		Array&lt;Texture&gt; managedTextureArray = managedTextures.get(app);</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">		if (managedTextureArray == null) return;</span>
+
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		if (assetManager == null) {</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">			for (int i = 0; i &lt; managedTextureArray.size; i++) {</span>
+<span class="nc" id="L249">				Texture texture = managedTextureArray.get(i);</span>
+<span class="nc" id="L250">				texture.reload();</span>
+			}
+		} else {
+			// first we have to make sure the AssetManager isn't loading anything anymore,
+			// otherwise the ref counting trick below wouldn't work (when a texture is
+			// currently on the task stack of the manager.)
+<span class="nc" id="L256">			assetManager.finishLoading();</span>
+
+			// next we go through each texture and reload either directly or via the
+			// asset manager.
+<span class="nc" id="L260">			Array&lt;Texture&gt; textures = new Array&lt;Texture&gt;(managedTextureArray);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">			for (Texture texture : textures) {</span>
+<span class="nc" id="L262">				String fileName = assetManager.getAssetFileName(texture);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">				if (fileName == null) {</span>
+<span class="nc" id="L264">					texture.reload();</span>
+				} else {
+					// get the ref count of the texture, then set it to 0 so we
+					// can actually remove it from the assetmanager. Also set the
+					// handle to zero, otherwise we might accidentially dispose
+					// already reloaded textures.
+<span class="nc" id="L270">					final int refCount = assetManager.getReferenceCount(fileName);</span>
+<span class="nc" id="L271">					assetManager.setReferenceCount(fileName, 0);</span>
+<span class="nc" id="L272">					texture.glHandle = 0;</span>
+
+					// create the parameters, passing the reference to the texture as
+					// well as a callback that sets the ref count.
+<span class="nc" id="L276">					TextureParameter params = new TextureParameter();</span>
+<span class="nc" id="L277">					params.textureData = texture.getTextureData();</span>
+<span class="nc" id="L278">					params.minFilter = texture.getMinFilter();</span>
+<span class="nc" id="L279">					params.magFilter = texture.getMagFilter();</span>
+<span class="nc" id="L280">					params.wrapU = texture.getUWrap();</span>
+<span class="nc" id="L281">					params.wrapV = texture.getVWrap();</span>
+<span class="nc" id="L282">					params.genMipMaps = texture.data.useMipMaps(); // not sure about this?</span>
+<span class="nc" id="L283">					params.texture = texture; // special parameter which will ensure that the references stay the same.</span>
+<span class="nc" id="L284">					params.loadedCallback = new LoadedCallback() {</span>
+						@Override
+						public void finishedLoading (AssetManager assetManager, String fileName, Class type) {
+<span class="nc" id="L287">							assetManager.setReferenceCount(fileName, refCount);</span>
+<span class="nc" id="L288">						}</span>
+					};
+
+					// unload the texture, create a new gl handle then reload it.
+<span class="nc" id="L292">					assetManager.unload(fileName);</span>
+<span class="nc" id="L293">					texture.glHandle = Gdx.gl.glGenTexture();</span>
+<span class="nc" id="L294">					assetManager.load(fileName, Texture.class, params);</span>
+				}
+<span class="nc" id="L296">			}</span>
+<span class="nc" id="L297">			managedTextureArray.clear();</span>
+<span class="nc" id="L298">			managedTextureArray.addAll(textures);</span>
+		}
+<span class="nc" id="L300">	}</span>
+
+	/** Sets the {@link AssetManager}. When the context is lost, textures managed by the asset manager are reloaded by the manager
+	 * on a separate thread (provided that a suitable {@link AssetLoader} is registered with the manager). Textures not managed by
+	 * the AssetManager are reloaded via the usual means on the rendering thread.
+	 * @param manager the asset manager. */
+	public static void setAssetManager (AssetManager manager) {
+<span class="nc" id="L307">		Texture.assetManager = manager;</span>
+<span class="nc" id="L308">	}</span>
+
+	public static String getManagedStatus () {
+<span class="nc" id="L311">		StringBuilder builder = new StringBuilder();</span>
+<span class="nc" id="L312">		builder.append(&quot;Managed textures/app: { &quot;);</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">		for (Application app : managedTextures.keySet()) {</span>
+<span class="nc" id="L314">			builder.append(managedTextures.get(app).size);</span>
+<span class="nc" id="L315">			builder.append(&quot; &quot;);</span>
+<span class="nc" id="L316">		}</span>
+<span class="nc" id="L317">		builder.append(&quot;}&quot;);</span>
+<span class="nc" id="L318">		return builder.toString();</span>
+	}
+
+	/** @return the number of managed textures currently loaded */
+	public static int getNumManagedTextures () {
+<span class="nc" id="L323">		return managedTextures.get(Gdx.app).size;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

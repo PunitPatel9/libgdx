@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WindowedMean.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.math</a> &gt; <span class="el_source">WindowedMean.java</span></div><h1>WindowedMean.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.math;
+
+/** A simple class keeping track of the mean of a stream of values within a certain window. the WindowedMean will only return a
+ * value in case enough data has been sampled. After enough data has been sampled the oldest sample will be replaced by the newest
+ * in case a new sample is added.
+ * 
+ * @author badlogicgames@gmail.com */
+public final class WindowedMean {
+	float values[];
+<span class="nc" id="L26">	int added_values = 0;</span>
+	int last_value;
+<span class="nc" id="L28">	float mean = 0;</span>
+<span class="nc" id="L29">	boolean dirty = true;</span>
+
+	/** constructor, window_size specifies the number of samples we will continuously get the mean and variance from. the class
+	 * will only return meaning full values if at least window_size values have been added.
+	 * 
+	 * @param window_size size of the sample window */
+<span class="nc" id="L35">	public WindowedMean (int window_size) {</span>
+<span class="nc" id="L36">		values = new float[window_size];</span>
+<span class="nc" id="L37">	}</span>
+
+	/** @return whether the value returned will be meaningful */
+	public boolean hasEnoughData () {
+<span class="nc bnc" id="L41" title="All 2 branches missed.">		return added_values &gt;= values.length;</span>
+	}
+
+	/** clears this WindowedMean. The class will only return meaningful values after enough data has been added again. */
+	public void clear () {
+<span class="nc" id="L46">		added_values = 0;</span>
+<span class="nc" id="L47">		last_value = 0;</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++)</span>
+<span class="nc" id="L49">			values[i] = 0;</span>
+<span class="nc" id="L50">		dirty = true;</span>
+<span class="nc" id="L51">	}</span>
+
+	/** adds a new sample to this mean. In case the window is full the oldest value will be replaced by this new value.
+	 * 
+	 * @param value The value to add */
+	public void addValue (float value) {
+<span class="nc bnc" id="L57" title="All 2 branches missed.">		if (added_values &lt; values.length) added_values++;</span>
+<span class="nc" id="L58">		values[last_value++] = value;</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">		if (last_value &gt; values.length - 1) last_value = 0;</span>
+<span class="nc" id="L60">		dirty = true;</span>
+<span class="nc" id="L61">	}</span>
+
+	/** returns the mean of the samples added to this instance. Only returns meaningful results when at least window_size samples
+	 * as specified in the constructor have been added.
+	 * @return the mean */
+	public float getMean () {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">		if (hasEnoughData()) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">			if (dirty) {</span>
+<span class="nc" id="L69">				float mean = 0;</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">				for (int i = 0; i &lt; values.length; i++)</span>
+<span class="nc" id="L71">					mean += values[i];</span>
+
+<span class="nc" id="L73">				this.mean = mean / values.length;</span>
+<span class="nc" id="L74">				dirty = false;</span>
+			}
+<span class="nc" id="L76">			return this.mean;</span>
+		} else
+<span class="nc" id="L78">			return 0;</span>
+	}
+
+	/** @return the oldest value in the window */
+	public float getOldest () {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">		return added_values &lt; values.length ? values[0] : values[last_value];</span>
+	}
+
+	/** @return the value last added */
+	public float getLatest () {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">		return values[last_value - 1 == -1 ? values.length - 1 : last_value - 1];</span>
+	}
+
+	/** @return The standard deviation */
+	public float standardDeviation () {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">		if (!hasEnoughData()) return 0;</span>
+
+<span class="nc" id="L95">		float mean = getMean();</span>
+<span class="nc" id="L96">		float sum = 0;</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc" id="L98">			sum += (values[i] - mean) * (values[i] - mean);</span>
+		}
+
+<span class="nc" id="L101">		return (float)Math.sqrt(sum / values.length);</span>
+	}
+
+	public float getLowest () {
+<span class="nc" id="L105">		float lowest = Float.MAX_VALUE;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++)</span>
+<span class="nc" id="L107">			lowest = Math.min(lowest, values[i]);</span>
+<span class="nc" id="L108">		return lowest;</span>
+	}
+	
+	public float getHighest () {
+<span class="nc" id="L112">		float lowest = Float.MIN_NORMAL;</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">		for (int i = 0; i &lt; values.length; i++)</span>
+<span class="nc" id="L114">			lowest = Math.max(lowest, values[i]);</span>
+<span class="nc" id="L115">		return lowest;</span>
+	}
+
+	public int getValueCount () {
+<span class="nc" id="L119">		return added_values;</span>
+	}
+
+	public int getWindowSize () {
+<span class="nc" id="L123">		return values.length;</span>
+	}
+
+	/** @return A new &lt;code&gt;float[]&lt;/code&gt; containing all values currently in the window of the stream, in order from oldest to
+	 *         latest. The length of the array is smaller than the window size if not enough data has been added. */
+	public float[] getWindowValues () {
+<span class="nc" id="L129">		float[] windowValues = new float[added_values];</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">		if (hasEnoughData()) {</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">			for (int i = 0; i &lt; windowValues.length; i++) {</span>
+<span class="nc" id="L132">				windowValues[i] = values[(i + last_value) % values.length];</span>
+			}
+		} else {
+<span class="nc" id="L135">			System.arraycopy(values, 0, windowValues, 0, added_values);</span>
+		}
+<span class="nc" id="L137">		return windowValues;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>

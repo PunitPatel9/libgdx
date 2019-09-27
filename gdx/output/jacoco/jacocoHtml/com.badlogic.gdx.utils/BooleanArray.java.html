@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BooleanArray.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">gdx</a> &gt; <a href="index.source.html" class="el_package">com.badlogic.gdx.utils</a> &gt; <span class="el_source">BooleanArray.java</span></div><h1>BooleanArray.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright 2011 See AUTHORS file.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.badlogic.gdx.utils;
+
+import com.badlogic.gdx.math.MathUtils;
+
+import java.util.BitSet;
+
+/** A resizable, ordered or unordered boolean array. Avoids the boxing that occurs with ArrayList&lt;Boolean&gt;. It is less memory
+ * efficient than {@link BitSet}, except for very small sizes. It more CPU efficient than {@link BitSet}, except for very large
+ * sizes or if BitSet functionality such as and, or, xor, etc are needed. If unordered, this class avoids a memory copy when
+ * removing elements (the last element is moved to the removed element's position).
+ * @author Nathan Sweet */
+public class BooleanArray {
+	public boolean[] items;
+	public int size;
+	public boolean ordered;
+
+	/** Creates an ordered array with a capacity of 16. */
+	public BooleanArray () {
+<span class="nc" id="L35">		this(true, 16);</span>
+<span class="nc" id="L36">	}</span>
+
+	/** Creates an ordered array with the specified capacity. */
+	public BooleanArray (int capacity) {
+<span class="nc" id="L40">		this(true, capacity);</span>
+<span class="nc" id="L41">	}</span>
+
+	/** @param ordered If false, methods that remove elements may change the order of other elements in the array, which avoids a
+	 *           memory copy.
+	 * @param capacity Any elements added beyond this will cause the backing array to be grown. */
+<span class="nc" id="L46">	public BooleanArray (boolean ordered, int capacity) {</span>
+<span class="nc" id="L47">		this.ordered = ordered;</span>
+<span class="nc" id="L48">		items = new boolean[capacity];</span>
+<span class="nc" id="L49">	}</span>
+
+	/** Creates a new array containing the elements in the specific array. The new array will be ordered if the specific array is
+	 * ordered. The capacity is set to the number of elements, so any subsequent elements added will cause the backing array to be
+	 * grown. */
+<span class="nc" id="L54">	public BooleanArray (BooleanArray array) {</span>
+<span class="nc" id="L55">		this.ordered = array.ordered;</span>
+<span class="nc" id="L56">		size = array.size;</span>
+<span class="nc" id="L57">		items = new boolean[size];</span>
+<span class="nc" id="L58">		System.arraycopy(array.items, 0, items, 0, size);</span>
+<span class="nc" id="L59">	}</span>
+
+	/** Creates a new ordered array containing the elements in the specified array. The capacity is set to the number of elements,
+	 * so any subsequent elements added will cause the backing array to be grown. */
+	public BooleanArray (boolean[] array) {
+<span class="nc" id="L64">		this(true, array, 0, array.length);</span>
+<span class="nc" id="L65">	}</span>
+
+	/** Creates a new array containing the elements in the specified array. The capacity is set to the number of elements, so any
+	 * subsequent elements added will cause the backing array to be grown.
+	 * @param ordered If false, methods that remove elements may change the order of other elements in the array, which avoids a
+	 *           memory copy. */
+	public BooleanArray (boolean ordered, boolean[] array, int startIndex, int count) {
+<span class="nc" id="L72">		this(ordered, count);</span>
+<span class="nc" id="L73">		size = count;</span>
+<span class="nc" id="L74">		System.arraycopy(array, startIndex, items, 0, count);</span>
+<span class="nc" id="L75">	}</span>
+
+	public void add (boolean value) {
+<span class="nc" id="L78">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">		if (size == items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L80">		items[size++] = value;</span>
+<span class="nc" id="L81">	}</span>
+
+	public void add (boolean value1, boolean value2) {
+<span class="nc" id="L84">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">		if (size + 1 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L86">		items[size] = value1;</span>
+<span class="nc" id="L87">		items[size + 1] = value2;</span>
+<span class="nc" id="L88">		size += 2;</span>
+<span class="nc" id="L89">	}</span>
+
+	public void add (boolean value1, boolean value2, boolean value3) {
+<span class="nc" id="L92">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">		if (size + 2 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc" id="L94">		items[size] = value1;</span>
+<span class="nc" id="L95">		items[size + 1] = value2;</span>
+<span class="nc" id="L96">		items[size + 2] = value3;</span>
+<span class="nc" id="L97">		size += 3;</span>
+<span class="nc" id="L98">	}</span>
+
+	public void add (boolean value1, boolean value2, boolean value3, boolean value4) {
+<span class="nc" id="L101">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">		if (size + 3 &gt;= items.length) items = resize(Math.max(8, (int)(size * 1.8f))); // 1.75 isn't enough when size=5.</span>
+<span class="nc" id="L103">		items[size] = value1;</span>
+<span class="nc" id="L104">		items[size + 1] = value2;</span>
+<span class="nc" id="L105">		items[size + 2] = value3;</span>
+<span class="nc" id="L106">		items[size + 3] = value4;</span>
+<span class="nc" id="L107">		size += 4;</span>
+<span class="nc" id="L108">	}</span>
+
+	public void addAll (BooleanArray array) {
+<span class="nc" id="L111">		addAll(array.items, 0, array.size);</span>
+<span class="nc" id="L112">	}</span>
+
+	public void addAll (BooleanArray array, int offset, int length) {
+<span class="nc bnc" id="L115" title="All 2 branches missed.">		if (offset + length &gt; array.size)</span>
+<span class="nc" id="L116">			throw new IllegalArgumentException(&quot;offset + length must be &lt;= size: &quot; + offset + &quot; + &quot; + length + &quot; &lt;= &quot; + array.size);</span>
+<span class="nc" id="L117">		addAll(array.items, offset, length);</span>
+<span class="nc" id="L118">	}</span>
+
+	public void addAll (boolean... array) {
+<span class="nc" id="L121">		addAll(array, 0, array.length);</span>
+<span class="nc" id="L122">	}</span>
+
+	public void addAll (boolean[] array, int offset, int length) {
+<span class="nc" id="L125">		boolean[] items = this.items;</span>
+<span class="nc" id="L126">		int sizeNeeded = size + length;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">		if (sizeNeeded &gt; items.length) items = resize(Math.max(8, (int)(sizeNeeded * 1.75f)));</span>
+<span class="nc" id="L128">		System.arraycopy(array, offset, items, size, length);</span>
+<span class="nc" id="L129">		size += length;</span>
+<span class="nc" id="L130">	}</span>
+
+	public boolean get (int index) {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L134">		return items[index];</span>
+	}
+
+	public void set (int index, boolean value) {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L139">		items[index] = value;</span>
+<span class="nc" id="L140">	}</span>
+
+	public void insert (int index, boolean value) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">		if (index &gt; size) throw new IndexOutOfBoundsException(&quot;index can't be &gt; size: &quot; + index + &quot; &gt; &quot; + size);</span>
+<span class="nc" id="L144">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">		if (size == items.length) items = resize(Math.max(8, (int)(size * 1.75f)));</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L147">			System.arraycopy(items, index, items, index + 1, size - index);</span>
+		else
+<span class="nc" id="L149">			items[size] = items[index];</span>
+<span class="nc" id="L150">		size++;</span>
+<span class="nc" id="L151">		items[index] = value;</span>
+<span class="nc" id="L152">	}</span>
+
+	public void swap (int first, int second) {
+<span class="nc bnc" id="L155" title="All 2 branches missed.">		if (first &gt;= size) throw new IndexOutOfBoundsException(&quot;first can't be &gt;= size: &quot; + first + &quot; &gt;= &quot; + size);</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		if (second &gt;= size) throw new IndexOutOfBoundsException(&quot;second can't be &gt;= size: &quot; + second + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L157">		boolean[] items = this.items;</span>
+<span class="nc" id="L158">		boolean firstValue = items[first];</span>
+<span class="nc" id="L159">		items[first] = items[second];</span>
+<span class="nc" id="L160">		items[second] = firstValue;</span>
+<span class="nc" id="L161">	}</span>
+
+	/** Removes and returns the item at the specified index. */
+	public boolean removeIndex (int index) {
+<span class="nc bnc" id="L165" title="All 2 branches missed.">		if (index &gt;= size) throw new IndexOutOfBoundsException(&quot;index can't be &gt;= size: &quot; + index + &quot; &gt;= &quot; + size);</span>
+<span class="nc" id="L166">		boolean[] items = this.items;</span>
+<span class="nc" id="L167">		boolean value = items[index];</span>
+<span class="nc" id="L168">		size--;</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L170">			System.arraycopy(items, index + 1, items, index, size - index);</span>
+		else
+<span class="nc" id="L172">			items[index] = items[size];</span>
+<span class="nc" id="L173">		return value;</span>
+	}
+
+	/** Removes the items between the specified indices, inclusive. */
+	public void removeRange (int start, int end) {
+<span class="nc" id="L178">		int n = size;</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">		if (end &gt;= n) throw new IndexOutOfBoundsException(&quot;end can't be &gt;= size: &quot; + end + &quot; &gt;= &quot; + size);</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">		if (start &gt; end) throw new IndexOutOfBoundsException(&quot;start can't be &gt; end: &quot; + start + &quot; &gt; &quot; + end);</span>
+<span class="nc" id="L181">		int count = end - start + 1, lastIndex = n - count;</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">		if (ordered)</span>
+<span class="nc" id="L183">			System.arraycopy(items, start + count, items, start, n - (start + count));</span>
+		else {
+<span class="nc" id="L185">			int i = Math.max(lastIndex, end + 1);</span>
+<span class="nc" id="L186">			System.arraycopy(items, i, items, start, n - i);</span>
+		}
+<span class="nc" id="L188">		size = n - count;</span>
+<span class="nc" id="L189">	}</span>
+
+	/** Removes from this array all of elements contained in the specified array.
+	 * @return true if this array was modified. */
+	public boolean removeAll (BooleanArray array) {
+<span class="nc" id="L194">		int size = this.size;</span>
+<span class="nc" id="L195">		int startSize = size;</span>
+<span class="nc" id="L196">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">		for (int i = 0, n = array.size; i &lt; n; i++) {</span>
+<span class="nc" id="L198">			boolean item = array.get(i);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">			for (int ii = 0; ii &lt; size; ii++) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">				if (item == items[ii]) {</span>
+<span class="nc" id="L201">					removeIndex(ii);</span>
+<span class="nc" id="L202">					size--;</span>
+<span class="nc" id="L203">					break;</span>
+				}
+			}
+		}
+<span class="nc bnc" id="L207" title="All 2 branches missed.">		return size != startSize;</span>
+	}
+
+	/** Removes and returns the last item. */
+	public boolean pop () {
+<span class="nc" id="L212">		return items[--size];</span>
+	}
+
+	/** Returns the last item. */
+	public boolean peek () {
+<span class="nc" id="L217">		return items[size - 1];</span>
+	}
+
+	/** Returns the first item. */
+	public boolean first () {
+<span class="nc bnc" id="L222" title="All 2 branches missed.">		if (size == 0) throw new IllegalStateException(&quot;Array is empty.&quot;);</span>
+<span class="nc" id="L223">		return items[0];</span>
+	}
+
+	/** Returns true if the array has one or more items. */
+	public boolean notEmpty () {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">		return size &gt; 0;</span>
+	}
+
+	/** Returns true if the array is empty. */
+	public boolean isEmpty () {
+<span class="nc bnc" id="L233" title="All 2 branches missed.">		return size == 0;</span>
+	}
+
+	public void clear () {
+<span class="nc" id="L237">		size = 0;</span>
+<span class="nc" id="L238">	}</span>
+
+	/** Reduces the size of the backing array to the size of the actual items. This is useful to release memory when many items
+	 * have been removed, or if it is known that more items will not be added.
+	 * @return {@link #items} */
+	public boolean[] shrink () {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">		if (items.length != size) resize(size);</span>
+<span class="nc" id="L245">		return items;</span>
+	}
+
+	/** Increases the size of the backing array to accommodate the specified number of additional items. Useful before adding many
+	 * items to avoid multiple backing array resizes.
+	 * @return {@link #items} */
+	public boolean[] ensureCapacity (int additionalCapacity) {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">		if (additionalCapacity &lt; 0) throw new IllegalArgumentException(&quot;additionalCapacity must be &gt;= 0: &quot; + additionalCapacity);</span>
+<span class="nc" id="L253">		int sizeNeeded = size + additionalCapacity;</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">		if (sizeNeeded &gt; items.length) resize(Math.max(8, sizeNeeded));</span>
+<span class="nc" id="L255">		return items;</span>
+	}
+
+	/** Sets the array size, leaving any values beyond the current size undefined.
+	 * @return {@link #items} */
+	public boolean[] setSize (int newSize) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">		if (newSize &lt; 0) throw new IllegalArgumentException(&quot;newSize must be &gt;= 0: &quot; + newSize);</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">		if (newSize &gt; items.length) resize(Math.max(8, newSize));</span>
+<span class="nc" id="L263">		size = newSize;</span>
+<span class="nc" id="L264">		return items;</span>
+	}
+
+	protected boolean[] resize (int newSize) {
+<span class="nc" id="L268">		boolean[] newItems = new boolean[newSize];</span>
+<span class="nc" id="L269">		boolean[] items = this.items;</span>
+<span class="nc" id="L270">		System.arraycopy(items, 0, newItems, 0, Math.min(size, newItems.length));</span>
+<span class="nc" id="L271">		this.items = newItems;</span>
+<span class="nc" id="L272">		return newItems;</span>
+	}
+
+	public void reverse () {
+<span class="nc" id="L276">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">		for (int i = 0, lastIndex = size - 1, n = size / 2; i &lt; n; i++) {</span>
+<span class="nc" id="L278">			int ii = lastIndex - i;</span>
+<span class="nc" id="L279">			boolean temp = items[i];</span>
+<span class="nc" id="L280">			items[i] = items[ii];</span>
+<span class="nc" id="L281">			items[ii] = temp;</span>
+		}
+<span class="nc" id="L283">	}</span>
+
+	public void shuffle () {
+<span class="nc" id="L286">		boolean[] items = this.items;</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">		for (int i = size - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L288">			int ii = MathUtils.random(i);</span>
+<span class="nc" id="L289">			boolean temp = items[i];</span>
+<span class="nc" id="L290">			items[i] = items[ii];</span>
+<span class="nc" id="L291">			items[ii] = temp;</span>
+		}
+<span class="nc" id="L293">	}</span>
+
+	/** Reduces the size of the array to the specified size. If the array is already smaller than the specified size, no action is
+	 * taken. */
+	public void truncate (int newSize) {
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		if (size &gt; newSize) size = newSize;</span>
+<span class="nc" id="L299">	}</span>
+
+	/** Returns a random item from the array, or false if the array is empty. */
+	public boolean random () {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">		if (size == 0) return false;</span>
+<span class="nc" id="L304">		return items[MathUtils.random(0, size - 1)];</span>
+	}
+
+	public boolean[] toArray () {
+<span class="nc" id="L308">		boolean[] array = new boolean[size];</span>
+<span class="nc" id="L309">		System.arraycopy(items, 0, array, 0, size);</span>
+<span class="nc" id="L310">		return array;</span>
+	}
+
+	public int hashCode () {
+<span class="nc bnc" id="L314" title="All 2 branches missed.">		if (!ordered) return super.hashCode();</span>
+<span class="nc" id="L315">		boolean[] items = this.items;</span>
+<span class="nc" id="L316">		int h = 1;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">		for (int i = 0, n = size; i &lt; n; i++)</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">			h = h * 31 + (items[i] ? 1231 : 1237);</span>
+<span class="nc" id="L319">		return h;</span>
+	}
+
+	/** Returns false if either array is unordered. */
+	public boolean equals (Object object) {
+<span class="nc bnc" id="L324" title="All 2 branches missed.">		if (object == this) return true;</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">		if (!ordered) return false;</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">		if (!(object instanceof BooleanArray)) return false;</span>
+<span class="nc" id="L327">		BooleanArray array = (BooleanArray)object;</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">		if (!array.ordered) return false;</span>
+<span class="nc" id="L329">		int n = size;</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">		if (n != array.size) return false;</span>
+<span class="nc" id="L331">		boolean[] items1 = this.items, items2 = array.items;</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">		for (int i = 0; i &lt; n; i++)</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">			if (items1[i] != items2[i]) return false;</span>
+<span class="nc" id="L334">		return true;</span>
+	}
+
+	public String toString () {
+<span class="nc bnc" id="L338" title="All 2 branches missed.">		if (size == 0) return &quot;[]&quot;;</span>
+<span class="nc" id="L339">		boolean[] items = this.items;</span>
+<span class="nc" id="L340">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L341">		buffer.append('[');</span>
+<span class="nc" id="L342">		buffer.append(items[0]);</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L344">			buffer.append(&quot;, &quot;);</span>
+<span class="nc" id="L345">			buffer.append(items[i]);</span>
+		}
+<span class="nc" id="L347">		buffer.append(']');</span>
+<span class="nc" id="L348">		return buffer.toString();</span>
+	}
+
+	public String toString (String separator) {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">		if (size == 0) return &quot;&quot;;</span>
+<span class="nc" id="L353">		boolean[] items = this.items;</span>
+<span class="nc" id="L354">		StringBuilder buffer = new StringBuilder(32);</span>
+<span class="nc" id="L355">		buffer.append(items[0]);</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">		for (int i = 1; i &lt; size; i++) {</span>
+<span class="nc" id="L357">			buffer.append(separator);</span>
+<span class="nc" id="L358">			buffer.append(items[i]);</span>
+		}
+<span class="nc" id="L360">		return buffer.toString();</span>
+	}
+
+	/** @see #BooleanArray(boolean[]) */
+	static public BooleanArray with (boolean... array) {
+<span class="nc" id="L365">		return new BooleanArray(array);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.4.201905082037</span></div></body></html>
